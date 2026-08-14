@@ -146,9 +146,9 @@ test('deploy: коммит со ссылкой кликабелен и жирн�
     project: 'game-publisher',
     status: 'ok',
     commit: 'feat: x',
-    commitUrl: 'https://github.com/mikitasazan/game-publisher/commit/abc123'
+    commitUrl: 'https://github.com/sazanwork/game-publisher/commit/abc123'
   } as never);
-  assert.ok(out.includes('<a href="https://github.com/mikitasazan/game-publisher/commit/abc123"><b>feat: x</b></a>'));
+  assert.ok(out.includes('<a href="https://github.com/sazanwork/game-publisher/commit/abc123"><b>feat: x</b></a>'));
 });
 
 test('deploy: note поясняет отмену/пропуск', () => {

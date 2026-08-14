@@ -6,12 +6,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mikitasazan/notify.git"
+    "url": "git+https://github.com/sazanwork/notify.git"
   },
   "bugs": {
-    "url": "https://github.com/mikitasazan/notify/issues"
+    "url": "https://github.com/sazanwork/notify/issues"
   },
-  "homepage": "https://github.com/mikitasazan/notify#readme",
+  "homepage": "https://github.com/sazanwork/notify#readme",
   "publishConfig": {
     "access": "public"
   },
