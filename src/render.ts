@@ -55,7 +55,10 @@ export const clampMessage = (text: string, limit = 4000): string => {
 
   const body = cut.slice(0, end);
   // Кламп мог отрезать закрывающие теги — добираем их, чтобы разметка сошлась.
-  const tail = ['b', 'a', 'i', 'code']
+  // blockquote — с приходом цитаты для примечаний/деталей длинный detail режется
+  // прямо посередине неё, и без этого тега Telegram отвечал бы 400 на незакрытую
+  // цитату (regex `<blockquote[ >]` ловит и вариант с атрибутом `expandable`).
+  const tail = ['b', 'a', 'i', 'code', 'blockquote']
     .filter((t) => {
       const opened = (body.match(new RegExp(`<${t}[ >]`, 'g')) ?? []).length;
       const closed = (body.match(new RegExp(`</${t}>`, 'g')) ?? []).length;
@@ -71,11 +74,26 @@ export const clampMessage = (text: string, limit = 4000): string => {
 const header = (icon: string, title: string, project: string): string =>
   `${icon} <b>${esc(title)}</b> · ${esc(project)}`;
 
-// Значение — жирным: канон формата (bot-message-formatting-canon) — иконка-лид,
-// факты построчно, значения выделены; метка остаётся обычной, чтобы глаз
-// цеплялся за содержимое, а не за служебное слово.
+// Тире, не жирное значение: сплошной жирный текст в первой версии карточки
+// читался как крик (жалоба владельца 18.08). Иконка-лид уже держит внимание
+// на заголовке, факты идут построчно и без выделения — глаз сам находит
+// цифру рядом с меткой.
 const kv = (label: string, value: string | number | undefined): string | null =>
-  value === undefined || value === '' ? null : `${esc(label)}: <b>${esc(value)}</b>`;
+  value === undefined || value === '' ? null : `${esc(label)} — ${esc(value)}`;
+
+// Длинное пояснение (примечание, детали инцидента) — цитатой: у Telegram это
+// полоска слева и лёгкий отступ, читается как «подробности», а не как часть
+// заголовка. Длиннее ~400 знаков — цитата сворачивается сама (`expandable`,
+// Bot API), иначе стектрейс или дамп лога растягивает карточку на весь экран.
+const EXPAND_AT = 400;
+const note = (text: string | undefined): string | null => {
+  if (!text) {
+    return null;
+  }
+  const body = esc(text);
+
+  return body.length > EXPAND_AT ? `<blockquote expandable>${body}</blockquote>` : `<blockquote>${body}</blockquote>`;
+};
 
 const link = (url: string | undefined, label: string): string | null =>
   url ? `<a href="${esc(url)}">${esc(label)}</a>` : null;
@@ -105,7 +123,7 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     commitLine,
     kv('откуда', e.via),
     kv('куда', e.target),
-    kv('примечание', e.note),
+    note(e.note),
     link(e.url, 'Открыть логи')
   ]);
 };
@@ -119,7 +137,7 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     ...(e.stats ?? []).map(([label, value]) => kv(label, value)),
     items.length > 0 ? '' : null,
     ...items,
-    kv('примечание', e.note),
+    note(e.note),
     link(e.url, 'Подробнее')
   ]);
 };
@@ -195,7 +213,7 @@ const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) => {
 };
 
 const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e) =>
-  join([header('🚨', 'Инцидент', e.project), esc(e.title), e.detail ? esc(e.detail) : null, link(e.url, 'Подробнее')]);
+  join([header('🚨', 'Инцидент', e.project), esc(e.title), note(e.detail), link(e.url, 'Подробнее')]);
 
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) =>
   join([
@@ -206,7 +224,7 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
 
 // Подпись файла — та же карточка, но лимит Telegram у caption свой: 1024.
 const renderFile: Renderer<Extract<NotifyEvent, { type: 'file' }>> = (e) =>
-  join([header('📄', e.title, e.project), kv('примечание', e.note)]);
+  join([header('📄', e.title, e.project), note(e.note)]);
 
 const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { type: K }>> } = {
   deploy: renderDeploy,
@@ -221,11 +239,15 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
 };
 
 /**
- * Ключ задачи — последняя строка карточки: `#проект/ключ` в <code>. Явный
- * `key` побеждает; выведенный строится из заголовка и наследует хрупкость
- * формулировки — регулярные отправители передают явный. Ключ переживает
- * MTProto-чтение (это простой текст, не разметка), по нему разборщик сверяет
- * 🔴 с более поздней успешной карточкой той же задачи.
+ * Ключ задачи — последняя строка карточки: `#ключ` курсивом в <code>. Без
+ * названия проекта: `targets()` никогда не шлёт карточку в чужой форум,
+ * проект и так на виду в заголовке («· mac-config»), а дублирующий префикс
+ * только растягивал тег на лишнюю строку в узком экране телефона (жалоба
+ * владельца 18.08). Явный `key` побеждает; выведенный строится из заголовка
+ * и наследует хрупкость формулировки — регулярные отправители передают явный.
+ * Ключ переживает MTProto-чтение (простой текст, не разметка), по нему
+ * разборщик сверяет 🔴 с более поздней успешной карточкой той же задачи —
+ * внутри чата одного проекта, где ключ и так уникален.
  */
 const slug = (raw: string): string =>
   raw
@@ -256,10 +278,10 @@ export const eventKey = (e: NotifyEvent): string => {
     }
   };
 
-  return `#${slug(e.project)}/${e.key ? slug(e.key) : fallback()}`;
+  return e.key ? slug(e.key) : fallback();
 };
 
-const keyLine = (e: NotifyEvent): string => `<code>${esc(eventKey(e))}</code>`;
+const keyLine = (e: NotifyEvent): string => `<i><code>#${esc(eventKey(e))}</code></i>`;
 
 /**
  * Рендерит событие в готовый HTML-текст, обрезанный под лимит Telegram.

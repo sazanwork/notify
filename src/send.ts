@@ -382,7 +382,9 @@ export const sendReport = async (project: Project, html: string, key?: string): 
   }
   const forum = ROUTES[project];
 
-  const tag = key ? `\n<code>#${project}/${key}</code>` : '';
+  // Без проекта — как и render.ts: карточка уже лежит в форуме своего
+  // проекта, дублировать его в теге незачем.
+  const tag = key ? `\n<i><code>#${key}</code></i>` : '';
 
   return deliver([{ chat: forum.chat, thread: forum.ops, silent: true }], clampMessage(html) + tag);
 };

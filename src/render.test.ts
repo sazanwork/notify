@@ -54,11 +54,13 @@ test('clampMessage режет длинный текст по границе ст
   const long = Array.from({ length: 500 }, (_, i) => `строка ${i}`).join('\n');
   const clamped = render({ type: 'incident', project: 'playhub', title: 'x', detail: long });
 
-  assert.ok(clamped.length <= 4002);
+  // Реальный предел — лимит Telegram (4096), не число реализации: цитата
+  // добавляет свои закрывающие теги поверх бюджета клампа.
+  assert.ok(clamped.length <= 4096, `длина ${clamped.length} превышает лимит Telegram`);
   // Многоточие обрезки стоит ПЕРЕД ключом: обрезанная карточка без ключа была
   // бы невидима дневному разборщику именно на самых длинных сообщениях.
   assert.ok(clamped.includes('…\n'), 'обрезка потеряла многоточие');
-  assert.ok(clamped.endsWith('<code>#playhub/x</code>'), `ключ не последняя строка: …${clamped.slice(-40)}`);
+  assert.ok(clamped.endsWith('<i><code>#x</code></i>'), `ключ не последняя строка: …${clamped.slice(-40)}`);
 });
 
 test('ключ задачи: явный --key побеждает, выведенный строится из заголовка', () => {
@@ -71,8 +73,8 @@ test('ключ задачи: явный --key побеждает, выведен
   });
   const derived = render({ type: 'job', project: 'playhub', job: 'Импорт игр', status: 'ok' });
 
-  assert.ok(explicit.endsWith('<code>#playhub/import-games</code>'));
-  assert.ok(derived.endsWith('<code>#playhub/импорт-игр</code>'));
+  assert.ok(explicit.endsWith('<i><code>#import-games</code></i>'));
+  assert.ok(derived.endsWith('<i><code>#импорт-игр</code></i>'));
 });
 
 test('один ключ у 🔴 и у следующего успеха — иначе разборщику не с чем сверять', () => {
@@ -105,7 +107,7 @@ test('подпись файла укладывается в лимит caption 1
   });
 
   assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
-  assert.ok(caption.endsWith('<code>#arvent/полные-диалоги</code>'));
+  assert.ok(caption.endsWith('<i><code>#полные-диалоги</code></i>'));
 });
 
 test('длинный текст ОДНОЙ строкой не выбрасывается целиком', () => {
@@ -201,17 +203,32 @@ test('deploy: коммит со ссылкой кликабелен и жирн�
   assert.ok(out.includes('<a href="https://github.com/sazanwork/game-publisher/commit/abc123"><b>feat: x</b></a>'));
 });
 
-test('deploy: note поясняет отмену/пропуск', () => {
+test('deploy: note поясняет отмену/пропуск — цитатой, без жирного и без метки', () => {
   const out = render({
     type: 'deploy',
     project: 'playhub',
     status: 'fail',
     note: 'отменён: секреты не нашли'
   } as never);
-  assert.ok(out.includes('примечание: <b>отменён: секреты не нашли</b>'));
+  assert.ok(out.includes('<blockquote>отменён: секреты не нашли</blockquote>'));
 });
 
-test('deploy: без note строки примечания нет', () => {
+test('deploy: без note цитаты нет', () => {
   const out = render({ type: 'deploy', project: 'playhub', status: 'ok' } as never);
-  assert.ok(!out.includes('примечание'));
+  assert.ok(!out.includes('<blockquote'));
+});
+
+test('note: длинный текст сворачивается (expandable), короткий — нет', () => {
+  const short = render({ type: 'incident', project: 'playhub', title: 'x', detail: 'коротко' });
+  const long = render({ type: 'incident', project: 'playhub', title: 'x', detail: 'А'.repeat(500) });
+
+  assert.ok(short.includes('<blockquote>коротко</blockquote>'));
+  assert.ok(long.includes('<blockquote expandable>'), 'длинная деталь не свернулась');
+});
+
+test('kv: цифры без жирного, через тире', () => {
+  const out = render({ type: 'job', project: 'vault', job: 'x', status: 'ok', stats: [['вердикт', 'ok']] });
+
+  assert.ok(out.includes('вердикт — ok'));
+  assert.ok(!out.includes('<b>ok</b>'));
 });
