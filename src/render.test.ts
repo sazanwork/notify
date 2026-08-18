@@ -226,6 +226,25 @@ test('note: длинный текст сворачивается (expandable), �
   assert.ok(long.includes('<blockquote expandable>'), 'длинная деталь не свернулась');
 });
 
+test('kv: многострочное значение режется до первой строки', () => {
+  const body = 'Онбординг: заготовки вопросов (#294)\n\n* feat(onboarding): длинное тело коммита\n\nещё абзац';
+  const ci = render({ type: 'ci', project: 'arvent', status: 'ok', commit: body });
+  const deployWithUrl = render({
+    type: 'deploy',
+    project: 'arvent',
+    status: 'ok',
+    commit: body,
+    commitUrl: 'https://x'
+  } as never);
+
+  assert.ok(ci.includes('коммит — Онбординг: заготовки вопросов (#294)…'), 'CI-карточка не обрезала тело коммита');
+  assert.ok(!ci.includes('feat(onboarding)'), 'тело под-коммита просочилось в карточку');
+  assert.ok(
+    deployWithUrl.includes('<b>Онбординг: заготовки вопросов (#294)…</b>'),
+    'ссылка на коммит не обрезала тело'
+  );
+});
+
 test('kv: цифры без жирного, через тире', () => {
   const out = render({ type: 'job', project: 'vault', job: 'x', status: 'ok', stats: [['вердикт', 'ok']] });
 

@@ -78,8 +78,23 @@ const header = (icon: string, title: string, project: string): string =>
 // читался как крик (жалоба владельца 18.08). Иконка-лид уже держит внимание
 // на заголовке, факты идут построчно и без выделения — глаз сам находит
 // цифру рядом с меткой.
+//
+// Только первая строка: однострочное поле по контракту (коммит, ветка,
+// автор, статистика), а не место для абзаца. Живой случай (18.08): CI-карточка
+// понесла ПОЛНОЕ тело коммита с историей под-коммитов через `--commit` и вместо
+// одной строки развернулась на 3000 символов — многострочный текст либо
+// ошибка вызывающего, либо должен идти через `note()`, а не молча раздувать
+// карточку.
+const firstLine = (value: string | number): string | number => {
+  if (typeof value === 'number' || !value.includes('\n')) {
+    return value;
+  }
+
+  return `${value.split('\n')[0]}…`;
+};
+
 const kv = (label: string, value: string | number | undefined): string | null =>
-  value === undefined || value === '' ? null : `${esc(label)} — ${esc(value)}`;
+  value === undefined || value === '' ? null : `${esc(label)} — ${esc(firstLine(value))}`;
 
 // Длинное пояснение (примечание, детали инцидента) — цитатой: у Telegram это
 // полоска слева и лёгкий отступ, читается как «подробности», а не как часть
@@ -114,7 +129,7 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   // владельца на некликабельные дайджесты распространяется и сюда.
   const commitLine = e.commit
     ? e.commitUrl
-      ? `коммит: <a href="${esc(e.commitUrl)}"><b>${esc(e.commit)}</b></a>`
+      ? `коммит: <a href="${esc(e.commitUrl)}"><b>${esc(firstLine(e.commit))}</b></a>`
       : kv('коммит', e.commit)
     : null;
 
