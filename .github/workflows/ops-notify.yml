@@ -82,7 +82,7 @@ jobs:
           echo "kind=$kind"  >> "$GITHUB_OUTPUT"
 
       - if: steps.map.outputs.action != ''
-        uses: sazanwork/notify@v1.1.1
+        uses: sazanwork/notify@v1.1.2
         with:
           event: ${{ steps.map.outputs.kind }}
           project: ${{ inputs.project }}
