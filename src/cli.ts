@@ -15,6 +15,8 @@
  *   notify ci       --project arvent  --status fail --branch master --actor saz_sam
  *   notify pr       --project arvent  --action opened --number 142 --title "..."
  *   notify incident --project arvent  --title "Redis недоступен" --detail "$ERR"
+ *   notify file     --project arvent  --title "Полные диалоги" --path ./out.txt [--filename имя.txt]
+ *   notify <type> [--key стабильный-ключ]   # ключ задачи в последней строке карточки
  *   notify <type> --json < payload.json   # весь объект события со stdin
  *   notify setup <chat_id форума> <ключ-проекта>   # создать вкладки, см. setup.ts
  */
@@ -217,7 +219,8 @@ if (flags.has('json')) {
         url: one('url'),
         target: one('target'),
         via: one('via'),
-        note: one('note')
+        note: one('note'),
+        key: one('key')
       };
       break;
     case 'job':
@@ -229,7 +232,8 @@ if (flags.has('json')) {
         stats: pairs('stat'),
         items: items(),
         note: one('note'),
-        url: one('url')
+        url: one('url'),
+        key: one('key')
       };
       break;
     case 'report':
@@ -240,7 +244,8 @@ if (flags.has('json')) {
         period: one('period'),
         lines: pairs('line'),
         items: items(),
-        url: one('url')
+        url: one('url'),
+        key: one('key')
       };
       break;
     case 'ci':
@@ -251,7 +256,8 @@ if (flags.has('json')) {
         branch: one('branch'),
         commit: one('commit'),
         actor: one('actor'),
-        url: one('url')
+        url: one('url'),
+        key: one('key')
       };
       break;
     case 'pr':
@@ -263,7 +269,8 @@ if (flags.has('json')) {
         title: one('title') ?? '(без заголовка)',
         author: one('author'),
         reviewer: one('reviewer'),
-        url: one('url')
+        url: one('url'),
+        key: one('key')
       };
       break;
     case 'issue':
@@ -275,7 +282,8 @@ if (flags.has('json')) {
         title: one('title') ?? '(без заголовка)',
         author: one('author'),
         assignee: one('assignee'),
-        url: one('url')
+        url: one('url'),
+        key: one('key')
       };
       break;
     case 'incident':
@@ -284,7 +292,8 @@ if (flags.has('json')) {
         project: project(),
         title: one('title') ?? '(без заголовка)',
         detail: one('detail'),
-        url: one('url')
+        url: one('url'),
+        key: one('key')
       };
       break;
     case 'heartbeat_miss':
@@ -293,9 +302,27 @@ if (flags.has('json')) {
         project: project(),
         job: one('job') ?? '(без имени)',
         lastSeen: one('last-seen'),
-        expected: one('expected')
+        expected: one('expected'),
+        key: one('key')
       };
       break;
+    case 'file': {
+      const path = one('path');
+
+      if (!path) {
+        parseErrors.push('--path: обязателен для file');
+      }
+      event = {
+        type: 'file',
+        project: project(),
+        title: one('title') ?? '(без заголовка)',
+        path: path ?? '',
+        filename: one('filename'),
+        note: one('note'),
+        key: one('key')
+      };
+      break;
+    }
     default:
       log(`неизвестный тип события: ${command ?? '(не указан)'}`);
   }

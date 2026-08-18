@@ -13,6 +13,8 @@
  * деплой или регулярную задачу, которая его вызвала.
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import type { NotifyEvent, Project } from './events.ts';
 import { clampMessage, render } from './render.ts';
 import type { Target } from './routes.ts';
@@ -200,11 +202,145 @@ const deliver = async (where: Target[], text: string): Promise<SendResult> => {
 };
 
 /**
+ * Файл (sendDocument) — multipart, поэтому не через `buildBody`. Политика
+ * повторов та же, что у сообщений: 429 с уважением retry_after, 5xx —
+ * повтор, прочие 4xx и таймаут — нет (дубль файла хуже пропуска).
+ * Отдельного curl-фолбэка нет: файл шлётся с этой же машины, а не из CI,
+ * и другой TLS-стек здесь ни разу не понадобился.
+ */
+const sendFileOnce = async (
+  token: string,
+  target: Target,
+  e: Extract<NotifyEvent, { type: 'file' }>,
+  caption: string
+): Promise<Attempt> => {
+  try {
+    const form = new FormData();
+    form.append('chat_id', target.chat);
+    if (target.thread) {
+      form.append('message_thread_id', String(target.thread));
+    }
+    form.append('caption', caption);
+    form.append('parse_mode', 'HTML');
+    form.append('disable_notification', String(target.silent));
+    // readFileSync + Blob, не openAsBlob: тот появился в Node 19.8, а пакет
+    // бегает и на сервере. Файлы здесь — текстовые отчёты, память не вопрос.
+    form.append('document', new Blob([readFileSync(e.path)]), e.filename ?? basename(e.path));
+
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(60_000)
+    });
+
+    if (res.ok) {
+      return { outcome: 'ok' };
+    }
+    if (res.status === 429) {
+      const body = (await res.json().catch(() => null)) as { parameters?: { retry_after?: number } } | null;
+      const retryAfter = typeof body?.parameters?.retry_after === 'number' ? body.parameters.retry_after : 5;
+
+      return { outcome: 'retry', waitMs: Math.min(retryAfter, 60) * 1000 };
+    }
+    if (res.status >= 500) {
+      return { outcome: 'retry', waitMs: 1000 };
+    }
+
+    const detail = (await res.json().catch(() => null)) as { description?: string } | null;
+    log(`HTTP ${res.status}: ${detail?.description ?? 'без описания'} — не повторяем, ошибка постоянная`);
+
+    return { outcome: 'fail' };
+  } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      log('таймаут ответа — не повторяем: файл мог уже уйти');
+
+      return { outcome: 'fail' };
+    }
+    // Файл не читается (нет на диске, нет прав) — постоянная ошибка.
+    if (err instanceof Error && 'code' in err) {
+      log(`файл не отправлен: ${err.message}`);
+
+      return { outcome: 'fail' };
+    }
+    log(`сеть не пустила файл: ${err instanceof Error ? err.message : String(err)}`);
+
+    return { outcome: 'retry', waitMs: 1000 };
+  }
+};
+
+const sendFile = async (e: Extract<NotifyEvent, { type: 'file' }>): Promise<SendResult> => {
+  const token = process.env.OPS_BOT_TOKEN?.trim();
+
+  if (!token || !/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
+    log('нет валидного OPS_BOT_TOKEN — файл не отправлен');
+
+    return 'skipped';
+  }
+
+  const where = targets(e);
+
+  if (where.length === 0) {
+    return 'skipped';
+  }
+
+  const caption = render(e);
+
+  for (const target of where) {
+    let waitMs = 0;
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      if (waitMs > 0) {
+        await sleep(waitMs);
+      }
+      const result = await sendFileOnce(token, target, e, caption);
+
+      if (result.outcome === 'ok') {
+        return 'sent';
+      }
+      if (result.outcome === 'fail') {
+        return 'failed';
+      }
+      waitMs = result.waitMs;
+    }
+  }
+  log('исчерпаны попытки отправки файла');
+
+  return 'failed';
+};
+
+/**
  * Отправляет событие во все его цели (тема проекта + при необходимости
  * `incidents` + чат команды). Цели идут последовательно; провал одной не
  * отменяет остальные. `'sent'`, если хотя бы одна цель получила сообщение.
+ *
+ * Неизвестный проект по-прежнему НЕ роняет вызвавший крон (код возврата не
+ * меняется) — но и не исчезает молча: в mac-config Ops уходит красная
+ * карточка. Дважды этот класс провала жил незамеченным неделями: «vault» и
+ * «mac-config» до 04.08, отчёты Alitools — до 18.08. Рекурсия невозможна:
+ * карточка-ошибка адресована mac-config, который в ROUTES есть всегда.
  */
-export const notify = async (e: NotifyEvent): Promise<SendResult> => deliver(targets(e), render(e));
+export const notify = async (e: NotifyEvent): Promise<SendResult> => {
+  if (!(e.project in ROUTES)) {
+    const lost: NotifyEvent = {
+      type: 'job',
+      project: 'mac-config',
+      job: 'notify: событие потеряно',
+      status: 'fail',
+      note: `проект «${String(e.project)}» не в ROUTES — событие «${String(e.type)}» никуда не доставлено`,
+      key: 'notify-unknown-project'
+    };
+
+    await deliver(targets(lost), render(lost)).catch(() => undefined);
+
+    return 'skipped';
+  }
+
+  if (e.type === 'file') {
+    return sendFile(e);
+  }
+
+  return deliver(targets(e), render(e));
+};
 
 /**
  * Готовый HTML во вкладку «Ops» проекта — ТОЛЬКО для дневных отчётов.

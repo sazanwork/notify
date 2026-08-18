@@ -204,6 +204,10 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
     kv('ожидалось', e.expected)
   ]);
 
+// Подпись файла — та же карточка, но лимит Telegram у caption свой: 1024.
+const renderFile: Renderer<Extract<NotifyEvent, { type: 'file' }>> = (e) =>
+  join([header('📄', e.title, e.project), kv('примечание', e.note)]);
+
 const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { type: K }>> } = {
   deploy: renderDeploy,
   job: renderJob,
@@ -212,10 +216,53 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
   pr: renderPr,
   issue: renderIssue,
   incident: renderIncident,
-  heartbeat_miss: renderHeartbeatMiss
+  heartbeat_miss: renderHeartbeatMiss,
+  file: renderFile
 };
 
-/** Рендерит событие в готовый HTML-текст, обрезанный под лимит Telegram. */
+/**
+ * Ключ задачи — последняя строка карточки: `#проект/ключ` в <code>. Явный
+ * `key` побеждает; выведенный строится из заголовка и наследует хрупкость
+ * формулировки — регулярные отправители передают явный. Ключ переживает
+ * MTProto-чтение (это простой текст, не разметка), по нему разборщик сверяет
+ * 🔴 с более поздней успешной карточкой той же задачи.
+ */
+const slug = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+
+export const eventKey = (e: NotifyEvent): string => {
+  const fallback = (): string => {
+    switch (e.type) {
+      case 'job':
+      case 'heartbeat_miss':
+        return slug(e.job);
+      case 'report':
+      case 'incident':
+      case 'file':
+        return slug(e.title);
+      case 'pr':
+        return `pr-${e.number}`;
+      case 'issue':
+        return `issue-${e.number}`;
+      default:
+        return e.type;
+    }
+  };
+
+  return `#${slug(e.project)}/${e.key ? slug(e.key) : fallback()}`;
+};
+
+const keyLine = (e: NotifyEvent): string => `<code>${esc(eventKey(e))}</code>`;
+
+/**
+ * Рендерит событие в готовый HTML-текст, обрезанный под лимит Telegram.
+ * Ключ добавляется ПОСЛЕ обрезки, с зарезервированным местом: обрезанная
+ * карточка без ключа была бы невидима разборщику — ровно на самых длинных,
+ * то есть самых важных сообщениях.
+ */
 export const render = (e: NotifyEvent): string => {
   const renderer = RENDERERS[e.type] as Renderer<typeof e> | undefined;
 
@@ -226,5 +273,11 @@ export const render = (e: NotifyEvent): string => {
     throw new Error(`неизвестный тип события: ${String(e.type)}`);
   }
 
-  return clampMessage(renderer(e));
+  const tag = keyLine(e);
+  // clampMessage может выйти за переданный limit на хвост закрывающих тегов и
+  // многоточие — минус 40 оставляет ему этот запас. У сообщений свой запас уже
+  // есть (4000 против 4096 у Telegram), у caption лимит 1024 настоящий.
+  const budget = e.type === 'file' ? 1024 - tag.length - 40 : 4000 - tag.length - 1;
+
+  return `${clampMessage(renderer(e), budget)}\n${tag}`;
 };

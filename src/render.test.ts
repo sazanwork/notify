@@ -50,12 +50,51 @@ test('report: items рендерятся ссылками, текст экран
   assert.ok(text.includes('• без ссылки'), 'позиция без url — просто строка');
 });
 
-test('clampMessage режет длинный текст по границе строки', () => {
+test('clampMessage режет длинный текст по границе строки, ключ остаётся последней строкой', () => {
   const long = Array.from({ length: 500 }, (_, i) => `строка ${i}`).join('\n');
   const clamped = render({ type: 'incident', project: 'playhub', title: 'x', detail: long });
 
   assert.ok(clamped.length <= 4002);
-  assert.ok(clamped.endsWith('…'));
+  // Многоточие обрезки стоит ПЕРЕД ключом: обрезанная карточка без ключа была
+  // бы невидима дневному разборщику именно на самых длинных сообщениях.
+  assert.ok(clamped.includes('…\n'), 'обрезка потеряла многоточие');
+  assert.ok(clamped.endsWith('<code>#playhub/x</code>'), `ключ не последняя строка: …${clamped.slice(-40)}`);
+});
+
+test('ключ задачи: явный --key побеждает, выведенный строится из заголовка', () => {
+  const explicit = render({
+    type: 'job',
+    project: 'playhub',
+    job: 'Импорт игр',
+    status: 'fail',
+    key: 'import-games'
+  });
+  const derived = render({ type: 'job', project: 'playhub', job: 'Импорт игр', status: 'ok' });
+
+  assert.ok(explicit.endsWith('<code>#playhub/import-games</code>'));
+  assert.ok(derived.endsWith('<code>#playhub/импорт-игр</code>'));
+});
+
+test('один ключ у 🔴 и у следующего успеха — иначе разборщику не с чем сверять', () => {
+  const red = render({ type: 'job', project: 'vault', job: 'Дайджест задач', status: 'fail' });
+  const green = render({ type: 'report', project: 'vault', title: 'Дайджест задач', period: '18.08', lines: [] });
+
+  const tail = (s: string): string => s.slice(s.lastIndexOf('\n') + 1);
+
+  assert.equal(tail(red), tail(green), 'fail-карточка и успешный отчёт одной задачи разошлись по ключу');
+});
+
+test('подпись файла укладывается в лимит caption 1024 и несёт ключ', () => {
+  const caption = render({
+    type: 'file',
+    project: 'arvent',
+    title: 'Полные диалоги',
+    path: '/tmp/x.txt',
+    note: 'Ы'.repeat(3000)
+  });
+
+  assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
+  assert.ok(caption.endsWith('<code>#arvent/полные-диалоги</code>'));
 });
 
 test('длинный текст ОДНОЙ строкой не выбрасывается целиком', () => {
