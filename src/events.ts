@@ -12,7 +12,7 @@
 
 // `vault` — не продукт, а инфраструктура: сейф секретов. Форум ему нужен по той
 // же причине, что и проектам: роботу надо куда-то писать. Людей там нет.
-export type Project = 'playhub' | 'one-q' | 'arvent' | 'game-publisher' | 'vault' | 'mac-config';
+export type Project = 'playhub' | 'one-q' | 'arvent' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools';
 
 /**
  * Стабильный машинный ключ задачи — последняя строка каждой карточки, вида
