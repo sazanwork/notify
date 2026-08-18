@@ -9,6 +9,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { severity } from './events.ts';
 import { ROUTES, targets } from './routes.ts';
+import { notify, sendReport } from './send.ts';
 
 test('событие уходит во вкладку Ops своего проекта, и только туда', () => {
   const where = targets({ type: 'deploy', project: 'playhub', status: 'ok' });
@@ -99,4 +100,19 @@ test('sendReport без токена — skipped, а не исключение: 
       process.env.OPS_BOT_TOKEN = saved;
     }
   }
+});
+
+
+test('служебные имена прототипа не проходят гвард проекта', async () => {
+  // `in` ходил по цепочке прототипов: --project toString терял событие И карточку.
+  const res = await notify({ type: 'job', project: 'toString', job: 'x', status: 'ok' } as never);
+
+  assert.equal(res, 'skipped');
+});
+
+test('sendReport с ключом дописывает строку ключа, без токена — skipped', async () => {
+  delete process.env.OPS_BOT_TOKEN;
+  const res = await sendReport('playhub', '<b>отчёт</b>', 'daily-analytics');
+
+  assert.equal(res, 'skipped');
 });

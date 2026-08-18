@@ -84,6 +84,17 @@ test('один ключ у 🔴 и у следующего успеха — ин
   assert.equal(tail(red), tail(green), 'fail-карточка и успешный отчёт одной задачи разошлись по ключу');
 });
 
+test('гигантский заголовок файла без --key не выносит caption за 1024', () => {
+  const caption = render({
+    type: 'file',
+    project: 'arvent',
+    title: 'Щ'.repeat(1100),
+    path: '/tmp/x.txt'
+  });
+
+  assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
+});
+
 test('подпись файла укладывается в лимит caption 1024 и несёт ключ', () => {
   const caption = render({
     type: 'file',

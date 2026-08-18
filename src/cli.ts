@@ -219,8 +219,7 @@ if (flags.has('json')) {
         url: one('url'),
         target: one('target'),
         via: one('via'),
-        note: one('note'),
-        key: one('key')
+        note: one('note')
       };
       break;
     case 'job':
@@ -232,8 +231,7 @@ if (flags.has('json')) {
         stats: pairs('stat'),
         items: items(),
         note: one('note'),
-        url: one('url'),
-        key: one('key')
+        url: one('url')
       };
       break;
     case 'report':
@@ -244,8 +242,7 @@ if (flags.has('json')) {
         period: one('period'),
         lines: pairs('line'),
         items: items(),
-        url: one('url'),
-        key: one('key')
+        url: one('url')
       };
       break;
     case 'ci':
@@ -256,8 +253,7 @@ if (flags.has('json')) {
         branch: one('branch'),
         commit: one('commit'),
         actor: one('actor'),
-        url: one('url'),
-        key: one('key')
+        url: one('url')
       };
       break;
     case 'pr':
@@ -269,8 +265,7 @@ if (flags.has('json')) {
         title: one('title') ?? '(без заголовка)',
         author: one('author'),
         reviewer: one('reviewer'),
-        url: one('url'),
-        key: one('key')
+        url: one('url')
       };
       break;
     case 'issue':
@@ -282,8 +277,7 @@ if (flags.has('json')) {
         title: one('title') ?? '(без заголовка)',
         author: one('author'),
         assignee: one('assignee'),
-        url: one('url'),
-        key: one('key')
+        url: one('url')
       };
       break;
     case 'incident':
@@ -292,8 +286,7 @@ if (flags.has('json')) {
         project: project(),
         title: one('title') ?? '(без заголовка)',
         detail: one('detail'),
-        url: one('url'),
-        key: one('key')
+        url: one('url')
       };
       break;
     case 'heartbeat_miss':
@@ -302,8 +295,7 @@ if (flags.has('json')) {
         project: project(),
         job: one('job') ?? '(без имени)',
         lastSeen: one('last-seen'),
-        expected: one('expected'),
-        key: one('key')
+        expected: one('expected')
       };
       break;
     case 'file': {
@@ -318,14 +310,20 @@ if (flags.has('json')) {
         title: one('title') ?? '(без заголовка)',
         path: path ?? '',
         filename: one('filename'),
-        note: one('note'),
-        key: one('key')
+        note: one('note')
       };
       break;
     }
     default:
       log(`неизвестный тип события: ${command ?? '(не указан)'}`);
   }
+}
+
+// --key применим к любому типу — одна точка вместо строки в каждом case
+// (девять копий уже потеряли бы десятую). `??`: путь --json может нести
+// key в самом объекте, отсутствие флага не должно его затирать.
+if (event) {
+  event.key = one('key') ?? event.key;
 }
 
 // Ошибки разбора — до отправки: лучше внятно сказать, что не так с командой,

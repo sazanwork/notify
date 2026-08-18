@@ -231,7 +231,11 @@ const slug = (raw: string): string =>
   raw
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/^-+|-+$/g, '')
+    // Ключ — идентификатор, не пересказ: без среза тег из длинного заголовка
+    // съедал бюджет caption до отрицательного, и slice с минусом возвращал
+    // почти весь текст — Telegram отвечал постоянным 400, файл терялся.
+    .slice(0, 60);
 
 export const eventKey = (e: NotifyEvent): string => {
   const fallback = (): string => {
@@ -277,7 +281,7 @@ export const render = (e: NotifyEvent): string => {
   // clampMessage может выйти за переданный limit на хвост закрывающих тегов и
   // многоточие — минус 40 оставляет ему этот запас. У сообщений свой запас уже
   // есть (4000 против 4096 у Telegram), у caption лимит 1024 настоящий.
-  const budget = e.type === 'file' ? 1024 - tag.length - 40 : 4000 - tag.length - 1;
+  const budget = Math.max(64, e.type === 'file' ? 1024 - tag.length - 40 : 4000 - tag.length - 1);
 
   return `${clampMessage(renderer(e), budget)}\n${tag}`;
 };

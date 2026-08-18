@@ -284,9 +284,12 @@ const sendFile = async (e: Extract<NotifyEvent, { type: 'file' }>): Promise<Send
   }
 
   const caption = render(e);
+  const results: Array<'sent' | 'failed'> = [];
 
+  // Контракт тот же, что у deliver: провал одной цели не отменяет остальные.
   for (const target of where) {
     let waitMs = 0;
+    let got: 'sent' | 'failed' = 'failed';
 
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
       if (waitMs > 0) {
@@ -295,17 +298,18 @@ const sendFile = async (e: Extract<NotifyEvent, { type: 'file' }>): Promise<Send
       const result = await sendFileOnce(token, target, e, caption);
 
       if (result.outcome === 'ok') {
-        return 'sent';
+        got = 'sent';
+        break;
       }
       if (result.outcome === 'fail') {
-        return 'failed';
+        break;
       }
       waitMs = result.waitMs;
     }
+    results.push(got);
   }
-  log('исчерпаны попытки отправки файла');
 
-  return 'failed';
+  return results.includes('sent') ? 'sent' : 'failed';
 };
 
 /**
@@ -319,18 +323,27 @@ const sendFile = async (e: Extract<NotifyEvent, { type: 'file' }>): Promise<Send
  * «mac-config» до 04.08, отчёты Alitools — до 18.08. Рекурсия невозможна:
  * карточка-ошибка адресована mac-config, который в ROUTES есть всегда.
  */
-export const notify = async (e: NotifyEvent): Promise<SendResult> => {
-  if (!(e.project in ROUTES)) {
-    const lost: NotifyEvent = {
-      type: 'job',
-      project: 'mac-config',
-      job: 'notify: событие потеряно',
-      status: 'fail',
-      note: `проект «${String(e.project)}» не в ROUTES — событие «${String(e.type)}» никуда не доставлено`,
-      key: 'notify-unknown-project'
-    };
+const reportLostProject = async (project: unknown, kind: string): Promise<void> => {
+  // Локальный лог называет и допустимые написания — это единственная
+  // диагностика, доступная на машине, где случилась опечатка.
+  log(`неизвестный проект «${String(project)}» — известны: ${Object.keys(ROUTES).join(', ')}`);
+  const lost: NotifyEvent = {
+    type: 'job',
+    project: 'mac-config',
+    job: 'notify: событие потеряно',
+    status: 'fail',
+    note: `проект «${String(project)}» не в ROUTES — событие «${kind}» никуда не доставлено`,
+    key: 'notify-unknown-project'
+  };
 
-    await deliver(targets(lost), render(lost)).catch(() => undefined);
+  await deliver(targets(lost), render(lost)).catch(() => undefined);
+};
+
+export const notify = async (e: NotifyEvent): Promise<SendResult> => {
+  // Object.hasOwn, не `in`: `in` ходит по цепочке прототипов, и --project
+  // toString/constructor проходил бы гвард, терял событие И карточку о потере.
+  if (!Object.hasOwn(ROUTES, e.project)) {
+    await reportLostProject(e.project, String(e.type));
 
     return 'skipped';
   }
@@ -359,14 +372,17 @@ export const notify = async (e: NotifyEvent): Promise<SendResult> => {
  *
  * Всегда беззвучно: отчёт читают утром, а не по звонку.
  */
-export const sendReport = async (project: Project, html: string): Promise<SendResult> => {
-  const forum = ROUTES[project];
-
-  if (!forum) {
-    log(`неизвестный проект «${project}» — отчёт не отправлен`);
+export const sendReport = async (project: Project, html: string, key?: string): Promise<SendResult> => {
+  if (!Object.hasOwn(ROUTES, project)) {
+    // Та же красная карточка, что у notify(): дверь свободного HTML — не
+    // лазейка для молчаливой потери (этот класс уже жил неделями дважды).
+    await reportLostProject(project, 'report');
 
     return 'skipped';
   }
+  const forum = ROUTES[project];
 
-  return deliver([{ chat: forum.chat, thread: forum.ops, silent: true }], clampMessage(html));
+  const tag = key ? `\n<code>#${project}/${key}</code>` : '';
+
+  return deliver([{ chat: forum.chat, thread: forum.ops, silent: true }], clampMessage(html) + tag);
 };
