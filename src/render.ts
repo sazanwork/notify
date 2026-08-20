@@ -1,16 +1,28 @@
 /**
- * Один рендерер на тип события, все по одному каркасу:
+ * Один рендерер на тип события, все по одному каркасу — утверждён
+ * владельцем 20.08.2026 после ~15 живых раундов в тестовом форуме:
  *
- *   эмодзи Заголовок · проект
- *   ключ: значение
- *   ключ: значение
- *   <a href="…">Ссылка</a>
+ *   #тип #экземпляр
+ *   значок <b>Тип:</b> действие
  *
- * Проект указывается ВСЕГДА, даже в теме самого проекта — в теме
- * `🔴 incidents` сообщения четырёх проектов лежат вперемешку, и формат
- * должен быть один и тот же независимо от того, куда сообщение попало.
+ *   <b>Ярлык:</b> значение
+ *   <blockquote>цитата чужого текста — тело коммита, тело задачи</blockquote>
+ *
+ *   <i><u>Группа</u></i>
+ *   <b>#N (overdue):</b> <a>заголовок</a>
+ *
+ *   <b>Ярлык:</b> значение   ← действия/направления
+ *
+ * Три уровня начертания, никогда не смешиваются: поле — жирный ярлык с
+ * большой буквы + обычное значение; группа — курсив+подчёркивание, без
+ * жирности и без двоеточия; строка 2 (тип) — тот же закон поля. Пустая
+ * строка разделяет БЛОКИ ПО СМЫСЛУ (шапка / суть / действия), не механически
+ * после каждой строки.
  */
 import type { Item, NotifyEvent } from './events.ts';
+
+/** Первая буква — заглавная, остальное как есть (ga4/GitHub остаются собой). */
+const cap = (s: string): string => (s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 /** Экранируется ВСЁ, что пришло снаружи — теги ставит только шаблон. */
 export const esc = (v: unknown): string =>
@@ -71,14 +83,6 @@ export const clampMessage = (text: string, limit = 4000): string => {
   return `${body}${tail}\n…`;
 };
 
-const header = (icon: string, title: string, project: string): string =>
-  `${icon} <b>${esc(title)}</b> · ${esc(project)}`;
-
-// Тире, не жирное значение: сплошной жирный текст в первой версии карточки
-// читался как крик (жалоба владельца 18.08). Иконка-лид уже держит внимание
-// на заголовке, факты идут построчно и без выделения — глаз сам находит
-// цифру рядом с меткой.
-//
 // Только первая строка: однострочное поле по контракту (коммит, ветка,
 // автор, статистика), а не место для абзаца. Живой случай (18.08): CI-карточка
 // понесла ПОЛНОЕ тело коммита с историей под-коммитов через `--commit` и вместо
@@ -93,8 +97,57 @@ const firstLine = (value: string | number): string | number => {
   return `${value.split('\n')[0]}…`;
 };
 
-const kv = (label: string, value: string | number | undefined): string | null =>
-  value === undefined || value === '' ? null : `${esc(label)} — ${esc(firstLine(value))}`;
+/**
+ * Поле: `<b>Ярлык:</b> значение` — жирный ярлык с большой буквы, значение
+ * обычным. `null` отбрасывается наравне с `undefined`/`''` — источники поля
+ * это JSON со stdin (`--json`) и объекты с сервера, где отсутствующее
+ * значение сериализуется как `null`, а не как пропущенный ключ.
+ */
+const field = (label: string, value: string | number | null | undefined): string | null =>
+  value === undefined || value === null || value === '' ? null : `<b>${esc(cap(label))}:</b> ${esc(firstLine(value))}`;
+
+/**
+ * Поле-идентификатор (`commit:`/`pr:`/`issue:`): значение — ссылка, если
+ * она есть, иначе обычный текст того же поля — идентификатор не должен
+ * пропадать целиком только потому, что вызывающий не передал url.
+ */
+const fieldLink = (
+  label: string,
+  url: string | null | undefined,
+  text: string | number | null | undefined
+): string | null => {
+  if (text === undefined || text === null || text === '') {
+    return null;
+  }
+
+  return url ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(text)}</a>` : field(label, text);
+};
+
+/**
+ * Поле-действие (`workflow:`): в отличие от `fieldLink`, без URL это НЕ
+ * поле — прогону просто некуда вести, показывать голое слово «run» без
+ * ссылки бессмысленнее, чем не показывать строку вовсе.
+ */
+const fieldAction = (label: string, url: string | undefined, text: string | undefined): string | null =>
+  url ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(text ?? 'run')}</a>` : null;
+
+/** Моноширинное поле — путь/команда для копирования, не ссылка. */
+const fieldCode = (label: string, value: string | undefined): string | null =>
+  value ? `<b>${esc(cap(label))}:</b> <code>${esc(value)}</code>` : null;
+
+/** Заголовок группы: курсив + подчёркивание, без жирности, без двоеточия. */
+const group = (name: string): string => `<i><u>${esc(cap(name))}</u></i>`;
+
+/** Позиция внутри группы: `<b>label:</b> <a>text</a>` — либо простая маркированная/нумерованная строка без label. */
+const groupItem = (it: Item, index: number, numbered: boolean): string => {
+  const linked = it.url ? `<a href="${esc(it.url)}">${esc(it.text)}</a>` : esc(it.text);
+
+  if (it.label) {
+    return `<b>${esc(it.label)}:</b> ${linked}`;
+  }
+
+  return numbered ? `${index + 1}. ${linked}` : `• ${linked}`;
+};
 
 // Длинное пояснение (примечание, детали инцидента) — цитатой: у Telegram это
 // полоска слева и лёгкий отступ, читается как «подробности», а не как часть
@@ -110,136 +163,173 @@ const note = (text: string | undefined): string | null => {
   return body.length > EXPAND_AT ? `<blockquote expandable>${body}</blockquote>` : `<blockquote>${body}</blockquote>`;
 };
 
-const link = (url: string | undefined, label: string): string | null =>
-  url ? `<a href="${esc(url)}">${esc(label)}</a>` : null;
-
 const join = (parts: Array<string | null>): string => parts.filter((p): p is string => p !== null).join('\n');
 
-/** Список позиций — общий для `job` и `report`, чтобы они не разъехались. */
-const bullets = (items: Item[] | undefined): string[] =>
-  (items ?? []).map((it) => (it.url ? `• <a href="${esc(it.url)}">${esc(it.text)}</a>` : `• ${esc(it.text)}`));
+/** Плоский список позиций (без ярлыков) — job/report без групп. */
+const bullets = (items: Item[] | undefined, numbered: boolean): string[] =>
+  (items ?? []).map((it, i) => groupItem(it, i, numbered));
+
+/** Именованная группа целиком: заголовок + позиции, разделены строкой пустоты внутри вызова через join. */
+const renderGroup = (g: { name: string; items: Item[] }): string[] => [
+  group(g.name),
+  ...g.items.map((it, i) => groupItem(it, i, false))
+];
+
+/**
+ * Цитата коммита/задачи: заголовок первой строкой (multiline title режется
+ * до первой строки — subject не должен тащить в цитату собственное тело
+ * под-коммита), тело — через пустую строку, если есть.
+ */
+const commitQuote = (title: string | undefined, body: string | undefined): string | null => {
+  if (!title && !body) {
+    return null;
+  }
+  const text = [title ? firstLine(title) : undefined, body].filter(Boolean).join('\n\n');
+
+  return note(text);
+};
 
 type Renderer<E extends NotifyEvent> = (e: E) => string;
 
-const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => {
-  const icon = e.status === 'ok' ? '✅' : '🔴';
-  const title = e.status === 'ok' ? 'Деплой завершён' : 'Деплой упал';
+// Значок = статус сообщения, не тип события. Ровно четыре на весь пакет —
+// закреплённая легенда в форумах обещает это владельцу как факт, не как
+// приближение. 🔴 сломалось, 🚨 инцидент, ✅ прошло, ℹ️ к сведению.
+const ICON = { red: '🔴', alarm: '🚨', ok: '✅', info: 'ℹ️' } as const;
 
-  // Коммит со ссылкой — кликабельная строка вместо голого текста; жалоба
-  // владельца на некликабельные дайджесты распространяется и сюда.
-  const commitLine = e.commit
-    ? e.commitUrl
-      ? `коммит: <a href="${esc(e.commitUrl)}"><b>${esc(firstLine(e.commit))}</b></a>`
-      : kv('коммит', e.commit)
-    : null;
+/** Строка 2: значок вне жирного, `<b>Тип:</b> действие` — то же поле, не особый случай. */
+const typeLine = (icon: string, type: string, action: string): string => `${icon} ${field(type, action)}`;
+
+const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => {
+  const icon = e.status === 'ok' ? ICON.ok : ICON.red;
 
   return join([
-    header(icon, title, e.project),
-    commitLine,
-    kv('откуда', e.via),
-    kv('куда', e.target),
-    note(e.note),
-    link(e.url, 'Открыть логи')
+    typeLine(icon, 'Deploy', e.status),
+    '',
+    fieldLink('Commit', e.commitUrl, e.commit),
+    commitQuote(e.commitTitle, e.commitBody),
+    field('Via', e.via),
+    field('Target', e.target),
+    field('Reason', e.note),
+    e.workflowUrl ? '' : null,
+    fieldAction('Workflow', e.workflowUrl, e.workflowName)
   ]);
 };
 
 const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
-  const icon = e.status === 'ok' ? '✅' : '🔴';
-  const items = bullets(e.items);
+  const icon = e.status === 'fail' || e.status === 'disabled' ? ICON.red : ICON.ok;
+  const hasItems = (e.items ?? []).length > 0;
 
   return join([
-    header(icon, e.job, e.project),
-    ...(e.stats ?? []).map(([label, value]) => kv(label, value)),
-    items.length > 0 ? '' : null,
-    ...items,
-    note(e.note),
-    link(e.url, 'Подробнее')
+    typeLine(icon, 'Job', e.status),
+    '',
+    field('Reason', e.note),
+    ...(e.stats ?? []).map(([label, value]) => field(label, value)),
+    hasItems ? '' : null,
+    hasItems ? group('Disabled workflows') : null,
+    ...(hasItems && e.status === 'disabled' ? bullets(e.items, true) : hasItems ? bullets(e.items, false) : []),
+    e.workflowUrl ? '' : null,
+    fieldAction('Workflow', e.workflowUrl, e.workflowName)
   ]);
 };
 
 const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => {
-  const items = bullets(e.items);
+  if (e.groups && e.groups.length > 0) {
+    const body = e.groups.flatMap((g, i) => (i === 0 ? renderGroup(g) : ['', ...renderGroup(g)]));
+
+    return join([typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title), '', ...body]);
+  }
+
+  const items = bullets(e.items, false);
 
   return join([
-    header('📊', e.title, e.project),
-    e.period ? esc(e.period) : null,
-    e.period ? '' : null,
-    ...e.lines.map(([label, value]) => kv(label, value)),
+    typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title),
+    '',
+    ...(e.lines ?? []).map(([label, value]) => field(label, value)),
     items.length > 0 ? '' : null,
-    ...items,
-    link(e.url, 'Открыть отчёт')
+    ...items
   ]);
 };
 
 const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
-  const icon = e.status === 'ok' ? '✅' : '🔴';
-  const title = e.status === 'ok' ? 'CI зелёный' : 'CI упал';
+  const icon = e.status === 'ok' ? ICON.ok : ICON.red;
 
   return join([
-    header(icon, title, e.project),
-    kv('ветка', e.branch),
-    kv('коммит', e.commit),
-    kv('автор', e.actor),
-    link(e.url, 'Открыть логи')
+    typeLine(icon, 'CI', e.status),
+    '',
+    fieldLink('Commit', e.commitUrl, e.commit),
+    commitQuote(e.commitTitle, e.commitBody),
+    field('Actor', e.actor),
+    e.workflowUrl ? '' : null,
+    fieldAction('Workflow', e.workflowUrl, e.workflowName)
   ]);
 };
 
-// Значок у каждого вида свой: в ленте Ops событие узнаётся по нему до чтения
-// текста. Дублировать значок между видами нельзя — легенда закреплена в теме
-// и обещает однозначность.
-const PR_TITLES: Record<Extract<NotifyEvent, { type: 'pr' }>['action'], { icon: string; verb: string }> = {
-  opened: { icon: '🔀', verb: 'открыт' },
-  ready_for_review: { icon: '📤', verb: 'готов к ревью' },
-  review_requested: { icon: '👁', verb: 'ждёт ревью' },
-  approved: { icon: '👍', verb: 'ревью пройдено' },
-  changes_requested: { icon: '📝', verb: 'запрошены правки' },
-  merged: { icon: '✅', verb: 'смёржен' },
-  closed: { icon: '⛔', verb: 'закрыт без слияния' }
+// PR/Issue: значок теперь по статусу (четыре на пакет), не по действию —
+// `merged`/`approved` = успех, `changes_requested` = требует внимания,
+// остальное = к сведению. Слово действия само по себе уже говорит, что
+// произошло (`opened`, `ready_for_review` и т.д.), значок дублировать не должен.
+const PR_ICON: Record<Extract<NotifyEvent, { type: 'pr' }>['action'], string> = {
+  opened: ICON.info,
+  ready_for_review: ICON.info,
+  review_requested: ICON.info,
+  approved: ICON.ok,
+  changes_requested: ICON.red,
+  merged: ICON.ok,
+  closed: ICON.info
 };
 
-const ISSUE_TITLES: Record<Extract<NotifyEvent, { type: 'issue' }>['action'], { icon: string; verb: string }> = {
-  opened: { icon: '🆕', verb: 'заведена' },
-  assigned: { icon: '🙋', verb: 'взята в работу' },
-  closed: { icon: '☑️', verb: 'закрыта' }
+const ISSUE_ICON: Record<Extract<NotifyEvent, { type: 'issue' }>['action'], string> = {
+  opened: ICON.info,
+  assigned: ICON.info,
+  closed: ICON.ok
 };
 
-const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) => {
-  const { icon, verb } = PR_TITLES[e.action];
-
-  return join([
-    header(icon, `PR #${e.number} ${verb}`, e.project),
-    esc(e.title),
-    kv('автор', e.author),
-    kv('ревьюер', e.reviewer),
-    link(e.url, 'Открыть PR')
+const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
+  join([
+    typeLine(PR_ICON[e.action], 'PR', e.action),
+    '',
+    fieldLink('Pr', e.url, `#${e.number}`),
+    note(e.title),
+    '',
+    field('Author', e.author),
+    field('Reviewer', e.reviewer)
   ]);
-};
 
-const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) => {
-  const { icon, verb } = ISSUE_TITLES[e.action];
-
-  return join([
-    header(icon, `Задача #${e.number} ${verb}`, e.project),
-    esc(e.title),
-    kv('автор', e.author),
-    kv('исполнитель', e.assignee),
-    link(e.url, 'Открыть задачу')
+const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
+  join([
+    typeLine(ISSUE_ICON[e.action], 'Issue', e.action),
+    '',
+    fieldLink('Issue', e.url, `#${e.number}`),
+    commitQuote(e.title, e.body),
+    field('Author', e.author),
+    field('Assignee', e.assignee)
   ]);
-};
 
 const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e) =>
-  join([header('🚨', 'Инцидент', e.project), esc(e.title), note(e.detail), link(e.url, 'Подробнее')]);
-
-const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) =>
   join([
-    header('🔴', `Не отметилась: ${e.job}`, e.project),
-    kv('последний раз', e.lastSeen),
-    kv('ожидалось', e.expected)
+    typeLine(ICON.alarm, 'Incident', 'open'),
+    '',
+    field('Reason', e.detail ?? e.title),
+    e.logs || e.url ? '' : null,
+    fieldCode('Logs', e.logs),
+    fieldAction('Workflow', e.url, undefined)
   ]);
+
+const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {
+  const icon = e.recovered ? ICON.ok : ICON.red;
+  const action = e.recovered ? 'ok' : 'miss';
+  const reason =
+    e.note ??
+    (e.recovered
+      ? `${e.job} is reporting again${e.lastSeen ? ` — last run ${e.lastSeen}` : ''}`
+      : `${e.job} — no reports${e.expected ? ` — expected ${e.expected}` : ''}${e.lastSeen ? `, last seen ${e.lastSeen}` : ''}`);
+
+  return join([typeLine(icon, 'Heartbeat', action), '', field('Reason', reason)]);
+};
 
 // Подпись файла — та же карточка, но лимит Telegram у caption свой: 1024.
 const renderFile: Renderer<Extract<NotifyEvent, { type: 'file' }>> = (e) =>
-  join([header('📄', e.title, e.project), note(e.note)]);
+  join([typeLine(ICON.info, 'File', 'new'), '', field('Reason', e.note ?? e.title)]);
 
 const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { type: K }>> } = {
   deploy: renderDeploy,
@@ -253,30 +343,50 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
   file: renderFile
 };
 
-/**
- * Ключ задачи — последняя строка карточки: `#ключ` курсивом в <code>. Без
- * названия проекта: `targets()` никогда не шлёт карточку в чужой форум,
- * проект и так на виду в заголовке («· mac-config»), а дублирующий префикс
- * только растягивал тег на лишнюю строку в узком экране телефона (жалоба
- * владельца 18.08). Явный `key` побеждает; выведенный строится из заголовка
- * и наследует хрупкость формулировки — регулярные отправители передают явный.
- * Ключ переживает MTProto-чтение (простой текст, не разметка), по нему
- * разборщик сверяет 🔴 с более поздней успешной карточкой той же задачи —
- * внутри чата одного проекта, где ключ и так уникален.
- */
+// Тег наверху карточки И машинный ключ разборщика — ОДНО И ТО ЖЕ значение
+// (решение владельца 20.08.2026): раньше это были два разных представления
+// одного факта (снизу — дефисный `#ci-arvent`, сверху — теги вручную), и это
+// читалось как дублирование. Разделитель — подчёркивание, не дефис: дефис
+// разрывает Telegram-хэштег на середине слова (`#mac-config` линкуется
+// только как `#mac`), а тег ДОЛЖЕН быть кликабельным — это и есть фильтр
+// «показать всю историю этого экземпляра», которым владелец пользуется вживую.
 const slug = (raw: string): string =>
   raw
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, '-')
-    .replace(/^-+|-+$/g, '')
-    // Ключ — идентификатор, не пересказ: без среза тег из длинного заголовка
-    // съедал бюджет caption до отрицательного, и slice с минусом возвращал
-    // почти весь текст — Telegram отвечал постоянным 400, файл терялся.
+    .replace(/[^\p{L}\p{N}]+/gu, '_')
+    .replace(/^_+|_+$/g, '')
     .slice(0, 60);
 
+// Тип-тег наверху — не буквальный `e.type`: `heartbeat_miss` читался бы как
+// `#heartbeat_miss`, а видимый тип у владельца всегда просто `#heartbeat`
+// (зелёная и красная карточки одного вида — один и тот же тип-тег).
+const TYPE_TAG: Record<NotifyEvent['type'], string> = {
+  deploy: 'deploy',
+  job: 'job',
+  report: 'report',
+  ci: 'ci',
+  pr: 'pr',
+  issue: 'issue',
+  incident: 'incident',
+  heartbeat_miss: 'heartbeat',
+  file: 'file'
+};
+
+/**
+ * Экземпляр-тег: что именно это конкретное событие (ветка, окружение,
+ * задача, номер) — по нему разборщик сверяет 🔴 с более поздней зелёной
+ * карточкой ТОГО ЖЕ экземпляра. Явный `key` побеждает всегда; без него —
+ * выводится из самых стабильных полей типа (ветка/окружение важнее заголовка,
+ * потому что заголовок у регулярной задачи не меняется, а у отчёта как раз
+ * заголовок и есть единственное стабильное поле).
+ */
 export const eventKey = (e: NotifyEvent): string => {
   const fallback = (): string => {
     switch (e.type) {
+      case 'ci':
+        return slug(e.branch || e.project);
+      case 'deploy':
+        return slug(e.target || e.project);
       case 'job':
       case 'heartbeat_miss':
         return slug(e.job);
@@ -285,24 +395,23 @@ export const eventKey = (e: NotifyEvent): string => {
       case 'file':
         return slug(e.title);
       case 'pr':
-        return `pr-${e.number}`;
+        return `p${e.number}`;
       case 'issue':
-        return `issue-${e.number}`;
-      default:
-        return e.type;
+        return `i${e.number}`;
     }
   };
 
   return e.key ? slug(e.key) : fallback();
 };
 
-const keyLine = (e: NotifyEvent): string => `<i><code>#${esc(eventKey(e))}</code></i>`;
+const tagsLine = (e: NotifyEvent): string => `#${TYPE_TAG[e.type]} #${esc(eventKey(e))}`;
 
 /**
  * Рендерит событие в готовый HTML-текст, обрезанный под лимит Telegram.
- * Ключ добавляется ПОСЛЕ обрезки, с зарезервированным местом: обрезанная
- * карточка без ключа была бы невидима разборщику — ровно на самых длинных,
- * то есть самых важных сообщениях.
+ * Теги — ПЕРВАЯ строка, добавляются до обрезки (не после, как раньше): они
+ * несут и человеческий фильтр, и машинный ключ разборщика — обрезанная
+ * карточка без них была бы не только некликабельной, но и невидимой
+ * разборщику ровно на самых длинных, то есть самых важных сообщениях.
  */
 export const render = (e: NotifyEvent): string => {
   const renderer = RENDERERS[e.type] as Renderer<typeof e> | undefined;
@@ -314,11 +423,11 @@ export const render = (e: NotifyEvent): string => {
     throw new Error(`неизвестный тип события: ${String(e.type)}`);
   }
 
-  const tag = keyLine(e);
+  const tags = tagsLine(e);
   // clampMessage может выйти за переданный limit на хвост закрывающих тегов и
   // многоточие — минус 40 оставляет ему этот запас. У сообщений свой запас уже
   // есть (4000 против 4096 у Telegram), у caption лимит 1024 настоящий.
-  const budget = Math.max(64, e.type === 'file' ? 1024 - tag.length - 40 : 4000 - tag.length - 1);
+  const budget = Math.max(64, e.type === 'file' ? 1024 - tags.length - 40 : 4000 - tags.length - 1);
 
-  return `${clampMessage(renderer(e), budget)}\n${tag}`;
+  return `${tags}\n${clampMessage(renderer(e), budget)}`;
 };

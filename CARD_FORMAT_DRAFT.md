@@ -1,171 +1,125 @@
-# Формат карточек — черновик от 19.08.2026
+# Card format — final, approved by owner on 20.08.2026
 
-**Статус: НЕ одобрено владельцем, НЕ перенесено в `render.ts`.** Три раза
-подряд прошла только техническая приёмка на сырых Telegram-entities
-(Telethon) — она подтверждает, что HTML собран правильно (ссылки кликаются,
-цитата разворачивается, хэштеги распознаются), но не заменяет взгляд самого
-владельца на реальный вид карточки. Он сам этот вариант ещё не смотрел и не
-принял — именно поэтому просил пересобрать всё заново в новой сессии.
-`render.ts` пока рисует старый формат. Источник истины ниже — точный HTML,
-который уже отправлялся, не пересказ.
+**Status: approved in Telegram, not yet ported into `render.ts`.** Live-tested
+across ~15 rounds in the "Mac-config" Ops forum (chat_id `-1004442522004`,
+message_thread_id `2`), messages 169–182, each round checked against the
+Bot API's own entity response (not eyeballed) plus an independent
+acceptance-check agent that never saw the builder's report. Final owner
+sign-off pending on this exact document.
 
-Живые образцы лежат в Telegram: чат "Mac-config", тема Ops
-(chat_id `-1004442522004`, message_thread_id `2`), сообщения id 55–58.
-**Расхождение:** в этих живых сообщениях ключ внизу — голый `<code>` БЕЗ `#`
-и без метки. Второй прогон ревью (GLM, 19.08) нашёл, что без `#` ломается
-существующая сверка красное↔зелёное в `ops-reactor` — формат ниже в этом
-файле уже ИСПРАВЛЕН (решётка вернулась, добавлена метка «ключ —»), но живые
-сообщения 55–58 этой правки не получили. Ориентироваться на текст ниже, не
-на скриншот тех сообщений.
+## Skeleton — one shape, every type
 
-## Правила формата (проверены живой отправкой)
-
-- Хэштеги — первой строкой, ПЛОСКИМ текстом (не в `<code>`, не в `<a>` —
-  иначе Telegram не считает их хэштегом). Дефис ломает хэштег на середине
-  (`#mac-config` линкуется только как `#mac`) — имена проектов с дефисом
-  идут через подчёркивание: `#mac_config`.
-- Каждая ссылка подписана меткой через тире: «коммит — …», «задача — …»,
-  «логи — прогон», «исполнитель — …». Форма везде одна и та же — ни одной
-  ссылки без метки, ни одной метки-предложения со стрелкой.
-- Заголовок коммита/задачи — САМ есть ссылка, `<b><a href="…">текст</a></b>`
-  (жирный+ссылка вместе, НИКОГДА внутри `<code>` — код-стиль перекрашивает
-  ссылку и она перестаёт выглядеть кликабельной).
-- Полный текст (тело коммита, текст ревью) — в `<blockquote expandable>`,
-  никогда не обрезается многоточием.
-- Без `link_preview_options: {"is_disabled": true}` (или legacy
-  `disable_web_page_preview: true`) ссылка на GitHub тянет автоматическое
-  веб-превью; у commit/issue страниц title и description часто пустые —
-  получается битая пустая плашка поверх карточки. `send.ts:38` уже ставит
-  этот параметр на обычных сообщениях. `sendFileOnce` (`send.ts:218–234`)
-  его не ставит, но это НЕ дыра — второй прогон GLM (19.08) и прямая
-  проверка кода показали: файл уходит через `sendDocument`
-  (`send.ts:227`), а не `sendMessage`; у этого метода Bot API вообще нет
-  такого параметра, потому что подпись к документу не сканируется на
-  ссылки и превью никогда не строит. Первый прогон GLM назвал это дырой
-  ошибочно — я поверил не проверив; строка выше в файле была неверной.
-- Машинный ключ для `ops-reactor` — внизу, подписан меткой «ключ —», как и
-  все остальные поля (та же форма «метка — значение»). Решётка ОСТАЁТСЯ
-  (`ключ — <code>#ci-arvent</code>`) — без нужен `ops-reactor` (`STEP 2` его
-  SKILL.md) читает «последнюю строку с `#<slug>`» как ПЛОСКИЙ ТЕКСТ, не по
-  типу entity; убрать решётку значило бы молча сломать сверку красное↔зелёное.
-  Проблема была не в самой решётке, а в том, что ключ стоял голым — подпись
-  решает её, не трогая работающий разборщик. Формат ключа — через дефис
-  (`ci-arvent`, `issue-287`), НЕ через двоеточие: реальная функция `slug()`
-  в `render.ts` меняет любой не-буквенный символ на дефис, так что `ci:arvent`
-  всё равно стал бы `ci-arvent` — писать сразу то, что получится.
-- Автор/исполнитель показывается только когда это НЕ владелец. Ветка
-  показывается только когда это НЕ `master`.
-
-## Шаблоны (реальные данные arvent, коммит 9b1fc68 и задача #287)
-
-### CI зелёный
-```html
-#arvent #ci
-✅ коммит — <b><a href="https://github.com/sazanwork/arvent/commit/9b1fc68">Онбординг: заготовки вопросов под сферу на шаге «Знания бота» (#294)</a></b>
-<blockquote expandable>* feat(onboarding): заготовки вопросов под сферу на шаге «Знания бота»
-
-Восемь общих заготовок были одинаковы для всех тринадцати сфер. Теперь у каждой сферы пять своих, и они идут ПЕРВЫМИ: салон встречает вопрос про аллергопробу раньше, чем «где вы находитесь».
-
-* fix(onboarding): у «Авто» вопрос про время дублировал общий
-
-Приёмка нашла: сферная заготовка «Сколько времени займёт?» и общая «Сколько длится процедура?» — про одно и то же.</blockquote>
-логи — <a href="https://github.com/sazanwork/arvent/actions/runs/1">прогон</a>
-ключ — <code>#ci-arvent</code>
 ```
-Зелёные карточки на master уже сегодня отправляются (просто с приглушённым
-звуком — `routes.ts:82`, `silent: severity(e) === 'info'`), это НЕ то же
-самое, что общая конвенция «тишина = отчёт» у дайджеста/ops-reactor — тот
-«молчать» значит «не слать сообщение вообще», этот `silent` значит «слать
-без звука». Ничего менять здесь не нужно, просто не путать два смысла одного
-слова при переносе.
+#type #instance
+<icon> <b>Type:</b> action
 
-### CI провал
-```html
-#arvent #ci_fail
-❌ коммит — <b><a href="https://github.com/sazanwork/arvent/commit/9b1fc68">Онбординг: заготовки вопросов под сферу на шаге «Знания бота» (#294)</a></b>
-<blockquote expandable>…то же тело…</blockquote>
-упало — <a href="https://github.com/sazanwork/arvent/actions/runs/1">прогон</a>
-ключ — <code>#ci-arvent</code>
+<b>Field:</b> value
+<blockquote>quoted content, if any — commit body, issue body</blockquote>
+
+<i><u>Group name</u></i>
+<b>#N:</b> <a href="...">title</a>
+<b>#N:</b> <a href="...">title</a>
+
+<b>Field:</b> value  ← actions/direction tier
 ```
 
-### Задача взята в работу
-```html
-#arvent #task_taken
-🙋 задача — <b><a href="https://github.com/sazanwork/arvent/issues/287">#287 — Проверить лист ожидания на фантом «отмечено до отправки» (как #273 у рассылок)</a></b>
-исполнитель — <a href="https://github.com/Ilja-Prihach">@Ilja-Prihach</a>
-ключ — <code>#issue-287</code>
-```
+Three tiers, three distinct treatments — never mixed:
 
-### Сбой дайджеста / общей задачи
-```html
-#mac_config #job_fail
-🔴 дайджест задач
-<blockquote>не удалось получить задачи из mikitasazan/vault (gh/сеть/лимит API)</blockquote>
-ключ — <code>#daily-digest</code>
-```
+1. **Field label** (a single fact): `<b>Label:</b> value`. Capitalized first
+   letter (`Commit:`, `Workflow:`, `Reason:`), value plain, never both bold.
+2. **Group header** (introduces a list of ≥2 similar items): `<i><u>Name</u></i>`,
+   no colon, no bold. First word capitalized. Items inside are field-labels
+   in their own right (`<b>#243 (overdue):</b> <a>title</a>`).
+3. **Type line** (line 2): icon outside bold, `<b>Type:</b> action` — same
+   field-label rule, not a special case.
 
-## Типы, которых нет в живых образцах — только предложение, не проверено отправкой
+Blank line separates blocks by MEANING, never mechanically: header block
+(tags + type line) is one unit, no blank inside it. The object/content block
+(commit+quote, or a plain `reason:` sentence, or a set of groups) is one
+unit — no blank between a field and its own quote. Exactly one blank before
+the object block and exactly one blank before the actions block, when either
+exists.
 
-Собрано из двух независимых дизайн-консультаций (Opus и Fable), тем же
-правилам («метка — ссылка», `expandable` для длинного текста, ключ с `#` и
-меткой «ключ —»):
+## Rules with no exceptions
 
-- **Задача заведена**: `🆕 задача — <b><a>#N — заголовок</a></b>`, без исполнителя
-  (владелец завёл сам), тег `#task_new`.
-- **Задача закрыта**: `☑️ задача — …`, `закрыл — <a>@логин</a>` (если не
-  владелец), тег `#task_done`.
-- **Вердикт ревью**: `📝 PR — <b><a>#N — заголовок</a></b>`, `ревьюер — <a>@логин</a>`,
-  вердикт строкой («есть замечания» / «approve»), текст ревью в
-  `<blockquote expandable>` если непустой. Теги `#review_ok` / `#review_fixes`.
-- **PR смёржен/закрыт**: тег `#pr_merged` / `#pr_closed`, статус явной строкой
-  («смёржен» / «закрыт без слияния» — второе важно показать, это потерянная
-  работа).
-- **File-отчёт** (caption документа, бюджет ~1024 символа — короче): хэштеги
-  и подписанный заголовок, без ссылок (сам файл — вложение).
-- **Heartbeat-miss**: `🔴 не отметилась — <b>имя джобы</b>`, тег `#silent`,
-  строки «последний раз / ожидалось».
+- Hashtags are FIRST LINE, plain text (not in `<code>`/`<a>` — breaks
+  hashtag recognition). Hyphens break a hashtag mid-word — project/instance
+  names with a hyphen use underscore (`#mac_config`, `#github_board_sync`).
+- Two tags always: `#type` (event kind — `ci`, `deploy`, `job`, `heartbeat`,
+  `pr`, `issue`, `report`, `incident`, `file`) and `#instance` (what this
+  specific one is about — branch, environment, job slug, `#p294`, `#i322`).
+  **This instance tag is the machine key `ops-reactor` matches red↔green
+  on** — see the required accompanying change below.
+- No `link_preview_options: {"is_disabled": true}` on `sendMessage` (already
+  set in `send.ts:38`) — GitHub commit/issue links otherwise drag an empty
+  preview card. `sendDocument` (file type) has no such parameter and needs
+  none — captions aren't scanned for previews.
+- A quoted body (`<blockquote>`, `expandable` when long) never repeats the
+  title that's already the link text next to it.
+- `commit:`/`pr:`/`issue:` unify to ONE shape: label → bare identifier as a
+  link (hash or `#N`) → blockquote holding the human title (+body, if any).
+  No duplication between the link text and the quote.
+- A local filesystem path (`logs:` on an incident) is `<code>`, not a link —
+  it has no URL, `<code>` lets a tap copy it. A GitHub URL (`workflow:`) is
+  always a real link.
+- `open`/`untriaged`-style summary counts are NOT shown when the groups
+  above already list every item — a bare number under three full groups is
+  a pure duplicate and gets deleted, not displayed.
+- Machine-authored text — labels, reasons, descriptions the robot itself
+  writes — is English throughout, no exceptions for brand names (`ga4
+  users:`, `google clicks:` stay literal English words). Human-authored
+  quoted content (a commit body, an issue title from GitHub) stays in
+  whatever language it was actually written in.
 
-## Что нужно поменять в `render.ts` при переносе
+## Icon = status, not type (four only)
 
-Список ниже правлен после разбора с GLM 19.08 — прошлая версия была неточной
-(проверено командой по реальному коду, не только словами GLM):
+- 🔴 broken — needs a look
+- 🚨 incident — live, urgent
+- ✅ succeeded (`resolved` action = a red card the daily reactor closed)
+- ℹ️ informational, no action needed
 
-- Событие `ci` в `events.ts`: добавить опциональные `commitUrl`, `commitBody`,
-  `actorUrl`, `failedStep` (схема расширяется только опциональными полями).
-- `firstLine()` в CI-теле коммита больше не нужен (тело идёт в
-  `note()`/`blockquote` целиком) — но `kv()` НЕЛЬЗЯ убирать вообще: она
-  рисует ветку/автора/статистику/`исполнитель` в семи других местах
-  (`render.ts:139–142, 152, 167, 212–213, 224–225, 236–237`). Трогать только
-  ветку рендеринга тела коммита.
-- Карта `имя-репозитория → тег`: заменить дефисы на подчёркивания
-  (`mac-config` → `mac_config` и т.д.).
-- `link_preview_options` трогать не нужно нигде: в обычных сообщениях уже
-  есть (`send.ts:38`), а `sendFileOnce` идёт через `sendDocument` — у него
-  такого параметра в Bot API не существует, добавлять некуда.
-- `<code>#ключ</code>` — решётка ОСТАЁТСЯ (см. правило выше), меняется
-  только видимая форма: добавляется метка «ключ —» перед кодом.
-- `render.test.ts` проверяет старый формат ключа буквально
-  (`<i><code>#import-games</code></i>` и т.п.) — эти строки надо переписать
-  вместе с переносом, иначе тесты останутся красными после правки `render.ts`.
-- `send.ts:387` (сборка тега в `sendReport`) — отдельное место с той же
-  логикой ключа, перенос его не задевает, если строку не поправить отдельно.
+## REQUIRED accompanying change — not optional, found during final review
 
-## Ещё не решено — второй прогон GLM 19.08, не разобрано (черновик закрывался в спешке)
+`~/.claude/scheduled-tasks/ops-reactor/SKILL.md` STEP 2 currently extracts
+the matching key as **"the last line matching `#<slug>`"** — that was true
+of the OLD format, where a single combined key sat on its own line at the
+bottom (`ключ — #ci-arvent`). This format has NO such line: both tags live
+on line 1, and the type tag is the same for every instance while the
+instance tag (`#master`, `#i322`, `#vps_backups`) is what actually
+identifies "this specific thing." Porting the new render without updating
+STEP 2 makes the reactor blind to every red↔green match, and — because
+"silence is the report" is its OWN failure mode — it would silently stop
+suppressing repeats and start filing a fresh GitHub issue on the same
+standing problem every day.
 
-- Значок `📝` для «есть замечания» уже занят: `render.ts:195` использует его
-  для `changes_requested` — коллизия, один значок на два смысла в одной ленте.
-- Правило «форма везде одна» в файле касается только события `ci`. Событие
-  `deploy` (и, вероятно, другие) при переносе останется в старом виде —
-  чек-лист их не перечисляет.
-- Инвентарь мест, где нужен `kv()` (строка про «семь других мест»), неточен —
-  цифра и диапазоны строк не сойдутся при реальной сверке, пересчитать заново
-  перед переносом, не доверять списку как есть.
-- Шаблоны в файле рисуют ключ БЕЗ `<i>` (просто `<code>#…</code>`), а текст
-  выше говорит «меняется только форма — курсив остаётся». Это друг другу
-  противоречит, надо решить одно из двух перед переносом.
-- Тег `#silent` для heartbeat-miss — то же слово, что и `silent` в
-  `routes.ts` (звук выключен) и «тишина» в конвенции дайджеста (сообщение не
-  шлётся вообще) — третий смысл того же слова, ещё не разведённый.
-- Все шаблоны в файле потеряли суффикс «· проект», который `render.ts`
-  сейчас требует показывать всегда, даже в теме самого проекта — не решено,
-  специально убрали или забыли.
+Fix: STEP 2 reads the key from line 1's SECOND tag (the instance tag), not
+"the last line". Old cards from before the format change (no matching
+scheme) keep the existing title-word fallback already described in STEP 2.
+
+## Full type catalogue, field mapping
+
+| `#type` | Type line | Object block | Actions |
+|---|---|---|---|
+| `ci` | `CI: ok` / `CI: resolved` | `commit:` → hash → quote | `workflow:` |
+| `deploy` | `Deploy: ok` | `commit:` → hash → quote | `workflow:` |
+| `job` | `Job: fail` / `Job: disabled` | `reason:` sentence, or `reason:` + numbered list group | `workflow:` (if applicable) |
+| `heartbeat` | `Heartbeat: miss` / `Heartbeat: ok` | `reason:` sentence | — |
+| `pr` | `PR: opened/merged/closed/…` | `pr:` → `#N` → quote(title) | `author:` |
+| `issue` | `Issue: opened/closed/…` | `issue:` → `#N` → quote(title[+body]) | — |
+| `report` | `Report: tasks · date` / `Report: analytics · date` | groups (board columns / metric list) | `links:` group if analytics |
+| `incident` | `Incident: open` | `reason:` sentence | `logs:` (code, local path) |
+| `file` | `File: new` | `reason:` sentence (caption) | — |
+
+PR/Issue actions beyond the two demonstrated live (`merged`, `opened`)
+share the identical structural template — only the action word and quoted
+content change, verified by the render logic itself (`renderPr`/`renderIssue`
+branch on `e.action` for the type-line word only, the object block is
+action-independent). Not separately live-tested; low risk given the shape
+is data-driven, not action-driven.
+
+## Not covered by this document
+
+Daily digest's own item-icon scheme (🔴🟡🟢⚪ inside `daily-digest.sh`'s
+task bullets) is a SEPARATE, pre-existing decision (task priority within a
+project's own board) — out of scope here, tracked as a follow-up task per
+the original plan.

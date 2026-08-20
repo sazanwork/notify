@@ -32,7 +32,13 @@ type Keyed = { key?: string };
  * Позиция списка внутри сообщения: задача из дайджеста, упавшая проверка,
  * замечание. `url` необязателен — тогда рендерится просто строкой.
  */
-export type Item = { text: string; url?: string };
+/**
+ * `label` — необязательный жирный префикс перед `text` (`#243 (overdue)`,
+ * `#287`) для позиций внутри именованных групп отчёта. Без `label` позиция
+ * рендерится как обычная нумерованная/маркированная строка — так уже
+ * работают дайджест-задачи и список выключенных workflow.
+ */
+export type Item = { text: string; url?: string; label?: string };
 
 export type NotifyEvent = Keyed &
   (
@@ -44,6 +50,13 @@ export type NotifyEvent = Keyed &
       commit?: string;
       /** Ссылка на коммит — строка «коммит» становится кликабельной. */
       commitUrl?: string;
+      /** Заголовок коммита — рендерится рядом с телом в цитате. */
+      commitTitle?: string;
+      /** Тело коммита, если есть — та же цитата, что и заголовок. */
+      commitBody?: string;
+      workflowUrl?: string;
+      /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
+      workflowName?: string;
       url?: string;
       /**
        * Куда выкатили. Заполнять ТОЛЬКО когда окружений больше одного: у сайтов
@@ -66,11 +79,15 @@ export type NotifyEvent = Keyed &
       type: 'job';
       project: Project;
       job: string;
-      status: 'ok' | 'fail';
+      /** `disabled` — задача выключена извне (например GitHub Actions кончил бесплатные минуты), не провалилась сама. */
+      status: 'ok' | 'fail' | 'disabled';
       stats?: Array<[label: string, value: string | number]>;
-      /** Детали: что именно упало, замечания прогона. */
+      /** Детали: что именно упало, замечания прогона; у `disabled` — список выключенных процессов (каждый со своей ссылкой). */
       items?: Item[];
       note?: string;
+      workflowUrl?: string;
+      /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
+      workflowName?: string;
       url?: string;
     }
   /** Сводка с цифрами: дневной отчёт, дайджест аналитики. */
@@ -79,13 +96,21 @@ export type NotifyEvent = Keyed &
       project: Project;
       title: string;
       period?: string;
-      lines: Array<[label: string, value: string | number]>;
+      /** Пусто/не передано, когда используются `groups` — два вида отчёта не смешиваются в одном событии. */
+      lines?: Array<[label: string, value: string | number]>;
       /**
        * Список позиций со ссылками — для дайджестов задач, где ценность в
        * самих названиях, а не в цифре. Рендерятся отдельным блоком после
        * `lines`.
        */
       items?: Item[];
+      /**
+       * Именованные группы (доска задач: Ready/In Progress/Not on the
+       * board; аналитика: Metrics/Links) — каждая со своим заголовком и
+       * списком позиций. Заменяет `lines`/`items`, когда задан: разные
+       * отчёты используют либо плоский вид, либо группы, не оба разом.
+       */
+      groups?: Array<{ name: string; items: Item[] }>;
       url?: string;
     }
   /** Итог CI на основной ветке. */
@@ -95,7 +120,17 @@ export type NotifyEvent = Keyed &
       status: 'ok' | 'fail';
       branch?: string;
       commit?: string;
+      /** Ссылка на коммит — хэш становится кликабельным. */
+      commitUrl?: string;
+      /** Заголовок коммита (subject) — рендерится в цитате вместе с телом. */
+      commitTitle?: string;
+      /** Тело коммита (после subject) — та же цитата, что и заголовок. */
+      commitBody?: string;
       actor?: string;
+      /** Ссылка на прогон (workflow run) — отдельно от `url`, который у CI не используется. */
+      workflowUrl?: string;
+      /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
+      workflowName?: string;
       url?: string;
     }
   /**
@@ -127,6 +162,8 @@ export type NotifyEvent = Keyed &
       action: 'opened' | 'assigned' | 'closed';
       number: number;
       title: string;
+      /** Тело задачи — рендерится в цитате вместе с заголовком. */
+      body?: string;
       author?: string;
       assignee?: string;
       url?: string;
@@ -137,6 +174,8 @@ export type NotifyEvent = Keyed &
       project: Project;
       title: string;
       detail?: string;
+      /** Локальный путь к логам (не URL — рендерится моноширинным, для копирования, не для клика). */
+      logs?: string;
       url?: string;
     }
   /** Задача не отметилась вовремя — сторож молчания (heartbeat). */
@@ -146,6 +185,10 @@ export type NotifyEvent = Keyed &
       job: string;
       lastSeen?: string;
       expected?: string;
+      /** Задача снова отчиталась — тот же тип, зелёная карточка вместо красной, ключ (для сверки) не меняется. */
+      recovered?: boolean;
+      /** Готовое предложение-причина; без него собирается из lastSeen/expected. */
+      note?: string;
     }
   /**
    * Файл-вложение (sendDocument) с подписью-карточкой. Появился, когда
@@ -171,11 +214,19 @@ export type EventType = NotifyEvent['type'];
 
 /** Красное = со звуком. Всё остальное — тихо. (Отдельной темы «инциденты» больше нет — авария видна в ленте проекта.) */
 export const severity = (e: NotifyEvent): 'info' | 'error' => {
-  if (e.type === 'incident' || e.type === 'heartbeat_miss') {
+  if (e.type === 'heartbeat_miss') {
+    return e.recovered ? 'info' : 'error';
+  }
+
+  if (e.type === 'incident') {
     return 'error';
   }
 
-  if ('status' in e && e.status === 'fail') {
+  // `disabled` рисуется красным (`ICON.red` в render.ts) ровно как `fail` —
+  // задача не работает, что бы ни было тому причиной. Молчаливая отправка
+  // красной карточки без звука хуже отсутствия карточки: авария выглядит
+  // аварией, но не будит (тот же довод, что уже был у `fail`).
+  if ('status' in e && (e.status === 'fail' || e.status === 'disabled')) {
     return 'error';
   }
 

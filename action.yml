@@ -63,6 +63,30 @@ inputs:
   items:
     description: 'Позиции списка — по строке на «текст» или «текст|ссылка» (многострочный вход)'
     required: false
+  commit-title:
+    description: 'Заголовок коммита (subject) — по умолчанию первая строка github.event.head_commit.message'
+    default: ${{ github.event.head_commit.message }}
+    required: false
+  commit-body:
+    required: false
+  workflow-url:
+    description: 'Ссылка на прогон — по умолчанию текущий'
+    default: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+    required: false
+  workflow-name:
+    description: 'По умолчанию — имя текущего workflow'
+    default: ${{ github.workflow }}
+    required: false
+  body:
+    description: 'Тело issue/PR (для issue) — по умолчанию github.event.issue.body / github.event.pull_request.body'
+    default: ${{ github.event.issue.body || github.event.pull_request.body }}
+    required: false
+  logs:
+    description: 'Локальный путь к логам (для incident) — не ссылка, моноширинным для копирования'
+    required: false
+  recovered:
+    description: '"true" — задача снова отчиталась (heartbeat_miss рисуется зелёным)'
+    required: false
 
 runs:
   using: composite
@@ -103,6 +127,13 @@ runs:
         IN_ITEMS: ${{ inputs.items }}
         IN_BRANCH: ${{ inputs.branch }}
         IN_ACTOR: ${{ inputs.actor }}
+        IN_COMMIT_TITLE: ${{ inputs.commit-title }}
+        IN_COMMIT_BODY: ${{ inputs.commit-body }}
+        IN_WORKFLOW_URL: ${{ inputs.workflow-url }}
+        IN_WORKFLOW_NAME: ${{ inputs.workflow-name }}
+        IN_BODY: ${{ inputs.body }}
+        IN_LOGS: ${{ inputs.logs }}
+        IN_RECOVERED: ${{ inputs.recovered }}
         GH_REF_NAME: ${{ github.ref_name }}
         GH_ACTOR: ${{ github.actor }}
         ACTION_PATH: ${{ github.action_path }}
@@ -137,6 +168,24 @@ runs:
         add --reviewer "$IN_REVIEWER"
         add --assignee "$IN_ASSIGNEE"
         add --detail   "$IN_DETAIL"
+        add --workflow-url  "$IN_WORKFLOW_URL"
+        add --workflow-name "$IN_WORKFLOW_NAME"
+        add --body     "$IN_BODY"
+        add --logs     "$IN_LOGS"
+        [ "$IN_RECOVERED" = "true" ] && ARGS+=(--recovered)
+
+        # github.event.head_commit.message несёт subject+body одним
+        # многострочным полем — commit-title/commit-body у пакета раздельные.
+        # Явный --commit-body побеждает; без него режем head_commit.message
+        # по первому переводу строки.
+        if [ -n "$IN_COMMIT_BODY" ]; then
+          add --commit-title "$IN_COMMIT_TITLE"
+          add --commit-body  "$IN_COMMIT_BODY"
+        elif [ -n "$IN_COMMIT_TITLE" ]; then
+          add --commit-title "${IN_COMMIT_TITLE%%$'\n'*}"
+          BODY_TAIL="${IN_COMMIT_TITLE#*$'\n'}"
+          [ "$BODY_TAIL" != "$IN_COMMIT_TITLE" ] && add --commit-body "$(printf '%s' "$BODY_TAIL" | sed '/./,$!d')"
+        fi
 
         # Многострочные входы: по строке на значение. Раньше здесь читался
         # `inputs.stats`, которого НЕ БЫЛО в объявлении входов выше — значит он

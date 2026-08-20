@@ -47,7 +47,7 @@ const flags = new Map<string, string[]>();
 const parseErrors: string[] = [];
 
 /** Флаги без значения. Всё остальное обязано его иметь. */
-const BOOLEAN_FLAGS = new Set(['json']);
+const BOOLEAN_FLAGS = new Set(['json', 'recovered']);
 
 for (let i = 1; i < args.length; i++) {
   const arg = args[i];
@@ -195,6 +195,18 @@ const status = (): 'ok' | 'fail' => {
   return raw === 'ok' || raw === 'success' || raw === 'passed' || raw === '0' ? 'ok' : 'fail';
 };
 
+// `job` — единственный тип с третьим состоянием (`disabled`): задача не
+// провалилась сама, её выключил кто-то извне (GitHub Actions без минут).
+const jobStatus = (): 'ok' | 'fail' | 'disabled' => {
+  const raw = (one('status') ?? '').toLowerCase();
+
+  if (raw === 'disabled') {
+    return 'disabled';
+  }
+
+  return raw === 'ok' || raw === 'success' || raw === 'passed' || raw === '0' ? 'ok' : 'fail';
+};
+
 let event: NotifyEvent | undefined;
 
 if (flags.has('json')) {
@@ -216,6 +228,10 @@ if (flags.has('json')) {
         status: status(),
         commit: one('commit'),
         commitUrl: one('commit-url'),
+        commitTitle: one('commit-title'),
+        commitBody: one('commit-body'),
+        workflowUrl: one('workflow-url'),
+        workflowName: one('workflow-name'),
         url: one('url'),
         target: one('target'),
         via: one('via'),
@@ -227,10 +243,12 @@ if (flags.has('json')) {
         type: 'job',
         project: project(),
         job: one('job') ?? '(без имени)',
-        status: status(),
+        status: jobStatus(),
         stats: pairs('stat'),
         items: items(),
         note: one('note'),
+        workflowUrl: one('workflow-url'),
+        workflowName: one('workflow-name'),
         url: one('url')
       };
       break;
@@ -252,7 +270,12 @@ if (flags.has('json')) {
         status: status(),
         branch: one('branch'),
         commit: one('commit'),
+        commitUrl: one('commit-url'),
+        commitTitle: one('commit-title'),
+        commitBody: one('commit-body'),
         actor: one('actor'),
+        workflowUrl: one('workflow-url'),
+        workflowName: one('workflow-name'),
         url: one('url')
       };
       break;
@@ -275,6 +298,7 @@ if (flags.has('json')) {
         action: issueAction(one('action')),
         number: num('number'),
         title: one('title') ?? '(без заголовка)',
+        body: one('body'),
         author: one('author'),
         assignee: one('assignee'),
         url: one('url')
@@ -286,6 +310,7 @@ if (flags.has('json')) {
         project: project(),
         title: one('title') ?? '(без заголовка)',
         detail: one('detail'),
+        logs: one('logs'),
         url: one('url')
       };
       break;
@@ -295,7 +320,9 @@ if (flags.has('json')) {
         project: project(),
         job: one('job') ?? '(без имени)',
         lastSeen: one('last-seen'),
-        expected: one('expected')
+        expected: one('expected'),
+        recovered: flags.has('recovered'),
+        note: one('note')
       };
       break;
     case 'file': {
