@@ -133,8 +133,12 @@ const fieldLink = (
  * поле — прогону просто некуда вести, показывать голое слово «run» без
  * ссылки бессмысленнее, чем не показывать строку вовсе.
  */
+// Текст ссылки — имя того, куда она ведёт (имя workflow, имя прогона). Запасное
+// слово было «run»: существительное, которое ничего не называет — владелец читал
+// «Workflow: run» и не понимал, что это. «open» — глагол, он хотя бы честно
+// говорит, что это ссылка, а не название.
 const fieldAction = (label: string, url: string | undefined, text: string | undefined): string | null =>
-  url ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(text ?? 'run')}</a>` : null;
+  url ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(text ?? 'open')}</a>` : null;
 
 /** Моноширинное поле — путь/команда для копирования, не ссылка. */
 const fieldCode = (label: string, value: string | undefined): string | null =>

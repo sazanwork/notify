@@ -472,7 +472,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
     'Тело коммита, написанное человеком.</blockquote>',
     '<b>Actor:</b> @chelsnebes',
     '',
-    '<b>Workflow:</b> <a href="https://x/run">run</a>'
+    '<b>Workflow:</b> <a href="https://x/run">open</a>'
   ].join('\n'));
 });
 
@@ -490,7 +490,7 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
     '<b>Reason:</b> nightly check of master',
     '',
-    '<b>Workflow:</b> <a href="https://x/run">run</a>'
+    '<b>Workflow:</b> <a href="https://x/run">open</a>'
   ].join('\n'));
 });
 
@@ -509,7 +509,7 @@ test('card/deploy', () => {
     '<blockquote>feat: new landing</blockquote>',
     '<b>Via:</b> GitHub Actions',
     '',
-    '<b>Workflow:</b> <a href="https://x/run">run</a>'
+    '<b>Workflow:</b> <a href="https://x/run">open</a>'
   ].join('\n'));
 });
 
