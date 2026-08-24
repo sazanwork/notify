@@ -346,7 +346,9 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
     // log path). It used to go through `field`, which keeps only the first line,
     // so every alarm this package ever sent arrived gutted. Same shape as a
     // commit now: short label, full text quoted under it.
-    field('Reason', e.title),
+    // Ярлык `Title`, а не `Reason`: у аварии заголовок — такой же заголовок,
+    // как у коммита и задачи, и называться в одной карточке он должен так же.
+    titleField(e.title),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
     e.logs || e.url ? '' : null,
     fieldCode('Logs', e.logs),

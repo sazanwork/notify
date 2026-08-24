@@ -337,7 +337,7 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
   const short = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: multiline });
   const long = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'А'.repeat(500) });
 
-  assert.ok(short.includes('<b>Reason:</b> Vault needs a fix'), 'заголовок аварии — поле Reason');
+  assert.ok(short.includes('<b>Title:</b> Vault needs a fix'), 'заголовок аварии — поле Reason');
   assert.ok(short.includes('лог: ~/Library/Logs/vault.log'), 'последняя строка диагноза потеряна — вернулась обрезка');
   assert.ok(short.includes('<blockquote>'), 'диагноз должен идти цитатой');
   assert.ok(long.includes('<blockquote expandable>'), 'длинный диагноз сворачивается');
@@ -346,7 +346,7 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
 test('incident: detail equal to title is not printed twice', () => {
   const out = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'Vault needs a fix' });
 
-  assert.ok(out.includes('<b>Reason:</b> Vault needs a fix'));
+  assert.ok(out.includes('<b>Title:</b> Vault needs a fix'));
   assert.ok(!out.includes('<blockquote>'), 'цитата повторяет заголовок — образец это запрещает');
 });
 
@@ -576,7 +576,7 @@ test('card/incident: every line of the diagnosis survives', () => {
     '#incident #vault_needs_a_fix',
     '🚨 <b>Incident:</b> open',
     '',
-    '<b>Reason:</b> Vault needs a fix',
+    '<b>Title:</b> Vault needs a fix',
     '<blockquote>нет sops',
     'ключ не найден',
     'лог: ~/Library/Logs/vault.log</blockquote>',
