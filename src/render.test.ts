@@ -248,20 +248,48 @@ test('длинный текст ОДНОЙ строкой не выбрасыв�
   assert.ok(clamped.includes('AAAA'));
 });
 
-test('кламп не оставляет незакрытых тегов', () => {
-  const clamped = render({
-    type: 'job',
-    project: 'playhub',
-    job: 'x',
-    status: 'fail',
-    note: 'Ж'.repeat(5000)
+// Считаем КАЖДЫЙ тег, какой пакет умеет ставить, и на нескольких формах —
+// прошлая версия смотрела только на <b> и только на карточку job. Из-за этого
+// две настоящие поломки прошли мимо: длинный detail режется внутри blockquote,
+// а длинное имя группы — внутри <u>, и Telegram отвечает на такое 400, то есть
+// теряет ВСЁ сообщение. Второй ассерт прошлой версии (`!/<[a-z]*$/`) не мог
+// упасть никогда: клампер всегда дописывает `\n…`, и конец строки по построению
+// не бывает внутри тега.
+const TAGS = ['b', 'i', 'u', 'a', 'code', 'blockquote'];
+
+const unbalanced = (html: string): string[] =>
+  TAGS.filter((t) => {
+    const opened = (html.match(new RegExp(`<${t}[ >]`, 'g')) ?? []).length;
+    const closed = (html.match(new RegExp(`</${t}>`, 'g')) ?? []).length;
+
+    return opened !== closed;
   });
 
-  const opened = (clamped.match(/<b[ >]/g) ?? []).length;
-  const closed = (clamped.match(/<\/b>/g) ?? []).length;
+test('кламп не оставляет незакрытых тегов ни на одной форме', () => {
+  const long = 'Ж'.repeat(5000);
 
-  assert.equal(opened, closed, 'несбалансированный <b> — Telegram отвергнет сообщение');
-  assert.ok(!/<[a-z]*$/.test(clamped), 'сообщение обрывается внутри тега');
+  const cases: Array<[string, NotifyEvent]> = [
+    ['job note', { type: 'job', project: 'playhub', job: 'x', status: 'fail', note: long }],
+    ['incident detail', { type: 'incident', project: 'vault', title: 'x', detail: long }],
+    ['issue body', { type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 'x', body: long }],
+    ['group name', { type: 'report', project: 'playhub', title: 'x', groups: [{ name: long, items: [] }] }],
+    ['item link', { type: 'job', project: 'playhub', job: 'x', status: 'ok', items: [{ text: long, url: 'https://x/y' }] }]
+  ];
+
+  for (const [name, event] of cases) {
+    const out = render(event);
+
+    assert.deepEqual(unbalanced(out), [], `${name}: незакрытый тег — Telegram отвергнет всё сообщение`);
+  }
+});
+
+test('проверка баланса тегов умеет упасть', () => {
+  // Сторож над сторожем: ассерт выше стоит ровно столько, сколько стоит
+  // `unbalanced`. Если она перестанет замечать незакрытый тег, тест наверху
+  // позеленеет на сломанном рендере и никто этого не увидит.
+  assert.deepEqual(unbalanced('<b>x</b><u>y'), ['u']);
+  assert.deepEqual(unbalanced('<blockquote>x'), ['blockquote']);
+  assert.deepEqual(unbalanced('<b>x</b>'), []);
 });
 
 test('неизвестный тип события даёт понятную ошибку, а не падение рендерера', () => {

@@ -70,7 +70,12 @@ export const clampMessage = (text: string, limit = 4000): string => {
   // blockquote — с приходом цитаты для примечаний/деталей длинный detail режется
   // прямо посередине неё, и без этого тега Telegram отвечал бы 400 на незакрытую
   // цитату (regex `<blockquote[ >]` ловит и вариант с атрибутом `expandable`).
-  const tail = ['b', 'a', 'i', 'code', 'blockquote']
+  // `u` в списке с 2026-08-25: заголовок группы рисуется как `<i><u>…</u></i>`,
+  // и обрезанный посередине длинный заголовок оставлял `<u>` незакрытым.
+  // Telegram отвечает на такое 400 — то есть карточка пропадала целиком, а
+  // отправитель с `|| true` этого не замечал. Нашёл Codex; воспроизводится
+  // отчётом с именем группы в 5000 знаков.
+  const tail = ['b', 'a', 'i', 'u', 'code', 'blockquote']
     .filter((t) => {
       const opened = (body.match(new RegExp(`<${t}[ >]`, 'g')) ?? []).length;
       const closed = (body.match(new RegExp(`</${t}>`, 'g')) ?? []).length;
@@ -211,8 +216,23 @@ type Renderer<E extends NotifyEvent> = (e: E) => string;
 const ICON = { red: '🔴', alarm: '🚨', ok: '✅', info: 'ℹ️' } as const;
 
 /** Строка 2: значок вне жирного, `<b>Тип:</b> действие` — то же поле, не особый случай. */
-const typeLine = (icon: string, type: string, action: string): string => `${icon} ${field(type, action)}`;
+// `action` объявлен строкой, но приходит и из `--json`, и из прямых вызовов на
+// JS, где типов нет. Пустое или отсутствующее значение давало строку `ℹ️ null`
+// прямо во второй строке карточки. Пустая строка честнее: поле просто исчезает.
+const typeLine = (icon: string, type: string, action: string | undefined): string => {
+  // `field` возвращает null на пустом значении, а интерполяция null в шаблон
+  // печатает слово «null». Так вторая строка карточки становилась `ℹ️ null` —
+  // достижимо через `--json` и прямой вызов на JS, где типов нет.
+  const line = field(type, action);
 
+  return line === null ? `${icon} <b>${esc(cap(type))}</b>` : `${icon} ${line}`;
+};
+
+// `workflowUrl ?? url`: половина отправителей шлёт ссылку на прогон под именем
+// `--url` — это имя было в пакете раньше и осталось в вызовах. Рендер читал
+// только `workflowUrl`, поэтому красная карточка приходила БЕЗ ЕДИНОЙ ССЫЛКИ
+// на логи. Отвергать `--url` было бы честнее по имени и хуже по делу: намерение
+// однозначно, а карточка без ссылки бесполезна ровно тогда, когда нужна.
 const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => {
   const icon = e.status === 'ok' ? ICON.ok : ICON.red;
 
@@ -225,8 +245,8 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     field('Via', e.via),
     field('Target', e.target),
     field('Reason', e.note),
-    e.workflowUrl ? '' : null,
-    fieldAction('Workflow', e.workflowUrl, e.workflowName)
+    e.workflowUrl ?? e.url ? '' : null,
+    fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName)
   ]);
 };
 
@@ -252,8 +272,8 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // "Disabled workflows".
     disabledList ? group('Disabled workflows') : null,
     ...(hasItems ? bullets(e.items, disabledList) : []),
-    e.workflowUrl ? '' : null,
-    fieldAction('Workflow', e.workflowUrl, e.workflowName)
+    e.workflowUrl ?? e.url ? '' : null,
+    fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName)
   ]);
 };
 
@@ -261,7 +281,13 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   if (e.groups && e.groups.length > 0) {
     const body = e.groups.flatMap((g, i) => (i === 0 ? renderGroup(g) : ['', ...renderGroup(g)]));
 
-    return join([typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title), '', ...body]);
+    return join([
+      typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title),
+      '',
+      ...body,
+      e.url ? '' : null,
+      fieldAction('Details', e.url, undefined)
+    ]);
   }
 
   const items = bullets(e.items, false);
@@ -271,7 +297,11 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     '',
     ...(e.lines ?? []).map(([label, value]) => field(label, value)),
     items.length > 0 ? '' : null,
-    ...items
+    ...items,
+    // Обе аналитики шлют сюда ссылку на снимок дня в docs/. Рендер её не читал,
+    // и дневной отчёт приходил без единственного способа посмотреть подробности.
+    e.url ? '' : null,
+    fieldAction('Details', e.url, undefined)
   ]);
 };
 
@@ -286,8 +316,8 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
     bodyQuote(e.commitBody),
     field('Actor', e.actor),
     field('Reason', e.note),
-    e.workflowUrl ? '' : null,
-    fieldAction('Workflow', e.workflowUrl, e.workflowName)
+    e.workflowUrl ?? e.url ? '' : null,
+    fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName)
   ]);
 };
 
@@ -375,7 +405,15 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
 
 // Подпись файла — та же карточка, но лимит Telegram у caption свой: 1024.
 const renderFile: Renderer<Extract<NotifyEvent, { type: 'file' }>> = (e) =>
-  join([typeLine(ICON.info, 'File', 'new'), '', field('Title', e.note ?? e.title)]);
+  join([
+    typeLine(ICON.info, 'File', 'new'),
+    '',
+    // Раньше здесь стояло `field('Title', e.note ?? e.title)`: подпись файла
+    // приходила под ярлыком заголовка, а сам заголовок из карточки исчезал.
+    // Один ярлык — один смысл: Title это title, Reason это note.
+    field('Title', e.title),
+    field('Reason', e.note)
+  ]);
 
 const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { type: K }>> } = {
   deploy: renderDeploy,

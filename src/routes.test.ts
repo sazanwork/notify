@@ -5,6 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { severity } from './events.ts';
@@ -94,7 +95,7 @@ test('флаг без значения — явная ошибка, а не href
   const { code, stderr } = runCli('deploy', '--project', 'playhub', '--status', 'ok', '--url');
 
   assert.equal(code, 0);
-  assert.match(stderr, /--url без значения/);
+  assert.match(stderr, /--url with no value/);
   // `failed` is what the Action and the VPS watchdog match on; `sent` must not
   // appear, or heartbeat-check.sh reads this failure as a success.
   assert.match(stderr, /failed:/);
@@ -150,4 +151,38 @@ test('sendReport с ключом дописывает строку ключа, �
   const res = await sendReport('playhub', '<b>отчёт</b>', 'daily-analytics');
 
   assert.equal(res, 'skipped');
+});
+
+// Три пути, на которых CLI раньше выходил нулём и НЕ говорил ни слова из
+// контракта `sent|failed|skipped`. Каждый означал одно и то же для владельца:
+// карточки нет, а вызвавшая задача считает, что всё хорошо.
+test('опечатка в имени флага — отказ, а не карточка без поля', () => {
+  const { code, stderr } = runCli('job', '--project=playhub', '--job=x', '--status=fail', '--noto=missed');
+
+  assert.equal(code, 0);
+  assert.match(stderr, /unknown flag --noto/);
+  assert.match(stderr, /failed:/);
+  assert.ok(!/sent/.test(stderr), 'слово sent в отказе — сторож примет его за успех');
+});
+
+test('неизвестный тип события — отказ, а не тишина', () => {
+  const { code, stderr } = runCli('jib', '--project=playhub', '--status=fail');
+
+  assert.equal(code, 0);
+  assert.match(stderr, /unknown event type: jib/);
+  assert.match(stderr, /failed:/);
+});
+
+test('каждое имя флага, которое читает код, объявлено в KNOWN_FLAGS', async () => {
+  // Сторож против дрейфа: список известных флагов — единственное, что отличает
+  // опечатку от нового поля, и разойтись с кодом молча он не должен.
+  const src = readFileSync(new URL('./cli.ts', import.meta.url), 'utf-8');
+  const used = new Set(
+    [...src.matchAll(/(?:one|num|pairs)\('([a-z-]+)'\)/g)].map((m) => m[1])
+  );
+  used.add('item');
+  const { KNOWN_FLAGS } = await import('./cli-flags.ts');
+  const missing = [...used].filter((f) => !KNOWN_FLAGS.has(f));
+
+  assert.deepEqual(missing, [], `эти флаги читаются, но не объявлены: ${missing.join(', ')}`);
 });

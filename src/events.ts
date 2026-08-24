@@ -89,9 +89,9 @@ export type NotifyEvent = Keyed &
       /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
       workflowName?: string;
       /**
-       * @deprecated Never rendered — pass `workflowUrl` instead. Several callers
-       * put a run link here and it went nowhere. Kept so those callers keep
-       * type-checking until they move; delete once none pass it.
+       * Запасное имя для ссылки на прогон: половина отправителей шлёт её как
+       * `--url`. Рендер берёт `workflowUrl ?? url`, так что оба имени работают.
+       * В новых вызовах предпочитай `workflowUrl` — оно говорит, куда ведёт.
        */
       url?: string;
     }
@@ -127,7 +127,7 @@ export type NotifyEvent = Keyed &
       commit?: string;
       /** Ссылка на коммит — хэш становится кликабельным. */
       commitUrl?: string;
-      /** Заголовок коммита (subject) — рендерится в цитате вместе с телом. */
+      /** Заголовок коммита (subject) — отдельное поле `Title:`, не цитата. */
       commitTitle?: string;
       /** Тело коммита (после subject) — та же цитата, что и заголовок. */
       commitBody?: string;
@@ -161,7 +161,7 @@ export type NotifyEvent = Keyed &
         | 'closed';
       number: number;
       title: string;
-      /** PR description — rendered in the same quote as the title, like an issue body. */
+      /** PR description — quoted on its own; the title is the `Title:` field above it. */
       body?: string;
       author?: string;
       reviewer?: string;
@@ -174,7 +174,7 @@ export type NotifyEvent = Keyed &
       action: 'opened' | 'assigned' | 'closed';
       number: number;
       title: string;
-      /** Тело задачи — рендерится в цитате вместе с заголовком. */
+      /** Тело задачи — цитата под полем `Title:`, отдельно от заголовка. */
       body?: string;
       author?: string;
       assignee?: string;

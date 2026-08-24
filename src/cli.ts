@@ -22,6 +22,7 @@
  */
 import { readFileSync } from 'node:fs';
 import type { NotifyEvent, Project } from './events.ts';
+import { KNOWN_FLAGS } from './cli-flags.ts';
 import { render } from './render.ts';
 import { notify } from './send.ts';
 import { setupTopic } from './setup.ts';
@@ -54,7 +55,7 @@ for (let i = 1; i < args.length; i++) {
   const arg = args[i];
 
   if (!arg.startsWith('--')) {
-    parseErrors.push(`лишний аргумент без флага: «${arg}»`);
+    parseErrors.push(`stray argument with no flag: "${arg}"`);
     continue;
   }
 
@@ -82,7 +83,7 @@ for (let i = 1; i < args.length; i++) {
   // ТЕРЯЛОСЬ ВСЁ сообщение, а `--status` без значения рисовал 🔴 на
   // успешном деплое. Теперь это явная ошибка разбора.
   if (next === undefined || next.startsWith('--')) {
-    parseErrors.push(`флаг --${key} без значения`);
+    parseErrors.push(`flag --${key} with no value`);
     continue;
   }
 
@@ -90,7 +91,14 @@ for (let i = 1; i < args.length; i++) {
   flags.set(key, [...(flags.get(key) ?? []), next]);
 }
 
+
 const one = (key: string): string | undefined => flags.get(key)?.[0];
+
+for (const key of flags.keys()) {
+  if (!KNOWN_FLAGS.has(key)) {
+    parseErrors.push(`unknown flag --${key}`);
+  }
+}
 
 // Число с явной ошибкой разбора, иначе рендер рисовал «PR #NaN».
 const num = (key: string): number => {
@@ -160,7 +168,7 @@ const prAction = (raw: string | undefined): PrAction => {
   const hit = PR_ALIASES[(raw ?? '').toLowerCase()];
 
   if (!hit) {
-    parseErrors.push(`--action: неизвестное действие PR «${raw ?? ''}» (${Object.keys(PR_ALIASES).join(', ')})`);
+    parseErrors.push(`--action: unknown PR action "${raw ?? ''}" (${Object.keys(PR_ALIASES).join(', ')})`);
 
     return 'opened';
   }
@@ -173,7 +181,7 @@ const issueAction = (raw: string | undefined): IssueAction => {
 
   if (!hit) {
     parseErrors.push(
-      `--action: неизвестное действие задачи «${raw ?? ''}» (${Object.keys(ISSUE_ALIASES).join(', ')})`
+      `--action: unknown issue action "${raw ?? ''}" (${Object.keys(ISSUE_ALIASES).join(', ')})`
     );
 
     return 'opened';
@@ -218,7 +226,9 @@ if (flags.has('json')) {
     // отправил бы событие другого типа.
     event = { ...payload, type: command } as NotifyEvent;
   } catch (err) {
-    log(`не удалось разобрать --json со stdin: ${err instanceof Error ? err.message : String(err)}`);
+    // Тоже в parseErrors: обе аналитики зовут CLI через `|| true`, и молчащий
+    // разбор JSON означал бы зелёный крон без дневного отчёта.
+    parseErrors.push(`--json from stdin did not parse: ${err instanceof Error ? err.message : String(err)}`);
   }
 } else {
   switch (command) {
@@ -345,7 +355,10 @@ if (flags.has('json')) {
       break;
     }
     default:
-      log(`неизвестный тип события: ${command ?? '(не указан)'}`);
+      // В parseErrors, а не просто в лог: иначе неизвестный тип уходил в
+      // тишину — событие не собиралось, ошибок разбора не было, и CLI выходил
+      // нулём, ничего не отправив и ничего об этом не сказав.
+      parseErrors.push(`unknown event type: ${command ?? '(none given)'}`);
   }
 }
 
@@ -393,7 +406,9 @@ if (event) {
   try {
     log(await notify(event));
   } catch (err) {
-    log(`не отправлено: ${err instanceof Error ? err.message : String(err)}`);
+    // Слово `failed` — контракт, тот же, что у ошибки разбора выше. Без него
+    // исключение при отправке читалось сторожами как «ничего не случилось».
+    log(`failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 

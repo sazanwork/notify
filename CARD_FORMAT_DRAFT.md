@@ -1,6 +1,6 @@
 # Card format — final, approved by owner on 20.08.2026
 
-**Status: approved in Telegram, not yet ported into `render.ts`.** Live-tested
+**Status: approved in Telegram and live in `render.ts` since 1.4.0.** Live-tested
 across ~15 rounds in the "Mac-config" Ops forum (chat_id `-1004442522004`,
 message_thread_id `2`), messages 169–182, each round checked against the
 Bot API's own entity response (not eyeballed) plus an independent

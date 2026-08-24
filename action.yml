@@ -29,6 +29,9 @@ inputs:
   job-name:
     description: Имя задачи (для job/heartbeat_miss) — CLI-флаг --job
     required: false
+  key:
+    description: 'Машинный ключ экземпляра — тег карточки и то, по чему разборщик находит пару «сломалось → починилось». Без него ключ строится из имени задачи и рвётся при переименовании.'
+    required: false
   note:
     required: false
   title:
@@ -113,6 +116,7 @@ runs:
         IN_TARGET: ${{ inputs.target }}
         IN_VIA: ${{ inputs.via }}
         IN_JOB: ${{ inputs.job-name }}
+        IN_KEY: ${{ inputs.key }}
         IN_NOTE: ${{ inputs.note }}
         IN_TITLE: ${{ inputs.title }}
         IN_PERIOD: ${{ inputs.period }}
@@ -168,6 +172,7 @@ runs:
         add --target   "$IN_TARGET"
         add --via      "$IN_VIA"
         add --job      "$IN_JOB"
+        add --key      "$IN_KEY"
         add --note     "$IN_NOTE"
         add --title    "$IN_TITLE"
         add --period   "$IN_PERIOD"
