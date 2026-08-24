@@ -545,7 +545,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     '#pr #p294',
     'ℹ️ <b>PR:</b> opened',
     '',
-    '<b>Pr:</b> <a href="https://x/p/294">#294</a>',
+    '<b>PR:</b> <a href="https://x/p/294">#294</a>',
     '<blockquote>Onboarding: question drafts',
     '',
     'PR description here.</blockquote>',

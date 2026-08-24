@@ -315,7 +315,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(PR_ICON[e.action], 'PR', e.action),
     '',
-    fieldLink('Pr', e.url, `#${e.number}`),
+    fieldLink('PR', e.url, `#${e.number}`),
     quoteWithBody(e.title, e.body, false),
     '',
     field('Author', e.author),
