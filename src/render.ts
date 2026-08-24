@@ -120,7 +120,12 @@ const fieldLink = (
     return null;
   }
 
-  return url ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(text)}</a>` : field(label, text);
+  // `firstLine` here for the same reason `field` has it: the linked case used to
+  // skip it, so a multi-line value (arvent's two-line `commit`) became two-line
+  // LINK TEXT instead of one identifier.
+  return url
+    ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(firstLine(text))}</a>`
+    : field(label, text);
 };
 
 /**
@@ -180,14 +185,21 @@ const renderGroup = (g: { name: string; items: Item[] }): string[] => [
  * до первой строки — subject не должен тащить в цитату собственное тело
  * под-коммита), тело — через пустую строку, если есть.
  */
-const commitQuote = (title: string | undefined, body: string | undefined): string | null => {
+const quoteWithBody = (
+  title: string | undefined,
+  body: string | undefined,
+  trimTitle: boolean
+): string | null => {
   if (!title && !body) {
     return null;
   }
-  const text = [title ? firstLine(title) : undefined, body].filter(Boolean).join('\n\n');
+  const head = title ? (trimTitle ? firstLine(title) : title) : undefined;
 
-  return note(text);
+  return note([head, body].filter(Boolean).join('\n\n'));
 };
+
+const commitQuote = (title: string | undefined, body: string | undefined): string | null =>
+  quoteWithBody(title, body, true);
 
 type Renderer<E extends NotifyEvent> = (e: E) => string;
 
@@ -218,15 +230,25 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
 const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   const icon = e.status === 'fail' || e.status === 'disabled' ? ICON.red : ICON.ok;
   const hasItems = (e.items ?? []).length > 0;
+  const disabledList = hasItems && e.status === 'disabled';
 
   return join([
     typeLine(icon, 'Job', e.status),
     '',
+    // The name is NOT the type line: line 2 is `Job: fail` by the format's own
+    // rule, so the name is its own field. Called `Task:` and not `Job:` because
+    // repeating the label of the line right above it reads as a mistake.
+    // Until now the name was dropped entirely — every caller passed it and the
+    // owner only ever saw it as the small grey instance tag.
+    field('Task', e.job),
     field('Reason', e.note),
     ...(e.stats ?? []).map(([label, value]) => field(label, value)),
     hasItems ? '' : null,
-    hasItems ? group('Disabled workflows') : null,
-    ...(hasItems && e.status === 'disabled' ? bullets(e.items, true) : hasItems ? bullets(e.items, false) : []),
+    // Heading ONLY for `disabled`. It used to print for any job carrying a
+    // list, so playhub's daily card of newly published games was headed
+    // "Disabled workflows".
+    disabledList ? group('Disabled workflows') : null,
+    ...(hasItems ? bullets(e.items, disabledList) : []),
     e.workflowUrl ? '' : null,
     fieldAction('Workflow', e.workflowUrl, e.workflowName)
   ]);
@@ -259,6 +281,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
     fieldLink('Commit', e.commitUrl, e.commit),
     commitQuote(e.commitTitle, e.commitBody),
     field('Actor', e.actor),
+    field('Reason', e.note),
     e.workflowUrl ? '' : null,
     fieldAction('Workflow', e.workflowUrl, e.workflowName)
   ]);
@@ -289,7 +312,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
     typeLine(PR_ICON[e.action], 'PR', e.action),
     '',
     fieldLink('Pr', e.url, `#${e.number}`),
-    note(e.title),
+    quoteWithBody(e.title, e.body, false),
     '',
     field('Author', e.author),
     field('Reviewer', e.reviewer)
@@ -309,7 +332,12 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
   join([
     typeLine(ICON.alarm, 'Incident', 'open'),
     '',
-    field('Reason', e.detail ?? e.title),
+    // `detail` is a diagnosis of several lines (vault greps three of them plus a
+    // log path). It used to go through `field`, which keeps only the first line,
+    // so every alarm this package ever sent arrived gutted. Same shape as a
+    // commit now: short label, full text quoted under it.
+    field('Reason', e.title),
+    e.detail && e.detail !== e.title ? note(e.detail) : null,
     e.logs || e.url ? '' : null,
     fieldCode('Logs', e.logs),
     fieldAction('Workflow', e.url, undefined)

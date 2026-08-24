@@ -148,11 +148,20 @@ runs:
         if [ -n "$IN_STATUS" ]; then
           case "$IN_STATUS" in
             success|ok) ARGS+=(--status ok) ;;
+            # `disabled` passes through instead of collapsing to `fail`: a job
+            # switched off from outside did not fail on its own, and the package
+            # draws it its own way. Rewriting it here made the third state
+            # unreachable from any workflow.
+            disabled)   ARGS+=(--status disabled) ;;
             *)          ARGS+=(--status fail) ;;
           esac
         fi
 
-        add() { [ -n "$2" ] && ARGS+=("$1" "$2"); return 0; }
+        # `--flag=value`, never `--flag value`: the CLI rejects a value that
+        # starts with two dashes, so an issue body or commit body beginning with
+        # `---` (ordinary markdown) killed the whole card — silently, because the
+        # CLI always exits 0.
+        add() { [ -n "$2" ] && ARGS+=("$1=$2"); return 0; }
         add --commit   "$IN_COMMIT"
         add --commit-url "$IN_COMMIT_URL"
         add --url      "$IN_URL"
@@ -194,7 +203,7 @@ runs:
         # job с цифрами, ни report вообще (у него все данные в --line).
         repeat() { # $1 = флаг, $2 = многострочное значение
           while IFS= read -r line; do
-            [ -n "$line" ] && ARGS+=("$1" "$line")
+            [ -n "$line" ] && ARGS+=("$1=$line")
           done <<< "$2"
           return 0
         }
@@ -203,8 +212,21 @@ runs:
         repeat --item "$IN_ITEMS"
 
         if [ "$IN_EVENT" = "ci" ]; then
-          ARGS+=(--branch "${IN_BRANCH:-$GH_REF_NAME}" --actor "${IN_ACTOR:-$GH_ACTOR}")
+          ARGS+=("--branch=${IN_BRANCH:-$GH_REF_NAME}" "--actor=${IN_ACTOR:-$GH_ACTOR}")
         fi
+
+        # The `commit:` field is the IDENTIFIER — a short hash that links to the
+        # commit. The human text belongs in the quote below it, which
+        # commit-title/commit-body already fill. Without this default every
+        # caller had to build the hash itself, and not one of them did: they put
+        # the subject there instead, so the card repeated the same line twice
+        # and the hash was nowhere. `${GITHUB_SHA:0:7}` needs bash — GitHub
+        # expressions have no substring function, so it cannot be an input
+        # `default:`.
+        case "$IN_EVENT" in
+          deploy|ci) [ -z "$IN_COMMIT" ] && [ -n "$GITHUB_SHA" ] \
+            && ARGS+=("--commit=${GITHUB_SHA:0:7}") ;;
+        esac
 
         OUT=$(node "$ACTION_PATH/src/cli.ts" "$IN_EVENT" "${ARGS[@]}" 2>&1) || true
         printf '%s\n' "$OUT"

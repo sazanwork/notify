@@ -22,6 +22,7 @@
  */
 import { readFileSync } from 'node:fs';
 import type { NotifyEvent, Project } from './events.ts';
+import { render } from './render.ts';
 import { notify } from './send.ts';
 import { setupTopic } from './setup.ts';
 
@@ -47,7 +48,7 @@ const flags = new Map<string, string[]>();
 const parseErrors: string[] = [];
 
 /** Флаги без значения. Всё остальное обязано его иметь. */
-const BOOLEAN_FLAGS = new Set(['json', 'recovered']);
+const BOOLEAN_FLAGS = new Set(['json', 'recovered', 'dry-run']);
 
 for (let i = 1; i < args.length; i++) {
   const arg = args[i];
@@ -274,6 +275,7 @@ if (flags.has('json')) {
         commitTitle: one('commit-title'),
         commitBody: one('commit-body'),
         actor: one('actor'),
+        note: one('note'),
         workflowUrl: one('workflow-url'),
         workflowName: one('workflow-name'),
         url: one('url')
@@ -286,6 +288,7 @@ if (flags.has('json')) {
         action: prAction(one('action')),
         number: num('number'),
         title: one('title') ?? '(без заголовка)',
+        body: one('body'),
         author: one('author'),
         reviewer: one('reviewer'),
         url: one('url')
@@ -359,7 +362,27 @@ if (parseErrors.length > 0) {
   for (const err of parseErrors) {
     log(err);
   }
-  log('событие не отправлено — исправь команду');
+  // The word `failed` is a CONTRACT, not prose. Two readers match on it: the
+  // GitHub Action turns it into a yellow annotation, and the VPS watchdog reads
+  // the combined stream for `sent|failed|skipped`. Before this, a parse error
+  // printed neither word — the run stayed green, the watchdog stayed quiet, and
+  // the card simply never existed.
+  // It must NOT contain the substring `sent`: heartbeat-check.sh matches `*sent*`
+  // and would read a failure as a success.
+  log('failed: bad command, nothing delivered');
+  process.exit(0);
+}
+
+if (event && flags.has('dry-run')) {
+  // The rendered card on STDOUT, nothing sent and no token needed. This is how
+  // a change to the format is shown to the owner before it reaches a forum, and
+  // how ~25 edited call sites are checked one by one — the package always exits
+  // 0, so a typo in a flag is otherwise silent.
+  //
+  // stdout, not stderr: every other line this CLI prints goes to stderr, and
+  // watchdogs read that stream for the words `sent|failed|skipped`. A card
+  // printed there would be read as a verdict.
+  process.stdout.write(`${render(event)}\n`);
   process.exit(0);
 }
 

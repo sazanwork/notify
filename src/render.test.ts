@@ -322,12 +322,27 @@ test('deploy: reason поясняет отмену/пропуск — тем ж�
   assert.ok(!out.includes('<blockquote>отменён'), 'reason — поле, не цитата');
 });
 
-test('note: длинный текст сворачивается (expandable), короткий — нет', () => {
-  const short = render({ type: 'incident', project: 'playhub', title: 'x', detail: 'коротко' });
-  const long = render({ type: 'incident', project: 'playhub', title: 'x', detail: 'А'.repeat(500) });
+test('incident: detail is quoted in full, never cut to its first line', () => {
+  // This test used to assert the opposite — that a long detail stayed a
+  // one-line field. That WAS the bug: `field()` keeps only the first line, and
+  // vault (the only sender of this type) passes a three-line diagnosis, so
+  // every alarm arrived gutted. Reason now carries the short title and the
+  // diagnosis is quoted under it, the same shape a commit body already had.
+  const multiline = 'нет sops\nключ не найден\nлог: ~/Library/Logs/vault.log';
+  const short = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: multiline });
+  const long = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'А'.repeat(500) });
 
-  assert.ok(short.includes('<b>Reason:</b> коротко'), 'короткая причина у incident — поле, не цитата');
-  assert.ok(long.includes('<b>Reason:</b>'), 'длинная причина остаётся полем: сворачивание касается только цитат коммита/задачи');
+  assert.ok(short.includes('<b>Reason:</b> Vault needs a fix'), 'заголовок аварии — поле Reason');
+  assert.ok(short.includes('лог: ~/Library/Logs/vault.log'), 'последняя строка диагноза потеряна — вернулась обрезка');
+  assert.ok(short.includes('<blockquote>'), 'диагноз должен идти цитатой');
+  assert.ok(long.includes('<blockquote expandable>'), 'длинный диагноз сворачивается');
+});
+
+test('incident: detail equal to title is not printed twice', () => {
+  const out = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'Vault needs a fix' });
+
+  assert.ok(out.includes('<b>Reason:</b> Vault needs a fix'));
+  assert.ok(!out.includes('<blockquote>'), 'цитата повторяет заголовок — образец это запрещает');
 });
 
 test('multiline commit title режется до первой строки (защита от полного тела в поле)', () => {
@@ -369,4 +384,256 @@ test('severity: job disabled звонит как fail, heartbeat recovered — �
   assert.equal(severity({ type: 'job', project: 'arvent', job: 'x', status: 'disabled' }), 'error');
   assert.equal(severity({ type: 'heartbeat_miss', project: 'arvent', job: 'x', recovered: true }), 'info');
   assert.equal(severity({ type: 'heartbeat_miss', project: 'arvent', job: 'x' }), 'error');
+});
+
+// ─── Full-card snapshots, one per event type ───────────────────────────────
+//
+// `assert.equal` on the WHOLE card, not `assert.match` on a fragment. The
+// fragment tests above cannot see a blank line appear or vanish, and blank
+// lines are what the approved format is made of: header block, object block,
+// actions block. A card that silently loses the blank before `Workflow:` still
+// passed every test in this file before these existed.
+//
+// When one of these fails, read the diff as a question — "was this change
+// meant?" — not as a chore. The owner approves the card shapes type by type.
+
+test('card/job fail: task name is on the card, not only in the tag', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', key: 'vps-backups',
+    job: 'Backups from the server', status: 'fail',
+    note: 'no fresh copy arrived from the server'
+  });
+
+  assert.equal(out, [
+    '#job #vps_backups',
+    '🔴 <b>Job:</b> fail',
+    '',
+    '<b>Task:</b> Backups from the server',
+    '<b>Reason:</b> no fresh copy arrived from the server'
+  ].join('\n'));
+});
+
+test('card/job with items: no "Disabled workflows" heading unless disabled', () => {
+  const out = render({
+    type: 'job', project: 'playhub', key: 'daily-import',
+    job: 'Game import', status: 'ok',
+    stats: [['published', '9']],
+    items: [{ text: 'Cut the Rope', url: 'https://x/1' }]
+  });
+
+  assert.equal(out, [
+    '#job #daily_import',
+    '✅ <b>Job:</b> ok',
+    '',
+    '<b>Task:</b> Game import',
+    '<b>Published:</b> 9',
+    '',
+    '• <a href="https://x/1">Cut the Rope</a>'
+  ].join('\n'));
+});
+
+test('card/job disabled: heading present, list numbered', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', key: 'actions-minutes-guard',
+    job: 'GitHub Actions minutes watchdog', status: 'disabled',
+    note: 'free minutes almost gone',
+    items: [{ text: 'arvent/nightly.yml' }, { text: 'one-q/quality.yml' }]
+  });
+
+  assert.equal(out, [
+    '#job #actions_minutes_guard',
+    '🔴 <b>Job:</b> disabled',
+    '',
+    '<b>Task:</b> GitHub Actions minutes watchdog',
+    '<b>Reason:</b> free minutes almost gone',
+    '',
+    '<i><u>Disabled workflows</u></i>',
+    '1. arvent/nightly.yml',
+    '2. one-q/quality.yml'
+  ].join('\n'));
+});
+
+test('card/ci: commit hash links, body quoted under it', () => {
+  const out = render({
+    type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
+    commit: '9b1fc68', commitUrl: 'https://x/c',
+    commitTitle: 'Онбординг: заготовки вопросов (#294)',
+    commitBody: 'Тело коммита, написанное человеком.',
+    actor: '@chelsnebes', workflowUrl: 'https://x/run'
+  });
+
+  assert.equal(out, [
+    '#ci #master',
+    '✅ <b>CI:</b> ok',
+    '',
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
+    '<blockquote>Онбординг: заготовки вопросов (#294)',
+    '',
+    'Тело коммита, написанное человеком.</blockquote>',
+    '<b>Actor:</b> @chelsnebes',
+    '',
+    '<b>Workflow:</b> <a href="https://x/run">run</a>'
+  ].join('\n'));
+});
+
+test('card/ci scheduled: a run with no commit body still says why it ran', () => {
+  const out = render({
+    type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
+    commit: '9b1fc68', commitUrl: 'https://x/c',
+    note: 'nightly check of master', workflowUrl: 'https://x/run'
+  });
+
+  assert.equal(out, [
+    '#ci #master',
+    '✅ <b>CI:</b> ok',
+    '',
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
+    '<b>Reason:</b> nightly check of master',
+    '',
+    '<b>Workflow:</b> <a href="https://x/run">run</a>'
+  ].join('\n'));
+});
+
+test('card/deploy', () => {
+  const out = render({
+    type: 'deploy', project: 'playhub', status: 'ok',
+    commit: 'a1b2c3d', commitUrl: 'https://x/c', commitTitle: 'feat: new landing',
+    via: 'GitHub Actions', workflowUrl: 'https://x/run'
+  });
+
+  assert.equal(out, [
+    '#deploy #playhub',
+    '✅ <b>Deploy:</b> ok',
+    '',
+    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a>',
+    '<blockquote>feat: new landing</blockquote>',
+    '<b>Via:</b> GitHub Actions',
+    '',
+    '<b>Workflow:</b> <a href="https://x/run">run</a>'
+  ].join('\n'));
+});
+
+test('card/issue: body arrives — it never did before', () => {
+  const out = render({
+    type: 'issue', project: 'mac-config', action: 'opened', number: 322,
+    title: 'Commit convention for all repos',
+    body: 'Тело задачи с GitHub, как его написал человек.',
+    author: 'mikitasazan', url: 'https://x/i/322'
+  });
+
+  assert.equal(out, [
+    '#issue #i322',
+    'ℹ️ <b>Issue:</b> opened',
+    '',
+    '<b>Issue:</b> <a href="https://x/i/322">#322</a>',
+    '<blockquote>Commit convention for all repos',
+    '',
+    'Тело задачи с GitHub, как его написал человек.</blockquote>',
+    '<b>Author:</b> mikitasazan'
+  ].join('\n'));
+});
+
+test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
+  const out = render({
+    type: 'pr', project: 'playhub', action: 'opened', number: 294,
+    title: 'Onboarding: question drafts',
+    body: 'PR description here.',
+    author: 'Ilja-Prihach', url: 'https://x/p/294'
+  });
+
+  assert.equal(out, [
+    '#pr #p294',
+    'ℹ️ <b>PR:</b> opened',
+    '',
+    '<b>Pr:</b> <a href="https://x/p/294">#294</a>',
+    '<blockquote>Onboarding: question drafts',
+    '',
+    'PR description here.</blockquote>',
+    '',
+    '<b>Author:</b> Ilja-Prihach'
+  ].join('\n'));
+
+  // Issue titles are trimmed to their first line, PR titles never were — the
+  // difference is deliberate until the owner rules on it.
+  const twoLine = render({
+    type: 'pr', project: 'playhub', action: 'opened', number: 1,
+    title: 'first line\nsecond line'
+  });
+  assert.ok(twoLine.includes('second line'), 'PR title lost its second line');
+});
+
+test('card/incident: every line of the diagnosis survives', () => {
+  const out = render({
+    type: 'incident', project: 'vault', title: 'Vault needs a fix',
+    detail: 'нет sops\nключ не найден\nлог: ~/Library/Logs/vault.log',
+    logs: '~/Library/Logs/vault.log'
+  });
+
+  assert.equal(out, [
+    '#incident #vault_needs_a_fix',
+    '🚨 <b>Incident:</b> open',
+    '',
+    '<b>Reason:</b> Vault needs a fix',
+    '<blockquote>нет sops',
+    'ключ не найден',
+    'лог: ~/Library/Logs/vault.log</blockquote>',
+    '',
+    '<b>Logs:</b> <code>~/Library/Logs/vault.log</code>'
+  ].join('\n'));
+});
+
+test('card/heartbeat miss', () => {
+  const out = render({
+    type: 'heartbeat_miss', project: 'playhub', job: 'Yandex game import',
+    expected: 'at least once every 26h', lastSeen: 'never'
+  });
+
+  assert.equal(out, [
+    '#heartbeat #yandex_game_import',
+    '🔴 <b>Heartbeat:</b> miss',
+    '',
+    '<b>Reason:</b> Yandex game import — no reports — expected at least once every 26h, last seen never'
+  ].join('\n'));
+});
+
+test('card/file: caption is clamped at 1024, not 4000', () => {
+  const out = render({
+    type: 'file', project: 'arvent', title: 'Eval dialogues',
+    path: '/tmp/x.txt', note: 'Ц'.repeat(4000)
+  });
+
+  assert.ok(out.length <= 1024, `caption ${out.length} chars — Telegram cuts at 1024`);
+  assert.ok(out.startsWith('#file #eval_dialogues\nℹ️ <b>File:</b> new'));
+});
+
+test('card/report', () => {
+  const out = render({
+    type: 'report', project: 'playhub', title: 'Analytics', period: 'compared to 23.08',
+    lines: [['Pageviews (server)', '1284'], ['Game launches', '412']],
+    items: [{ text: 'query — 12 clicks', url: 'https://x/q' }]
+  });
+
+  assert.equal(out, [
+    '#report #analytics',
+    'ℹ️ <b>Report:</b> Analytics · compared to 23.08',
+    '',
+    '<b>Pageviews (server):</b> 1284',
+    '<b>Game launches:</b> 412',
+    '',
+    '• <a href="https://x/q">query — 12 clicks</a>'
+  ].join('\n'));
+});
+
+test('fieldLink: a multi-line value does not become multi-line link text', () => {
+  // arvent's nightly workflow passes a two-line `commit`. `fieldLink` skipped
+  // the first-line trim that `field` applies, so both lines ended up inside the
+  // <a> tag.
+  const out = render({
+    type: 'ci', project: 'arvent', status: 'ok',
+    commit: 'ночная проверка master\nполная проверка: success',
+    commitUrl: 'https://x/c'
+  });
+
+  assert.ok(out.includes('>ночная проверка master…</a>'), 'link text not trimmed to one line');
+  assert.ok(!out.includes('полная проверка'), 'second line leaked into the link');
 });

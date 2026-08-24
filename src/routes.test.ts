@@ -49,21 +49,56 @@ test('у каждого проекта из ROUTES свой форум — об�
  * spawnSync, а не execFileSync: последний отдаёт stderr лишь когда процесс упал,
  * а тут весь смысл в выводе процесса, который ОБЯЗАН вернуть 0.
  */
-const runCli = (...args: string[]): { code: number; stderr: string } => {
+const runCli = (...args: string[]): { code: number; stderr: string; stdout: string } => {
   const res = spawnSync(process.execPath, [fileURLToPath(new URL('cli.ts', import.meta.url)), ...args], {
     encoding: 'utf-8',
     env: { ...process.env, OPS_BOT_TOKEN: '' }
   });
 
-  return { code: res.status ?? -1, stderr: res.stderr };
+  return { code: res.status ?? -1, stderr: res.stderr, stdout: res.stdout };
 };
+
+test('значение, начинающееся с двух дефисов, доезжает через форму --флаг=значение', () => {
+  // A GitHub issue body very often opens with `---` (markdown front matter or a
+  // horizontal rule). Passed as a separate argument it is read as a flag, the
+  // command is rejected and the card is lost — silently, because this CLI
+  // always exits 0. Callers must use the `=` form; this test is what stops the
+  // separate-argument form coming back.
+  const body = '---\ntitle: front matter\n---\nНастоящее тело.';
+
+  const split = runCli('issue', '--project', 'mac-config', '--action', 'opened',
+    '--number', '322', '--title', 'T', '--body', body, '--dry-run');
+  assert.match(split.stderr, /failed:/, 'разделённая форма обязана быть явной ошибкой');
+  assert.equal(split.stdout, '', 'карточка не должна рендериться из битой команды');
+
+  const joined = runCli('issue', '--project=mac-config', '--action=opened',
+    '--number=322', '--title=T', `--body=${body}`, '--dry-run');
+  assert.equal(joined.code, 0);
+  assert.ok(joined.stdout.includes('Настоящее тело.'), 'тело задачи потеряно');
+  assert.ok(joined.stdout.includes('title: front matter'), 'начало тела съедено');
+});
+
+test('--dry-run печатает карточку в stdout и ничего не отправляет', () => {
+  // stdout, not stderr: watchdogs read stderr for `sent|failed|skipped`, and a
+  // card printed there would be read as a verdict.
+  const { code, stdout, stderr } = runCli('job', '--project=vault', '--job=Self-check',
+    '--status=fail', '--note=sops missing', '--dry-run');
+
+  assert.equal(code, 0);
+  assert.ok(stdout.startsWith('#job #self_check\n🔴 <b>Job:</b> fail'), stdout);
+  assert.ok(stdout.includes('<b>Task:</b> Self-check'));
+  assert.doesNotMatch(stderr, /sent|skipped|failed/, 'сухой прогон не должен выдавать вердикт');
+});
 
 test('флаг без значения — явная ошибка, а не href="true"', () => {
   const { code, stderr } = runCli('deploy', '--project', 'playhub', '--status', 'ok', '--url');
 
   assert.equal(code, 0);
   assert.match(stderr, /--url без значения/);
-  assert.match(stderr, /событие не отправлено/);
+  // `failed` is what the Action and the VPS watchdog match on; `sent` must not
+  // appear, or heartbeat-check.sh reads this failure as a success.
+  assert.match(stderr, /failed:/);
+  assert.ok(!/sent/.test(stderr), 'слово sent в отказе — сторож примет его за успех');
   // И ничего не улетело: до отправки дело не дошло, значит нет ни sent, ни skipped.
   assert.doesNotMatch(stderr, /skipped/);
 });

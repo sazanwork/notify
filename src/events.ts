@@ -88,6 +88,11 @@ export type NotifyEvent = Keyed &
       workflowUrl?: string;
       /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
       workflowName?: string;
+      /**
+       * @deprecated Never rendered — pass `workflowUrl` instead. Several callers
+       * put a run link here and it went nowhere. Kept so those callers keep
+       * type-checking until they move; delete once none pass it.
+       */
       url?: string;
     }
   /** Сводка с цифрами: дневной отчёт, дайджест аналитики. */
@@ -127,6 +132,11 @@ export type NotifyEvent = Keyed &
       /** Тело коммита (после subject) — та же цитата, что и заголовок. */
       commitBody?: string;
       actor?: string;
+      /**
+       * Why this run happened, when there is no commit to point at: a nightly
+       * schedule, a manual press. Renders as `Reason:`, same as on deploy.
+       */
+      note?: string;
       /** Ссылка на прогон (workflow run) — отдельно от `url`, который у CI не используется. */
       workflowUrl?: string;
       /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
@@ -151,6 +161,8 @@ export type NotifyEvent = Keyed &
         | 'closed';
       number: number;
       title: string;
+      /** PR description — rendered in the same quote as the title, like an issue body. */
+      body?: string;
       author?: string;
       reviewer?: string;
       url?: string;
