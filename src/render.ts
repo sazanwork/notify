@@ -219,8 +219,8 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   return join([
     typeLine(icon, 'Deploy', e.status),
     '',
-    titleField(e.commitTitle),
     fieldLink('Commit', e.commitUrl, e.commit),
+    titleField(e.commitTitle),
     bodyQuote(e.commitBody),
     field('Via', e.via),
     field('Target', e.target),
@@ -281,8 +281,8 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   return join([
     typeLine(icon, 'CI', e.status),
     '',
-    titleField(e.commitTitle),
     fieldLink('Commit', e.commitUrl, e.commit),
+    titleField(e.commitTitle),
     bodyQuote(e.commitBody),
     field('Actor', e.actor),
     field('Reason', e.note),
@@ -315,8 +315,10 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(PR_ICON[e.action], 'PR', e.action),
     '',
-    titleField(e.title),
+    // Идентификатор первым, заголовок под ним: так вещь читается «#118, вот
+    // такая», а не «вот такая, кстати #118» — и так её пишет сам GitHub.
     fieldLink('Number', e.url, `#${e.number}`),
+    titleField(e.title),
     bodyQuote(e.body),
     // Без пустой строки перед автором: у задачи её нет, и одно и то же поле
     // не должно стоять по-разному в двух соседних карточках. Пустая строка в
@@ -329,8 +331,8 @@ const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
     typeLine(ISSUE_ICON[e.action], 'Issue', e.action),
     '',
-    titleField(e.title),
     fieldLink('Number', e.url, `#${e.number}`),
+    titleField(e.title),
     bodyQuote(e.body),
     field('Author', e.author),
     field('Assignee', e.assignee)

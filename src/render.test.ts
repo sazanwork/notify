@@ -471,8 +471,8 @@ test('card/ci: commit hash links, body quoted under it', () => {
     '#ci #master',
     '✅ <b>CI:</b> ok',
     '',
-    '<b>Title:</b> Онбординг: заготовки вопросов (#294)',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
+    '<b>Title:</b> Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>',
     '<b>Actor:</b> @chelsnebes',
     '',
@@ -509,8 +509,8 @@ test('card/deploy', () => {
     '#deploy #playhub',
     '✅ <b>Deploy:</b> ok',
     '',
-    '<b>Title:</b> feat: new landing',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a>',
+    '<b>Title:</b> feat: new landing',
     '<b>Via:</b> GitHub Actions',
     '',
     '<b>Workflow:</b> <a href="https://x/run">open</a>'
@@ -529,8 +529,8 @@ test('card/issue: body arrives — it never did before', () => {
     '#issue #i322',
     'ℹ️ <b>Issue:</b> opened',
     '',
-    '<b>Title:</b> Commit convention for all repos',
     '<b>Number:</b> <a href="https://x/i/322">#322</a>',
+    '<b>Title:</b> Commit convention for all repos',
     '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '<b>Author:</b> mikitasazan'
   ].join('\n'));
@@ -548,8 +548,8 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     '#pr #p294',
     'ℹ️ <b>PR:</b> opened',
     '',
-    '<b>Title:</b> Onboarding: question drafts',
     '<b>Number:</b> <a href="https://x/p/294">#294</a>',
+    '<b>Title:</b> Onboarding: question drafts',
     '<blockquote>PR description here.</blockquote>',
     '<b>Author:</b> Ilja-Prihach'
   ].join('\n'));
