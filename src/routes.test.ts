@@ -186,3 +186,16 @@ test('каждое имя флага, которое читает код, объ
 
   assert.deepEqual(missing, [], `эти флаги читаются, но не объявлены: ${missing.join(', ')}`);
 });
+
+test('ошибка разбора не возвращает слово-контракт из ввода', () => {
+  // `sent`, `failed`, `skipped` читают другие программы: notify-fail.sh грепает
+  // `^[notify] sent$`, серверный сторож молчания матчит `*sent*`. Вызов
+  // `notify sent --project=x` печатал `unknown event type: sent`, и сторож
+  // читал недоставленную карточку как доставленную, после чего переставал
+  // повторять тревогу. Нашёл Codex 25.08.2026.
+  const res = runCli('sent', '--project=playhub', '--status=fail');
+
+  assert.ok(res.stderr.includes('failed:'), 'провал обязан назвать себя');
+  assert.ok(!/\bsent\b/.test(res.stderr), `слово-контракт вернулось из ввода: ${res.stderr}`);
+  assert.match(res.stderr, /event type: s.ent/, 'имя события должно остаться узнаваемым');
+});

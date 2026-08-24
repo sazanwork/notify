@@ -75,13 +75,26 @@ export const clampMessage = (text: string, limit = 4000): string => {
   // Telegram отвечает на такое 400 — то есть карточка пропадала целиком, а
   // отправитель с `|| true` этого не замечал. Нашёл Codex; воспроизводится
   // отчётом с именем группы в 5000 знаков.
-  const tail = ['b', 'a', 'i', 'u', 'code', 'blockquote']
-    .filter((t) => {
-      const opened = (body.match(new RegExp(`<${t}[ >]`, 'g')) ?? []).length;
-      const closed = (body.match(new RegExp(`</${t}>`, 'g')) ?? []).length;
-
-      return opened > closed;
-    })
+  //
+  // Порядок закрытия — обратный порядку ОТКРЫТИЯ, а не фиксированный список.
+  // Фиксированный список закрывал `<i><u>` как `</i></u>`: тегов поровну,
+  // счётчик сходится, вложенность нарушена, и Telegram отвечает тем же 400.
+  // Второй заход того же бага (25.08.2026), поэтому теперь порядок берётся из
+  // самого текста: последний открытый закрывается первым.
+  const open: string[] = [];
+  const tagRe = /<(\/?)(b|a|i|u|code|blockquote)[ >]/g;
+  for (let m = tagRe.exec(body); m !== null; m = tagRe.exec(body)) {
+    if (m[1] === '/') {
+      const at = open.lastIndexOf(m[2]);
+      if (at !== -1) {
+        open.splice(at, 1);
+      }
+    } else {
+      open.push(m[2]);
+    }
+  }
+  const tail = open
+    .reverse()
     .map((t) => `</${t}>`)
     .join('');
 
@@ -504,7 +517,7 @@ export const render = (e: NotifyEvent): string => {
   // строка, и неизвестное значение роняло процесс через `renderer is not a
   // function`. Падать из-за уведомления нельзя.
   if (typeof renderer !== 'function') {
-    throw new Error(`неизвестный тип события: ${String(e.type)}`);
+    throw new Error(`unknown event type: ${String(e.type)}`);
   }
 
   const tags = tagsLine(e);

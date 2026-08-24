@@ -29,6 +29,20 @@ import { setupTopic } from './setup.ts';
 
 const log = (msg: string): void => console.error(`[notify] ${msg}`);
 
+/**
+ * Anything taken from the caller and echoed into a message goes through this.
+ *
+ * `sent`, `failed` and `skipped` are a CONTRACT: `notify-fail.sh` greps
+ * `^\[notify\] sent$`, the server-side silence watchdog matches `*sent*`, and
+ * `action.yml` warns on `*failed*|*skipped*`. An input value carrying one of
+ * those words puts it on stderr — `notify sent --project=x` printed
+ * `unknown event type: sent`, and the watchdog read a card that was never
+ * delivered as delivered, then stopped repeating the alarm. Found by Codex,
+ * 25.08.2026.
+ */
+const safe = (v: unknown): string =>
+  String(v ?? '').replace(/\b(sent|failed|skipped)\b/gi, (w) => `${w[0]}·${w.slice(1)}`);
+
 const args = process.argv.slice(2);
 const command = args[0];
 
@@ -36,8 +50,8 @@ if (command === 'setup') {
   const [, chatId, projectKey] = args;
 
   if (!chatId || !projectKey) {
-    log('использование: notify setup <chat_id форума> <ключ-проекта>');
-    log('  сначала создай группу, включи в ней «Темы» и добавь бота админом');
+    log('usage: notify setup <forum chat_id> <project key>');
+    log('  create the group first, turn Topics on in it, add the bot as admin');
     process.exit(0);
   }
 
@@ -55,7 +69,7 @@ for (let i = 1; i < args.length; i++) {
   const arg = args[i];
 
   if (!arg.startsWith('--')) {
-    parseErrors.push(`stray argument with no flag: "${arg}"`);
+    parseErrors.push(`stray argument with no flag: "${safe(arg)}"`);
     continue;
   }
 
@@ -83,7 +97,7 @@ for (let i = 1; i < args.length; i++) {
   // ТЕРЯЛОСЬ ВСЁ сообщение, а `--status` без значения рисовал 🔴 на
   // успешном деплое. Теперь это явная ошибка разбора.
   if (next === undefined || next.startsWith('--')) {
-    parseErrors.push(`flag --${key} with no value`);
+    parseErrors.push(`flag --${safe(key)} with no value`);
     continue;
   }
 
@@ -96,7 +110,7 @@ const one = (key: string): string | undefined => flags.get(key)?.[0];
 
 for (const key of flags.keys()) {
   if (!KNOWN_FLAGS.has(key)) {
-    parseErrors.push(`unknown flag --${key}`);
+    parseErrors.push(`unknown flag --${safe(key)}`);
   }
 }
 
@@ -106,7 +120,7 @@ const num = (key: string): number => {
   const n = Number(raw);
 
   if (raw === undefined || Number.isNaN(n)) {
-    parseErrors.push(`--${key}: ожидается число, получено «${raw ?? ''}»`);
+    parseErrors.push(`--${safe(key)}: expected a number, got "${safe(raw)}"`);
 
     return 0;
   }
@@ -168,7 +182,7 @@ const prAction = (raw: string | undefined): PrAction => {
   const hit = PR_ALIASES[(raw ?? '').toLowerCase()];
 
   if (!hit) {
-    parseErrors.push(`--action: unknown PR action "${raw ?? ''}" (${Object.keys(PR_ALIASES).join(', ')})`);
+    parseErrors.push(`--action: unknown PR action "${safe(raw)}" (${Object.keys(PR_ALIASES).join(', ')})`);
 
     return 'opened';
   }
@@ -228,7 +242,7 @@ if (flags.has('json')) {
   } catch (err) {
     // Тоже в parseErrors: обе аналитики зовут CLI через `|| true`, и молчащий
     // разбор JSON означал бы зелёный крон без дневного отчёта.
-    parseErrors.push(`--json from stdin did not parse: ${err instanceof Error ? err.message : String(err)}`);
+    parseErrors.push(`--json from stdin did not parse: ${safe(err instanceof Error ? err.message : err)}`);
   }
 } else {
   switch (command) {
@@ -253,7 +267,7 @@ if (flags.has('json')) {
       event = {
         type: 'job',
         project: project(),
-        job: one('job') ?? '(без имени)',
+        job: one('job') ?? '(no name)',
         status: jobStatus(),
         stats: pairs('stat'),
         items: items(),
@@ -267,7 +281,7 @@ if (flags.has('json')) {
       event = {
         type: 'report',
         project: project(),
-        title: one('title') ?? '(без заголовка)',
+        title: one('title') ?? '(no title)',
         period: one('period'),
         lines: pairs('line'),
         items: items(),
@@ -297,7 +311,7 @@ if (flags.has('json')) {
         project: project(),
         action: prAction(one('action')),
         number: num('number'),
-        title: one('title') ?? '(без заголовка)',
+        title: one('title') ?? '(no title)',
         body: one('body'),
         author: one('author'),
         reviewer: one('reviewer'),
@@ -310,7 +324,7 @@ if (flags.has('json')) {
         project: project(),
         action: issueAction(one('action')),
         number: num('number'),
-        title: one('title') ?? '(без заголовка)',
+        title: one('title') ?? '(no title)',
         body: one('body'),
         author: one('author'),
         assignee: one('assignee'),
@@ -321,7 +335,7 @@ if (flags.has('json')) {
       event = {
         type: 'incident',
         project: project(),
-        title: one('title') ?? '(без заголовка)',
+        title: one('title') ?? '(no title)',
         detail: one('detail'),
         logs: one('logs'),
         url: one('url')
@@ -331,7 +345,7 @@ if (flags.has('json')) {
       event = {
         type: 'heartbeat_miss',
         project: project(),
-        job: one('job') ?? '(без имени)',
+        job: one('job') ?? '(no name)',
         lastSeen: one('last-seen'),
         expected: one('expected'),
         recovered: flags.has('recovered'),
@@ -342,12 +356,12 @@ if (flags.has('json')) {
       const path = one('path');
 
       if (!path) {
-        parseErrors.push('--path: обязателен для file');
+        parseErrors.push('--path: required for a file event');
       }
       event = {
         type: 'file',
         project: project(),
-        title: one('title') ?? '(без заголовка)',
+        title: one('title') ?? '(no title)',
         path: path ?? '',
         filename: one('filename'),
         note: one('note')
@@ -358,7 +372,7 @@ if (flags.has('json')) {
       // В parseErrors, а не просто в лог: иначе неизвестный тип уходил в
       // тишину — событие не собиралось, ошибок разбора не было, и CLI выходил
       // нулём, ничего не отправив и ничего об этом не сказав.
-      parseErrors.push(`unknown event type: ${command ?? '(none given)'}`);
+      parseErrors.push(`unknown event type: ${safe(command ?? '(none given)')}`);
   }
 }
 
@@ -408,7 +422,7 @@ if (event) {
   } catch (err) {
     // Слово `failed` — контракт, тот же, что у ошибки разбора выше. Без него
     // исключение при отправке читалось сторожами как «ничего не случилось».
-    log(`failed: ${err instanceof Error ? err.message : String(err)}`);
+    log(`failed: ${safe(err instanceof Error ? err.message : err)}`);
   }
 }
 

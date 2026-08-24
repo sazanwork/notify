@@ -108,7 +108,7 @@ const attempt = async (token: string, target: Target, text: string): Promise<Att
     // разработчик, а владелец.
     const detail = (await res.json().catch(() => null)) as { description?: string } | null;
 
-    log(`HTTP ${res.status}: ${detail?.description ?? 'без описания'} — не повторяем, ошибка постоянная`);
+    log(`HTTP ${res.status}: ${detail?.description ?? 'no description'} — permanent error, not retried`);
 
     return { outcome: 'fail' };
   } catch (err) {
@@ -118,7 +118,7 @@ const attempt = async (token: string, target: Target, text: string): Promise<Att
     // на таймауте останавливаемся и честно пишем 'failed': лишняя копия аварии
     // хуже, чем пропущенная строка в логе, а сообщение, скорее всего, ушло.
     if (err instanceof Error && err.name === 'TimeoutError') {
-      log('таймаут ответа — не повторяем: сообщение могло уже уйти');
+      log('answer timed out — not retried: the message may already be out');
 
       return { outcome: 'fail' };
     }
@@ -130,7 +130,7 @@ const attempt = async (token: string, target: Target, text: string): Promise<Att
     // отсутствие дублей невозможно без idempotency-key у Bot API (его нет).
     // Логика прежняя: дубль на редком reset — меньшее зло, чем потеря
     // сообщения на частом сетевом сбое.
-    log('fetch не прошёл, пробуем curl…');
+    log('fetch did not go through, trying curl…');
 
     const curl = sendViaCurl(token, target, text);
 
@@ -161,7 +161,7 @@ const sendOne = async (token: string, target: Target, text: string): Promise<'se
     waitMs = result.waitMs;
   }
 
-  log('исчерпаны попытки отправки');
+  log('out of send attempts');
 
   return 'failed';
 };
@@ -171,7 +171,7 @@ const deliver = async (where: Target[], text: string): Promise<SendResult> => {
   const token = process.env.OPS_BOT_TOKEN?.trim();
 
   if (!token) {
-    log('нет OPS_BOT_TOKEN — сообщение не отправлено');
+    log('skipped: no OPS_BOT_TOKEN, the message was not sent');
 
     return 'skipped';
   }
@@ -181,7 +181,7 @@ const deliver = async (where: Target[], text: string): Promise<SendResult> => {
   // строки/`?` сломало бы разбор (инъекция директивы curl или query-хвост).
   // Это требует покорёженного секрета, но проверка копеечная.
   if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
-    log('OPS_BOT_TOKEN не похож на токен Telegram — отправка отменена');
+    log('failed: OPS_BOT_TOKEN does not look like a Telegram token, send cancelled');
 
     return 'skipped';
   }
@@ -247,22 +247,22 @@ const sendFileOnce = async (
     }
 
     const detail = (await res.json().catch(() => null)) as { description?: string } | null;
-    log(`HTTP ${res.status}: ${detail?.description ?? 'без описания'} — не повторяем, ошибка постоянная`);
+    log(`HTTP ${res.status}: ${detail?.description ?? 'no description'} — permanent error, not retried`);
 
     return { outcome: 'fail' };
   } catch (err) {
     if (err instanceof Error && err.name === 'TimeoutError') {
-      log('таймаут ответа — не повторяем: файл мог уже уйти');
+      log('answer timed out — not retried: the file may already be out');
 
       return { outcome: 'fail' };
     }
     // Файл не читается (нет на диске, нет прав) — постоянная ошибка.
     if (err instanceof Error && 'code' in err) {
-      log(`файл не отправлен: ${err.message}`);
+      log(`failed to send the file: ${err.message}`);
 
       return { outcome: 'fail' };
     }
-    log(`сеть не пустила файл: ${err instanceof Error ? err.message : String(err)}`);
+    log(`the network refused the file: ${err instanceof Error ? err.message : String(err)}`);
 
     return { outcome: 'retry', waitMs: 1000 };
   }
@@ -272,7 +272,7 @@ const sendFile = async (e: Extract<NotifyEvent, { type: 'file' }>): Promise<Send
   const token = process.env.OPS_BOT_TOKEN?.trim();
 
   if (!token || !/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
-    log('нет валидного OPS_BOT_TOKEN — файл не отправлен');
+    log('skipped: no valid OPS_BOT_TOKEN, the file was not sent');
 
     return 'skipped';
   }
@@ -326,13 +326,13 @@ const sendFile = async (e: Extract<NotifyEvent, { type: 'file' }>): Promise<Send
 const reportLostProject = async (project: unknown, kind: string): Promise<void> => {
   // Локальный лог называет и допустимые написания — это единственная
   // диагностика, доступная на машине, где случилась опечатка.
-  log(`неизвестный проект «${String(project)}» — известны: ${Object.keys(ROUTES).join(', ')}`);
+  log(`unknown project "${String(project)}" — known: ${Object.keys(ROUTES).join(', ')}`);
   const lost: NotifyEvent = {
     type: 'job',
     project: 'mac-config',
-    job: 'notify: событие потеряно',
+    job: 'notify: an event was lost',
     status: 'fail',
-    note: `проект «${String(project)}» не в ROUTES — событие «${kind}» никуда не доставлено`,
+    note: `project "${String(project)}" is not in ROUTES — event "${kind}" went nowhere`,
     key: 'notify-unknown-project'
   };
 

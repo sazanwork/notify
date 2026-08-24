@@ -50,12 +50,12 @@ export type NotifyEvent = Keyed &
       commit?: string;
       /** Ссылка на коммит — строка «коммит» становится кликабельной. */
       commitUrl?: string;
-      /** Заголовок коммита — рендерится рядом с телом в цитате. */
+      /** Заголовок коммита — рендерится полем `Title:`, тело идёт цитатой ниже. */
       commitTitle?: string;
       /** Тело коммита, если есть — та же цитата, что и заголовок. */
       commitBody?: string;
       workflowUrl?: string;
-      /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
+      /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
       workflowName?: string;
       url?: string;
       /**
@@ -86,7 +86,7 @@ export type NotifyEvent = Keyed &
       items?: Item[];
       note?: string;
       workflowUrl?: string;
-      /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
+      /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
       workflowName?: string;
       /**
        * Запасное имя для ссылки на прогон: половина отправителей шлёт её как
@@ -137,9 +137,9 @@ export type NotifyEvent = Keyed &
        * schedule, a manual press. Renders as `Reason:`, same as on deploy.
        */
       note?: string;
-      /** Ссылка на прогон (workflow run) — отдельно от `url`, который у CI не используется. */
+      /** Ссылка на прогон (workflow run) — отдельно от `url` — запасной для `workflowUrl`. */
       workflowUrl?: string;
-      /** Название прогона для видимого текста ссылки (по умолчанию — просто "run"). */
+      /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
       workflowName?: string;
       url?: string;
     }

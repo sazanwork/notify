@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { severity, type NotifyEvent } from './events.ts';
-import { render, eventKey } from './render.ts';
+import { render, eventKey, clampMessage } from './render.ts';
 
 const XSS = '<script>alert(1)</script>';
 
@@ -295,7 +295,7 @@ test('проверка баланса тегов умеет упасть', () =>
 test('неизвестный тип события даёт понятную ошибку, а не падение рендерера', () => {
   assert.throws(
     () => render({ type: 'bogus', project: 'playhub' } as unknown as NotifyEvent),
-    /неизвестный тип события/
+    /unknown event type/
   );
 });
 
@@ -359,7 +359,7 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
   // This test used to assert the opposite — that a long detail stayed a
   // one-line field. That WAS the bug: `field()` keeps only the first line, and
   // vault (the only sender of this type) passes a three-line diagnosis, so
-  // every alarm arrived gutted. Reason now carries the short title and the
+  // every alarm arrived gutted. `Title:` now carries the short title and the
   // diagnosis is quoted under it, the same shape a commit body already had.
   const multiline = 'нет sops\nключ не найден\nлог: ~/Library/Logs/vault.log';
   const short = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: multiline });
@@ -670,3 +670,35 @@ test('fieldLink: a multi-line value does not become multi-line link text', () =>
   assert.ok(out.includes('>ночная проверка master…</a>'), 'link text not trimmed to one line');
   assert.ok(!out.includes('полная проверка'), 'second line leaked into the link');
 });
+
+test('clampMessage closes nested tags in the order they were opened', () => {
+  // A fixed close-order list made `<i><u>` come back as `</i></u>`: the tag
+  // counts balance, so a counting test stays green, but the nesting is broken
+  // and Telegram answers 400 — the whole card is lost. A report whose group
+  // heading is long enough to be cut inside `<u>` reproduces it.
+  const clamped = clampMessage(`head\n<i><u>${'G'.repeat(5000)}</u></i>\ntail`, 200);
+
+  assert.ok(!clamped.includes('</i></u>'), 'inner tag closed after the outer one');
+  assert.ok(clamped.includes('</u></i>'), 'the tail did not close both tags');
+  // Counting tags is what let this through, so check the NESTING with a stack.
+  const wellFormed = (s: string): boolean => {
+    const stack: string[] = [];
+    for (const m of s.matchAll(/<(\/?)(b|a|i|u|code|blockquote)[ >]/g)) {
+      if (m[1] === '/') {
+        if (stack.pop() !== m[2]) {
+          return false;
+        }
+      } else {
+        stack.push(m[2]);
+      }
+    }
+
+    return stack.length === 0;
+  };
+
+  // The checker must be able to say no, or its yes means nothing.
+  assert.equal(wellFormed('<i><u>x</i></u>'), false, 'the nesting check cannot fail');
+  assert.equal(wellFormed('<i><u>x</u></i>'), true, 'the nesting check rejects valid markup');
+  assert.ok(wellFormed(clamped), 'the clamped body is not well-formed');
+});
+
