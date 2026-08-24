@@ -119,9 +119,10 @@ test('commit/pr/issue — единая форма: ярлык → идентиф
     commitTitle: 'Онбординг: заготовки вопросов (#294)'
   });
 
+  assert.ok(ci.includes('<b>Title:</b> Онбординг: заготовки вопросов (#294)'));
   assert.ok(ci.includes('<b>Commit:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">9b1fc68</a>'));
-  assert.ok(ci.includes('<blockquote>Онбординг: заготовки вопросов (#294)</blockquote>'));
-  // Заголовок не должен повторяться и как текст ссылки, и в цитате одновременно.
+  // Заголовок — поле, не цитата: цитата держит ТОЛЬКО тело. Без тела её нет.
+  assert.ok(!ci.includes('<blockquote>'), 'без тела цитаты быть не должно');
   assert.equal((ci.match(/Онбординг: заготовки вопросов \(#294\)/g) ?? []).length, 1);
 
   const issue = render({
@@ -137,7 +138,8 @@ test('commit/pr/issue — единая форма: ярлык → идентиф
   // Ярлык второй строки — `Number`, а не `Issue`: строка выше уже говорит
   // `Issue: opened`, и повтор ярлыка читается как ошибка вёрстки.
   assert.equal((issue.match(/<b>Issue:<\/b>/g) ?? []).length, 1, 'ярлык типа не должен повторяться');
-  assert.ok(issue.includes('<blockquote>Коммиты не следуют конвенции\n\nразбор 150 коммитов</blockquote>'));
+  assert.ok(issue.includes('<b>Title:</b> Коммиты не следуют конвенции'));
+  assert.ok(issue.includes('<blockquote>разбор 150 коммитов</blockquote>'));
 });
 
 test('группы отчёта: заголовок курсив+подчёркивание, без жирности и без двоеточия', () => {
@@ -469,10 +471,9 @@ test('card/ci: commit hash links, body quoted under it', () => {
     '#ci #master',
     '✅ <b>CI:</b> ok',
     '',
+    '<b>Title:</b> Онбординг: заготовки вопросов (#294)',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
-    '<blockquote>Онбординг: заготовки вопросов (#294)',
-    '',
-    'Тело коммита, написанное человеком.</blockquote>',
+    '<blockquote>Тело коммита, написанное человеком.</blockquote>',
     '<b>Actor:</b> @chelsnebes',
     '',
     '<b>Workflow:</b> <a href="https://x/run">open</a>'
@@ -508,8 +509,8 @@ test('card/deploy', () => {
     '#deploy #playhub',
     '✅ <b>Deploy:</b> ok',
     '',
+    '<b>Title:</b> feat: new landing',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a>',
-    '<blockquote>feat: new landing</blockquote>',
     '<b>Via:</b> GitHub Actions',
     '',
     '<b>Workflow:</b> <a href="https://x/run">open</a>'
@@ -528,10 +529,9 @@ test('card/issue: body arrives — it never did before', () => {
     '#issue #i322',
     'ℹ️ <b>Issue:</b> opened',
     '',
+    '<b>Title:</b> Commit convention for all repos',
     '<b>Number:</b> <a href="https://x/i/322">#322</a>',
-    '<blockquote>Commit convention for all repos',
-    '',
-    'Тело задачи с GitHub, как его написал человек.</blockquote>',
+    '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '<b>Author:</b> mikitasazan'
   ].join('\n'));
 });
@@ -548,21 +548,21 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     '#pr #p294',
     'ℹ️ <b>PR:</b> opened',
     '',
+    '<b>Title:</b> Onboarding: question drafts',
     '<b>Number:</b> <a href="https://x/p/294">#294</a>',
-    '<blockquote>Onboarding: question drafts',
-    '',
-    'PR description here.</blockquote>',
-    '',
+    '<blockquote>PR description here.</blockquote>',
     '<b>Author:</b> Ilja-Prihach'
   ].join('\n'));
 
-  // Issue titles are trimmed to their first line, PR titles never were — the
-  // difference is deliberate until the owner rules on it.
+  // Один заголовок — одна строка, у всех типов одинаково. PR-заголовок раньше
+  // был исключением и НЕ резался; исключение убрано вместе с тем, что его
+  // порождало — заголовок больше не лежит в цитате, он поле как все.
   const twoLine = render({
     type: 'pr', project: 'playhub', action: 'opened', number: 1,
     title: 'first line\nsecond line'
   });
-  assert.ok(twoLine.includes('second line'), 'PR title lost its second line');
+  assert.ok(twoLine.includes('<b>Title:</b> first line'), 'заголовок PR — поле');
+  assert.ok(!twoLine.includes('second line'), 'заголовок режется по первой строке, как у задачи и коммита');
 });
 
 test('card/incident: every line of the diagnosis survives', () => {

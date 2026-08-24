@@ -185,25 +185,23 @@ const renderGroup = (g: { name: string; items: Item[] }): string[] => [
 ];
 
 /**
- * Цитата коммита/задачи: заголовок первой строкой (multiline title режется
- * до первой строки — subject не должен тащить в цитату собственное тело
- * под-коммита), тело — через пустую строку, если есть.
+ * ОДНО правило на все карточки, где есть и заголовок, и тело: заголовок —
+ * обычное поле `Title:`, тело — цитата, и в цитате больше ничего нет.
+ *
+ * Раньше заголовок клался В ЦИТАТУ вместе с телом, разделённые пустой
+ * строкой. Владелец нашёл, чем это плохо: заголовок — главное в карточке, то,
+ * ЧТО это, а лежал он серым текстом того же веса, что и описание, и отличить
+ * одно от другого можно было только по пустой строке. У PR без тела карточка
+ * вырождалась в одинокую серую цитату из одной строки.
+ *
+ * Заголовок режется до первой строки: многострочный subject коммита не должен
+ * затягивать в поле собственное тело.
  */
-const quoteWithBody = (
-  title: string | undefined,
-  body: string | undefined,
-  trimTitle: boolean
-): string | null => {
-  if (!title && !body) {
-    return null;
-  }
-  const head = title ? (trimTitle ? firstLine(title) : title) : undefined;
+const titleField = (title: string | undefined): string | null =>
+  field('Title', title);
 
-  return note([head, body].filter(Boolean).join('\n\n'));
-};
-
-const commitQuote = (title: string | undefined, body: string | undefined): string | null =>
-  quoteWithBody(title, body, true);
+const bodyQuote = (body: string | undefined): string | null =>
+  body ? note(body) : null;
 
 type Renderer<E extends NotifyEvent> = (e: E) => string;
 
@@ -221,8 +219,9 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   return join([
     typeLine(icon, 'Deploy', e.status),
     '',
+    titleField(e.commitTitle),
     fieldLink('Commit', e.commitUrl, e.commit),
-    commitQuote(e.commitTitle, e.commitBody),
+    bodyQuote(e.commitBody),
     field('Via', e.via),
     field('Target', e.target),
     field('Reason', e.note),
@@ -282,8 +281,9 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   return join([
     typeLine(icon, 'CI', e.status),
     '',
+    titleField(e.commitTitle),
     fieldLink('Commit', e.commitUrl, e.commit),
-    commitQuote(e.commitTitle, e.commitBody),
+    bodyQuote(e.commitBody),
     field('Actor', e.actor),
     field('Reason', e.note),
     e.workflowUrl ? '' : null,
@@ -315,9 +315,12 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(PR_ICON[e.action], 'PR', e.action),
     '',
+    titleField(e.title),
     fieldLink('Number', e.url, `#${e.number}`),
-    quoteWithBody(e.title, e.body, false),
-    '',
+    bodyQuote(e.body),
+    // Без пустой строки перед автором: у задачи её нет, и одно и то же поле
+    // не должно стоять по-разному в двух соседних карточках. Пустая строка в
+    // этом формате означает «дальше указатель, куда пойти» — автор не он.
     field('Author', e.author),
     field('Reviewer', e.reviewer)
   ]);
@@ -326,8 +329,9 @@ const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
     typeLine(ISSUE_ICON[e.action], 'Issue', e.action),
     '',
+    titleField(e.title),
     fieldLink('Number', e.url, `#${e.number}`),
-    commitQuote(e.title, e.body),
+    bodyQuote(e.body),
     field('Author', e.author),
     field('Assignee', e.assignee)
   ]);
