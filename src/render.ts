@@ -315,7 +315,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(PR_ICON[e.action], 'PR', e.action),
     '',
-    fieldLink('PR', e.url, `#${e.number}`),
+    fieldLink('Number', e.url, `#${e.number}`),
     quoteWithBody(e.title, e.body, false),
     '',
     field('Author', e.author),
@@ -326,7 +326,7 @@ const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
     typeLine(ISSUE_ICON[e.action], 'Issue', e.action),
     '',
-    fieldLink('Issue', e.url, `#${e.number}`),
+    fieldLink('Number', e.url, `#${e.number}`),
     commitQuote(e.title, e.body),
     field('Author', e.author),
     field('Assignee', e.assignee)
@@ -347,21 +347,27 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
     fieldAction('Workflow', e.url, undefined)
   ]);
 
+// Раньше всё это склеивалось в одну строку `Reason:` через тире: «имя — no
+// reports — expected X, last seen Y». Каждая другая карточка кладёт факт на
+// свою строку с ярлыком, и владелец справедливо спросил, зачем тут отдельный
+// формат. Отдельного формата больше нет.
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {
   const icon = e.recovered ? ICON.ok : ICON.red;
   const action = e.recovered ? 'ok' : 'miss';
-  const reason =
-    e.note ??
-    (e.recovered
-      ? `${e.job} is reporting again${e.lastSeen ? ` — last run ${e.lastSeen}` : ''}`
-      : `${e.job} — no reports${e.expected ? ` — expected ${e.expected}` : ''}${e.lastSeen ? `, last seen ${e.lastSeen}` : ''}`);
 
-  return join([typeLine(icon, 'Heartbeat', action), '', field('Reason', reason)]);
+  return join([
+    typeLine(icon, 'Heartbeat', action),
+    '',
+    field('Task', e.job),
+    field('Reason', e.note),
+    field('Expected', e.expected),
+    field(e.recovered ? 'Last run' : 'Last seen', e.lastSeen)
+  ]);
 };
 
 // Подпись файла — та же карточка, но лимит Telegram у caption свой: 1024.
 const renderFile: Renderer<Extract<NotifyEvent, { type: 'file' }>> = (e) =>
-  join([typeLine(ICON.info, 'File', 'new'), '', field('Reason', e.note ?? e.title)]);
+  join([typeLine(ICON.info, 'File', 'new'), '', field('Title', e.note ?? e.title)]);
 
 const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { type: K }>> } = {
   deploy: renderDeploy,

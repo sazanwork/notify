@@ -133,7 +133,10 @@ test('commit/pr/issue — единая форма: ярлык → идентиф
     body: 'разбор 150 коммитов'
   });
 
-  assert.ok(issue.includes('<b>Issue:</b> #322'), 'без url номер задачи всё равно показывается, просто без ссылки');
+  assert.ok(issue.includes('<b>Number:</b> #322'), 'без url номер задачи всё равно показывается, просто без ссылки');
+  // Ярлык второй строки — `Number`, а не `Issue`: строка выше уже говорит
+  // `Issue: opened`, и повтор ярлыка читается как ошибка вёрстки.
+  assert.equal((issue.match(/<b>Issue:<\/b>/g) ?? []).length, 1, 'ярлык типа не должен повторяться');
   assert.ok(issue.includes('<blockquote>Коммиты не следуют конвенции\n\nразбор 150 коммитов</blockquote>'));
 });
 
@@ -525,7 +528,7 @@ test('card/issue: body arrives — it never did before', () => {
     '#issue #i322',
     'ℹ️ <b>Issue:</b> opened',
     '',
-    '<b>Issue:</b> <a href="https://x/i/322">#322</a>',
+    '<b>Number:</b> <a href="https://x/i/322">#322</a>',
     '<blockquote>Commit convention for all repos',
     '',
     'Тело задачи с GitHub, как его написал человек.</blockquote>',
@@ -545,7 +548,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     '#pr #p294',
     'ℹ️ <b>PR:</b> opened',
     '',
-    '<b>PR:</b> <a href="https://x/p/294">#294</a>',
+    '<b>Number:</b> <a href="https://x/p/294">#294</a>',
     '<blockquote>Onboarding: question drafts',
     '',
     'PR description here.</blockquote>',
@@ -592,7 +595,9 @@ test('card/heartbeat miss', () => {
     '#heartbeat #yandex_game_import',
     '🔴 <b>Heartbeat:</b> miss',
     '',
-    '<b>Reason:</b> Yandex game import — no reports — expected at least once every 26h, last seen never'
+    '<b>Task:</b> Yandex game import',
+    '<b>Expected:</b> at least once every 26h',
+    '<b>Last seen:</b> never'
   ].join('\n'));
 });
 
