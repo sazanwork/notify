@@ -26,17 +26,90 @@ const toBubble = (html) => {
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+// The type table's middle column is RENDERED, not written: line 2 of a card is
+// `<icon> <b>Type:</b> action`, and the owner asked to see every one of them —
+// which icon goes with which word for each type. A hand-kept list would drift
+// from ICON/PR_ICON/ISSUE_ICON the first time one of them changed.
+const P = { project: 'playhub' };
 const TYPES = [
-  ['#deploy', 'Выкатка сайта на сервер', '✅ / 🔴', 'deploy.yml, scripts/deploy.sh'],
-  ['#ci', 'Проверка кода: линт, типы, тесты', '✅ / 🔴', 'nightly.yml, quality.yml'],
-  ['#job', 'Задача по расписанию: крон, прогон на GitHub, синхронизация доски, бэкапы', '✅ / 🔴', '20 файлов, от notify-fail.sh до board.yml'],
-  ['#report', 'Сводка с цифрами: аналитика за день и за неделю, релизы Alitools', 'ℹ️', 'analytics-cron.sh, сторожа Alitools'],
-  ['#heartbeat', 'Задача не отметилась в срок — и она же, когда отметилась снова', '🔴 / ✅', 'heartbeat-check.sh'],
-  ['#incident', 'Приложение или сейф сломались прямо сейчас', '🚨', 'vault.sh'],
-  ['#session', 'Рабочая сессия на маке в беде: жжёт лимит, остановлена', '🚨', 'context-runaway-guard.sh'],
-  ['#issue', 'Задача на доске GitHub: завели, назначили, закрыли', 'ℹ️ / ✅ закрыта', 'github-cards.py'],
-  ['#pr', 'Pull request: открыли, закрыли, влили, и вердикт ревью', 'ℹ️ / ✅ влит, одобрен / 🔴 правки', 'github-cards.py'],
-  ['#file', 'Файл вложением с подписью-карточкой', 'ℹ️', 'arvent-eval-report.sh']
+  {
+    tag: '#deploy', what: 'Выкатка сайта на сервер',
+    who: 'deploy.yml, scripts/deploy.sh',
+    lines: [
+      ['выкатилось', { type: 'deploy', ...P, status: 'ok' }],
+      ['не выкатилось', { type: 'deploy', ...P, status: 'fail' }]
+    ]
+  },
+  {
+    tag: '#ci', what: 'Проверка кода: линт, типы, тесты',
+    who: 'nightly.yml, quality.yml',
+    lines: [
+      ['прошла', { type: 'ci', ...P, status: 'ok' }],
+      ['упала', { type: 'ci', ...P, status: 'fail' }]
+    ]
+  },
+  {
+    tag: '#job', what: 'Задача по расписанию: крон, прогон на GitHub, синхронизация доски, бэкапы',
+    who: '20 файлов, от notify-fail.sh до board.yml',
+    lines: [
+      ['отработала', { type: 'job', ...P, job: 'x', status: 'ok' }],
+      ['упала', { type: 'job', ...P, job: 'x', status: 'fail' }],
+      ['выключена извне — не упала, а отключена', { type: 'job', ...P, job: 'x', status: 'disabled' }]
+    ]
+  },
+  {
+    tag: '#report', what: 'Сводка с цифрами: аналитика за день и за неделю, релизы Alitools',
+    who: 'analytics-cron.sh, сторожа Alitools',
+    lines: [
+      ['всегда к сведению; на месте действия — НАЗВАНИЕ отчёта, и оно же ссылка',
+       { type: 'report', ...P, title: 'Analytics for 2026-08-22', period: 'compared with 2026-08-21', url: 'https://x' }]
+    ]
+  },
+  {
+    tag: '#heartbeat', what: 'Задача не отметилась в срок — и она же, когда отметилась снова',
+    who: 'heartbeat-check.sh',
+    lines: [
+      ['замолчала', { type: 'heartbeat_miss', ...P, job: 'x' }],
+      ['снова отчитывается', { type: 'heartbeat_miss', ...P, job: 'x', recovered: true }]
+    ]
+  },
+  {
+    tag: '#incident', what: 'Приложение или сейф сломались прямо сейчас',
+    who: 'vault.sh',
+    lines: [['одна строка на все случаи', { type: 'incident', ...P, title: 'x' }]]
+  },
+  {
+    tag: '#session', what: 'Рабочая сессия на маке в беде: жжёт лимит, остановлена',
+    who: 'context-runaway-guard.sh',
+    lines: [['на месте действия — что именно случилось с сессией',
+             { type: 'session', ...P, action: 'burning the limit', status: 'fail' }]]
+  },
+  {
+    tag: '#issue', what: 'Задача на доске GitHub',
+    who: 'github-cards.py',
+    lines: [
+      ['завели', { type: 'issue', ...P, action: 'opened', number: 1, title: 'x' }],
+      ['назначили исполнителя', { type: 'issue', ...P, action: 'assigned', number: 1, title: 'x' }],
+      ['закрыли — единственная зелёная', { type: 'issue', ...P, action: 'closed', number: 1, title: 'x' }]
+    ]
+  },
+  {
+    tag: '#pr', what: 'Pull request и вердикт ревью',
+    who: 'github-cards.py',
+    lines: [
+      ['открыли', { type: 'pr', ...P, action: 'opened', number: 1, title: 'x' }],
+      ['влили', { type: 'pr', ...P, action: 'merged', number: 1, title: 'x' }],
+      ['закрыли, не влив', { type: 'pr', ...P, action: 'closed', number: 1, title: 'x' }],
+      ['ревьюер одобрил', { type: 'pr', ...P, action: 'approved', number: 1, title: 'x' }],
+      ['ревьюер запросил правки — единственная красная у PR',
+       { type: 'pr', ...P, action: 'changes_requested', number: 1, title: 'x' }]
+    ]
+  },
+  {
+    tag: '#file', what: 'Файл вложением с подписью-карточкой',
+    who: 'arvent-eval-report.sh',
+    lines: [['одна строка на все случаи', { type: 'file', ...P, title: 'x', path: '/tmp/x' }]]
+  }
 ];
 
 // Numbered here, not in the list: hand-kept numbers went 07a, 07b the first
@@ -88,8 +161,22 @@ const articles = CARDS.map((c) => {
 }).join('\n');
 
 const nav = CARDS.map((c) => `<a href="#${c.id}"><b>${c.no}</b> ${esc(c.title)}</a>`).join('');
-const typeRows = TYPES.map(([tag, what, icon, who]) =>
-  `<tr><td><code>${tag}</code></td><td>${esc(what)}</td><td>${icon}</td><td><code>${esc(who)}</code></td></tr>`).join('\n');
+// Line 2 comes out of the renderer itself and is shown verbatim, tags stripped.
+const line2 = (event) => {
+  const rendered = render(event).split('\n')[1];
+  if (!rendered || !rendered.includes('<b>')) {
+    throw new Error(`type table: ${event.type} produced no second line`);
+  }
+  return rendered.replace(/<a href="[^"]*">/g, '').replace(/<\/a>/g, '');
+};
+
+const typeRows = TYPES.map((t) => {
+  const rows = t.lines
+    .map(([when, ev]) => `<div class="l2"><code>${line2(ev)}</code><i>${esc(when)}</i></div>`)
+    .join('');
+  return `<tr><td><code>${t.tag}</code><br><small>${esc(t.what)}</small></td>` +
+         `<td>${rows}</td><td><code>${esc(t.who)}</code></td></tr>`;
+}).join('\n');
 
 writeFileSync(new URL('./nav.html', import.meta.url), nav);
 writeFileSync(new URL('./articles.html', import.meta.url), articles);
