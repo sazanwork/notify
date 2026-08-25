@@ -192,10 +192,16 @@ const articles = CARDS.map((c) => {
   // and CI used to wrap theirs in a `Run` heading, so `Reason:` sat against the
   // name on a job card and under a heading on a deploy one, and the owner asked
   // which of the two was the standard.
+  //
+  // `Actor` is NOT in this list any more (25.08.2026): it names who is behind
+  // the COMMIT, not a fact about the run itself, so it belongs under `Change`
+  // next to the commit — the owner: "commit, actor, workflow — I don't know,
+  // it's all a jumble." `Reason` stays banned from a heading: it IS a fact
+  // about the run.
   {
     const rows = html.split('\n');
     const firstGroup = rows.findIndex((r) => r.includes('<i><u>'));
-    for (const label of ['Reason', 'Actor']) {
+    for (const label of ['Reason']) {
       const at = rows.findIndex((r) => r.startsWith(`<b>${label}:</b>`));
       if (at !== -1 && firstGroup !== -1 && at > firstGroup) {
         throw new Error(

@@ -628,9 +628,13 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
 
   return join([
     typeLine(icon, 'CI', mechanism(e.workflowName, undefined, runUrl), runUrl),
+    // `Actor` names who is behind the commit, not who ran the check — it moved
+    // into the Change block, next to the commit it belongs to. It used to sit
+    // with `Reason` in the run block, and the owner read it as a jumble: "commit,
+    // actor, workflow — I don't know, it's all a jumble."
     ...twoBlocks(
-      [field('Actor', e.actor), field('Reason', e.note)],
-      [commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
+      [field('Reason', e.note)],
+      [field('Actor', e.actor), commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
     )
   ]);
 };
@@ -655,22 +659,27 @@ const named = (number: number, title: string | undefined): string =>
 const opening = (action: string, body: string | undefined): string | null =>
   action === 'opened' ? bodyQuote(body) : null;
 
+// The body is what the title stands for — it sits directly under the name,
+// with nothing between them. The people come after, consolidated in one
+// place, never splitting the title from what it names: the owner on the
+// old order, title then Author then Assignee then finally the body — "why
+// does the assignee cut apart what should be inseparable?"
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'PR', named(e.number, e.title), e.url),
-    field('Author', e.author),
-    field('Reviewer', e.reviewer),
+    opening(e.action, e.body),
     e.action === 'opened' && e.body ? '' : null,
-    opening(e.action, e.body)
+    field('Author', e.author),
+    field('Reviewer', e.reviewer)
   ]);
 
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'Issue', named(e.number, e.title), e.url),
-    field('Author', e.author),
-    field('Assignee', e.assignee),
+    opening(e.action, e.body),
     e.action === 'opened' && e.body ? '' : null,
-    opening(e.action, e.body)
+    field('Author', e.author),
+    field('Assignee', e.assignee)
   ]);
 
 // The incident's own title IS line 2, exactly as an issue's is. It used to say

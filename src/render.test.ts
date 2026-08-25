@@ -512,9 +512,10 @@ test('run: a hand deploy names the means and has nothing to open', () => {
 });
 
 // Facts about the RUN touch the type line, because the type line already names
-// the run — the same place a job card puts `Reason:`. Facts about the COMMIT
-// are a different subject and keep a heading. The owner read `Reason:` against
-// the name on one card and under a heading on another and asked for one rule.
+// the run — the same place a job card puts `Reason:`. `Actor` names who is
+// behind the COMMIT, so it moved into the Change block, next to the commit
+// itself — the owner: "commit, actor, workflow — I don't know, it's all a
+// jumble."
 test('blocks: run facts touch the name, the commit keeps its heading', () => {
   const both = render({
     type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
@@ -524,10 +525,10 @@ test('blocks: run facts touch the name, the commit keeps its heading', () => {
   const rows = both.split('\n');
 
   assert.ok(!both.includes('<i><u>Run</u></i>'), 'the Run heading announced what line 2 already said');
-  assert.equal(rows[2], '<b>Actor:</b> @chelsnebes');
-  assert.equal(rows[3], '<b>Reason:</b> 3 tests failed');
-  assert.equal(rows[4], '');
-  assert.equal(rows[5], '<i><u>Change</u></i>');
+  assert.equal(rows[2], '<b>Reason:</b> 3 tests failed');
+  assert.equal(rows[3], '');
+  assert.equal(rows[4], '<i><u>Change</u></i>');
+  assert.equal(rows[5], '<b>Actor:</b> @chelsnebes');
 
   // A green deploy: no reason to give, so the card is only name plus commit.
   const one = render({
@@ -675,9 +676,9 @@ test('card/ci: commit hash links, body quoted under it', () => {
   assert.equal(out, [
     '#ci #master #ok',
     '✅ <a href="https://x/run"><b>CI</b></a>',
-    '<b>Actor:</b> @chelsnebes',
     '',
     '<i><u>Change</u></i>',
+    '<b>Actor:</b> @chelsnebes',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>'
   ].join('\n'));
@@ -727,9 +728,9 @@ test('card/issue: body arrives — it never did before', () => {
   assert.equal(out, [
     '#issue #i322 #info',
     '🆕 <b>Issue:</b> <a href="https://x/i/322">#322 Commit convention for all repos</a>',
-    '<b>Author:</b> mikitasazan',
+    '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '',
-    '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>'
+    '<b>Author:</b> mikitasazan'
   ].join('\n'));
 });
 
@@ -762,9 +763,9 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
   assert.equal(out, [
     '#pr #p294 #info',
     '🆕 <b>PR:</b> <a href="https://x/p/294">#294 Onboarding: question drafts</a>',
-    '<b>Author:</b> Ilja-Prihach',
+    '<blockquote>PR description here.</blockquote>',
     '',
-    '<blockquote>PR description here.</blockquote>'
+    '<b>Author:</b> Ilja-Prihach'
   ].join('\n'));
 
   // One title is one line, the same for every type. It is the identifier now,

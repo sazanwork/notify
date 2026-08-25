@@ -71,7 +71,7 @@ export const CARDS = [
     // sender prints) and their own arithmetic.
     event: {
       type: 'report', project: 'playhub', key: 'analytics-daily',
-      title: 'Analytics',
+      title: 'Analytics — russkie-igry.ru',
       aside: '2026-08-23 / 2026-08-22',
       lines: [
         ['Pages', '1438 / 1687 ▼249', 'Server log'],
@@ -98,7 +98,7 @@ export const CARDS = [
     // single arrow is drawn — which is the rule, not a gap in the example.
     event: {
       type: 'report', project: 'playhub', key: 'analytics-weekly',
-      title: 'Analytics, week',
+      title: 'Analytics, week — russkie-igry.ru',
       aside: '2026-08-17 – 2026-08-23',
       lines: [
         ['Pages', 7639, 'Server log'],
@@ -110,8 +110,8 @@ export const CARDS = [
         ['Visible', '4.5% of the pages the server counted', 'Coverage']],
       url: 'https://github.com/sazanwork/playhub/tree/master/docs/analytics',
       groups: [{ name: 'Top search queries', items: [
-        { label: 'online games ru', text: '0 clicks, pos. 55' },
-        { label: 'online games russian', text: '0 clicks, pos. 59' }
+        { label: '"online games ru"', text: '0 clicks, pos. 55' },
+        { label: '"online games russian"', text: '0 clicks, pos. 59' }
       ] }]
     },
     note: "Сравнивать было не с чем — предыдущую неделю не читали, и поэтому ни одной стрелки. Это правило, а не пробел в примере."
@@ -127,7 +127,7 @@ export const CARDS = [
     expectTag: '#report #daily_report #info',
     event: {
       type: 'report', project: 'playhub', key: 'daily-report',
-      title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', aside: '2026-08-25',
+      title: 'Daily report — russkie-igry.ru', url: 'https://russkie-igry.ru', aside: '2026-08-25',
       lines: [
         ['Games', '412 / 404 ▲8', 'Catalogue'], ['iOS', '210 / 207 ▲3', 'Catalogue'], ['Android', '202 / 197 ▲5', 'Catalogue'],
         ['Added this week', 12, 'Catalogue'],
@@ -155,7 +155,7 @@ export const CARDS = [
         // есть. Группа стояла ВЫШЕ здоровья машины и печатала «all good», когда
         // сказать было нечего: это состояние, а не рекомендация.
         { name: 'Recommendations', items: [
-          { text: 'Внутренний поиск используется 3 раза в день — посмотри запросы в Метрике' }
+          { text: '[UX] 12 games with no plays — check titles and thumbnails' }
         ] }
       ]
     },
@@ -281,7 +281,7 @@ export const CARDS = [
       actor: '@chelsnebes', note: 'nightly master check',
       workflowUrl: 'https://github.com/sazanwork/arvent/actions/runs/1', workflowName: 'nightly'
     },
-    note: "Заголовка коммита здесь нет и быть не может: ночной прогон запускается по расписанию, а не по коммиту. Имя проверки — сама вторая строка, и она же ссылка на прогон."
+    note: "Заголовка коммита здесь нет и быть не может: ночной прогон запускается по расписанию, а не по коммиту. Имя проверки — сама вторая строка, и она же ссылка на прогон. Actor стоит рядом с коммитом, под заголовком «Изменение» — это про автора коммита, а не про то, кто запустил прогон."
   },
   {
     id: 'issue', title: 'Задача на доске',
@@ -297,7 +297,7 @@ export const CARDS = [
       body: 'Первый экран мастера — пустое поле ввода. Человек не понимает,\nчто туда писать, и уходит.\n\nНужно 5–6 готовых вопросов под полем, кликом подставляются в поле.',
       author: 'chelsnebes'
     },
-    note: "Номер и заголовок — одна строка, как их пишет сам GitHub, и она же ссылка. Что именно случилось, говорит значок: 🆕 завели, 🙋 назначили, ✅ закрыли."
+    note: "Номер и заголовок — одна строка, как их пишет сам GitHub, и она же ссылка. Что именно случилось, говорит значок: 🆕 завели, 🙋 назначили, ✅ закрыли. Тело задачи идёт сразу под заголовком, ничего не стоит между ними — автор и остальные люди спустились ниже, отдельным блоком."
   },
   {
     id: 'issue-taken', title: 'Задачу взяли',
@@ -329,7 +329,7 @@ export const CARDS = [
       body: 'Закрывает #322. Шесть вопросов приходят из конфига, а не из кода —\nменять список можно без выкатки.',
       author: 'chelsnebes'
     },
-    note: "Та же форма, что у задачи с доски: номер с заголовком одной строкой, тело цитатой."
+    note: "Та же форма, что у задачи с доски: номер с заголовком одной строкой, тело цитатой сразу под ним, автор — ниже, отдельно."
   },
   {
     id: 'pr-review', title: 'Вердикт ревью',
