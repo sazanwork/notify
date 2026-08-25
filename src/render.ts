@@ -486,6 +486,18 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   ]);
 };
 
+const schedule = (
+  expected: string | undefined,
+  lastSeen: string | undefined,
+  lastLabel: string
+): Array<string | null> => {
+  const rows = [field('Expected', expected), field(lastLabel, lastSeen)].filter(
+    (r): r is string => r !== null
+  );
+
+  return rows.length > 0 ? ['', group('Schedule'), ...rows] : [];
+};
+
 const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   const icon = iconFor(e);
   const hasItems = (e.items ?? []).length > 0;
@@ -503,12 +515,13 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   // catalogue page defines both marks.
 
   return join([
-    typeLine(icon, 'Job', e.job, e.workflowUrl ?? e.url),
+    typeLine(icon, 'Job', e.job, e.workflowUrl ?? e.url, e.aside),
     field('Reason', e.note),
-    field('Expected', e.expected),
-    // `Last run` when the task is alive, `Last seen` when it is not: the same
-    // timestamp answers two different questions.
-    field(e.status === 'silent' ? 'Last seen' : 'Last run', e.lastSeen),
+    // The timetable is a different subject from this event: how often the task
+    // owes a sign of life and when it last gave one. It stood in a bare run
+    // under `Reason:` and read as more of the same. `Last run` when the task
+    // is alive, `Last seen` when it is not — one timestamp, two questions.
+    ...schedule(e.expected, e.lastSeen, e.status === 'silent' ? 'Last seen' : 'Last run'),
     ...labelled(e.stats),
     hasItems ? '' : null,
     // Heading ONLY for `disabled`. It used to print for any job carrying a
@@ -536,7 +549,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     const numbers = labelled(e.lines);
 
     return join([
-      typeLine(iconFor(e), 'Report', e.title, e.url, e.period),
+      typeLine(iconFor(e), 'Report', e.title, e.url, e.aside),
       // Rows with no group of their own sit flush against the header instead of
       // forming a separate slab under a blank line. `labelled` puts the blank
       // line before the first group itself, so there is none here.
@@ -551,7 +564,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   return join([
     // Both analytics jobs send a link to the day's snapshot in docs/. It used to
     // hang off a trailing `Details: open` row; now it is the report's own name.
-    typeLine(iconFor(e), 'Report', e.title, e.url, e.period),
+    typeLine(iconFor(e), 'Report', e.title, e.url, e.aside),
     // Flush against the header — see the branch above.
     ...labelled(e.lines),
     items.length > 0 ? '' : null,
@@ -651,8 +664,7 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
     // copy of that watchdog can, and the card it gets must obey the template.
     typeLine(icon, 'Heartbeat', e.job, undefined, action),
     field('Reason', e.note),
-    field('Expected', e.expected),
-    field(e.recovered ? 'Last run' : 'Last seen', e.lastSeen)
+    ...schedule(e.expected, e.lastSeen, e.recovered ? 'Last run' : 'Last seen')
   ]);
 };
 

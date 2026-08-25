@@ -177,12 +177,23 @@ const articles = CARDS.map((c) => {
   {
     const rows = html.split('\n');
     const firstGroup = rows.findIndex((r) => r.includes('<i><u>'));
-    for (const label of ['Reason', 'State', 'Actor', 'Expected', 'Last run', 'Last seen']) {
+    for (const label of ['Reason', 'Actor']) {
       const at = rows.findIndex((r) => r.startsWith(`<b>${label}:</b>`));
       if (at !== -1 && firstGroup !== -1 && at > firstGroup) {
         throw new Error(
           `card ${c.id}: "${label}:" sits under a group heading. A fact about the card ` +
           `itself belongs above the first heading, where every other card puts it.`
+        );
+      }
+    }
+    // And the mirror of it: the timetable is NOT a fact about this event, so it
+    // lives under `Schedule` and never in the header.
+    for (const label of ['Expected', 'Last run', 'Last seen']) {
+      const at = rows.findIndex((r) => r.startsWith(`<b>${label}:</b>`));
+      if (at !== -1 && (firstGroup === -1 || at < firstGroup)) {
+        throw new Error(
+          `card ${c.id}: "${label}:" stands in the header. The timetable is its own ` +
+          `subject and belongs under the Schedule heading.`
         );
       }
     }

@@ -113,6 +113,14 @@ export type NotifyEvent = Keyed &
        * ПОЛНОМУ тегу. Один поток на задачу это чинит.
        */
       status: 'ok' | 'fail' | 'disabled' | 'silent';
+      /**
+       * The one qualifier the name needs to be readable on its own, printed in
+       * brackets right after it: `Yandex game import (reporting again)`. It is
+       * the same slot a report uses for the day it covers. Anything that is a
+       * FACT about the job goes in a row of its own; this is for the word that
+       * finishes the name.
+       */
+      aside?: string;
       /** Как часто задача обязана отмечаться — для `silent` и для возврата из него. */
       expected?: string;
       /** Когда её видели в последний раз. */
@@ -164,7 +172,13 @@ export type NotifyEvent = Keyed &
       type: 'report';
       project: Project;
       title: string;
-      period?: string;
+      /**
+       * Printed in brackets after the title — which day the report covers, or
+       * which day its arrows are measured against. Same slot, same name, as a
+       * job's. `period` is the old spelling of this field and the CLI still
+       * accepts `--period` for it.
+       */
+      aside?: string;
       /** Пусто/не передано, когда используются `groups` — два вида отчёта не смешиваются в одном событии. */
       lines?: Array<[label: string, value: string | number, group?: string]>;
       /**

@@ -17,7 +17,7 @@ const XSS = '<script>alert(1)</script>';
 const SAMPLES: NotifyEvent[] = [
   { type: 'deploy', project: 'playhub', status: 'fail', commit: XSS, url: 'https://x' },
   { type: 'job', project: 'playhub', job: XSS, status: 'ok', stats: [['метка', XSS]] },
-  { type: 'report', project: 'playhub', title: XSS, period: '26 июля', lines: [['ключ', XSS]] },
+  { type: 'report', project: 'playhub', title: XSS, aside: '26 июля', lines: [['ключ', XSS]] },
   { type: 'ci', project: 'arvent', status: 'fail', branch: 'master', commitTitle: XSS, actor: 'x' },
   { type: 'pr', project: 'arvent', action: 'opened', number: 1, title: XSS, author: XSS },
   { type: 'issue', project: 'arvent', action: 'opened', number: 1, title: XSS, assignee: XSS },
@@ -191,7 +191,7 @@ test('группы отчёта: заголовок курсив+подчёрк�
     type: 'report',
     project: 'arvent',
     title: 'tasks',
-    period: '20.08',
+    aside: '20.08',
     lines: [],
     groups: [
       { name: 'Ready', items: [{ label: '#243 (overdue)', text: 'Развернуть продукт', url: 'https://x/243' }] },
@@ -273,7 +273,7 @@ test('подпись файла укладывается в лимит caption 1
     project: 'arvent',
     title: 'Полные диалоги',
     path: '/tmp/x.txt',
-    period: 'Ы'.repeat(3000)
+    aside: 'Ы'.repeat(3000)
   });
 
   assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
@@ -768,6 +768,8 @@ test('card/heartbeat miss', () => {
   assert.equal(out, [
     '#heartbeat #yandex_game_import #unknown',
     '❓ <b>Heartbeat:</b> Yandex game import (miss)',
+    '',
+    '<i><u>Schedule</u></i>',
     '<b>Expected:</b> at least once every 26h',
     '<b>Last seen:</b> never'
   ].join('\n'));
@@ -795,7 +797,7 @@ test('the same card without a file gets the full 4000', () => {
 
 test('card/report', () => {
   const out = render({
-    type: 'report', project: 'playhub', title: 'Analytics', period: 'compared to 23.08',
+    type: 'report', project: 'playhub', title: 'Analytics', aside: 'compared to 23.08',
     lines: [['Pageviews (server)', '1284'], ['Game launches', '412']],
     items: [{ text: 'query — 12 clicks', url: 'https://x/q' }]
   });
@@ -819,7 +821,7 @@ test('card/report', () => {
 test('report: what it covers rides in brackets on the name itself', () => {
   const out = render({
     type: 'report', project: 'playhub', key: 'daily', title: 'russkie-igry.ru',
-    period: '2026-08-25', lines: [['Games', 412, 'Catalogue']]
+    aside: '2026-08-25', lines: [['Games', 412, 'Catalogue']]
   });
   const rows = out.split('\n');
 
@@ -883,7 +885,7 @@ test('clampMessage closes nested tags in the order they were opened', () => {
 test('link/report: the report name is the link, and there is no Details row', () => {
   const out = render({
     type: 'report', project: 'game-publisher', title: 'Analytics for 2026-08-22',
-    period: 'compared with 2026-08-21',
+    aside: 'compared with 2026-08-21',
     lines: [['Humans in the server log', '262 ▲23']],
     url: 'https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md'
   });

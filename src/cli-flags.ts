@@ -14,7 +14,7 @@ export const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   'command', 'command-note', 'commit-body', 'commit-title', 'commit-url', 'detail',
   'expected', 'filename', 'item',
   'item-group', 'job', 'key', 'last-seen', 'line', 'logs', 'note',
-  'number', 'path', 'period', 'project', 'reviewer', 'stat', 'status',
+  'aside', 'number', 'path', 'period', 'project', 'reviewer', 'stat', 'status',
   'target', 'title', 'url', 'via', 'workflow-name', 'workflow-url',
   // Флаги без значения. Живут здесь же, чтобы разбор и список не разошлись.
   'json', 'recovered', 'dry-run'

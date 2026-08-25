@@ -301,6 +301,7 @@ if (flags.has('json')) {
         project: project(),
         job: one('job') ?? '(no name)',
         status: jobStatus(),
+        aside: one('aside'),
         expected: one('expected'),
         lastSeen: one('last-seen'),
         stats: pairs('stat'),
@@ -319,7 +320,9 @@ if (flags.has('json')) {
         type: 'report',
         project: project(),
         title: one('title') ?? '(no title)',
-        period: one('period'),
+        // `--period` is the old spelling of `--aside`; both fill the same
+        // slot, and two senders still use the old one.
+        aside: one('aside') ?? one('period'),
         lines: pairs('line'),
         items: items(),
         url: one('url')
