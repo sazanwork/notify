@@ -1,16 +1,16 @@
 /**
- * `notify setup "<Название проекта>"` — заводит вкладки «⚙️ Ops» и «💬 Dev»
- * в уже созданном форуме и печатает готовую строку для `ROUTES`.
+ * `notify setup "<Project name>"` creates the "⚙️ Ops" and "💬 Dev" tabs in a
+ * forum that already exists, and prints the ready line for `ROUTES`.
  *
- * Сам форум-супергруппу бот создать не может — Telegram разрешает это только
- * живому аккаунту. Поэтому порядок для нового проекта такой:
- *   1. создать группу в Telegram, включить в ней «Темы», добавить
- *      @mikita_ops_bot администратором с правом «Управление темами»;
- *   2. `notify setup <chat_id>` — заведёт обе вкладки и напечатает строку;
- *   3. вставить строку в `src/routes.ts`.
+ * The bot cannot create the forum supergroup itself — Telegram only allows a
+ * real account to do that. So the order for a new project is:
+ *   1. create a group in Telegram, turn on "Topics" in it, add
+ *      @mikita_ops_bot as an admin with the "Manage topics" right;
+ *   2. run `notify setup <chat_id>` — it creates both tabs and prints the line;
+ *   3. paste the line into `src/routes.ts`.
  *
- * Шаг 1 делается один раз на проект и занимает полминуты; шаги 2–3 —
- * механические.
+ * Step 1 happens once per project and takes half a minute. Steps 2 and 3 are
+ * mechanical.
  */
 const log = (msg: string): void => console.error(`[notify] ${msg}`);
 
@@ -37,7 +37,7 @@ const createTopic = async (token: string, chat: string, name: string, color: num
 
     return body.result.message_thread_id;
   } catch (err) {
-    // Сеть/таймаут/нечитаемый ответ — не роняем CLI (его контракт: всегда exit 0).
+    // Network error, timeout, or an unreadable response — do not crash the CLI (its contract: always exit 0).
     log(`could not create "${name}": ${err instanceof Error ? err.message : String(err)}`);
 
     return null;
@@ -56,8 +56,8 @@ export const setupTopic = async (chatId: string, projectKey: string): Promise<vo
   const ops = await createTopic(token, chatId, '⚙️ Ops', 9367192);
   const dev = await createTopic(token, chatId, '💬 Dev', 7322096);
 
-  // Частичный успех: если создался только Ops — печатаем его, иначе повторный
-  // запуск создал бы ДРУГУЮ тему Ops, а старый id потерялся бы.
+  // Partial success: if only Ops was created, print it. Otherwise running the
+  // command again would create A DIFFERENT Ops topic, and the old id would be lost.
   if (ops === null) {
     log('Ops was not created — check: is the bot a group admin with "Manage topics", and are topics on?');
 

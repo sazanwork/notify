@@ -1,7 +1,8 @@
 /**
- * Покрывает то, чего не покрывал render.test.ts: КУДА уходит событие, СО ЗВУКОМ
- * ли, и что CLI делает с кривой командой. Ровно эти три места и дали находки
- * аудита 27.07.2026 — рендер был проверен, а маршрут и разбор аргументов нет.
+ * Covers what render.test.ts did not cover: WHERE an event goes, WITH SOUND
+ * or not, and what the CLI does with a broken command. These exact three
+ * places are what the audit on 27.07.2026 found — the render was checked,
+ * but the route and the argument parsing were not.
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -12,7 +13,7 @@ import { severity } from './events.ts';
 import { ROUTES, targets } from './routes.ts';
 import { notify } from './send.ts';
 
-test('событие уходит во вкладку Ops своего проекта, и только туда', () => {
+test('the event goes to the Ops tab of its own project, and only there', () => {
   const where = targets({ type: 'deploy', project: 'playhub', status: 'ok' });
 
   assert.equal(where.length, 1);
@@ -20,13 +21,13 @@ test('событие уходит во вкладку Ops своего прое�
   assert.equal(where[0].thread, ROUTES.playhub.ops);
 });
 
-test('неизвестный проект не роняет процесс, а даёт пустой список целей', () => {
-  // @ts-expect-error — проверяем именно нетипизированный вызов: так приходит
-  // опечатка из bash, где типов нет.
+test('an unknown project does not crash the process, it gives an empty list of targets', () => {
+  // @ts-expect-error — this checks exactly the untyped call: this is how a
+  // typo arrives from bash, where there are no types.
   assert.deepEqual(targets({ type: 'deploy', project: 'плейхаб', status: 'ok' }), []);
 });
 
-test('красное звонит, зелёное молчит', () => {
+test('red rings, green stays quiet', () => {
   const fail = targets({ type: 'deploy', project: 'arvent', status: 'fail' });
   const ok = targets({ type: 'deploy', project: 'arvent', status: 'ok' });
 
@@ -34,21 +35,22 @@ test('красное звонит, зелёное молчит', () => {
   assert.equal(ok[0].silent, true);
 });
 
-test('инцидент и молчание задачи красные сами по себе, без --status', () => {
+test('an incident and a silent task are red on their own, with no --status', () => {
   assert.equal(severity({ type: 'incident', project: 'one-q', title: 'Redis лёг' }), 'error');
   assert.equal(severity({ type: 'heartbeat_miss', project: 'one-q', job: 'Бэкап' }), 'error');
 });
 
-test('у каждого проекта из ROUTES свой форум — общий чат означал бы, что чужие видят чужое', () => {
+test('every project in ROUTES has its own forum — a shared chat would mean strangers see each other\'s events', () => {
   const chats = Object.values(ROUTES).map((f) => f.chat);
 
   assert.equal(new Set(chats).size, chats.length);
 });
 
 /**
- * Запускает CLI без токена: отправки не будет, важен только разбор аргументов.
- * spawnSync, а не execFileSync: последний отдаёт stderr лишь когда процесс упал,
- * а тут весь смысл в выводе процесса, который ОБЯЗАН вернуть 0.
+ * Runs the CLI with no token: nothing will be sent, only the argument
+ * parsing matters here. spawnSync, not execFileSync: the latter gives back
+ * stderr only when the process crashed, and the whole point here is the
+ * output of a process that MUST return 0.
  */
 const runCli = (...args: string[]): { code: number; stderr: string; stdout: string } => {
   const res = spawnSync(process.execPath, [fileURLToPath(new URL('cli.ts', import.meta.url)), ...args], {
@@ -59,7 +61,7 @@ const runCli = (...args: string[]): { code: number; stderr: string; stdout: stri
   return { code: res.status ?? -1, stderr: res.stderr, stdout: res.stdout };
 };
 
-test('значение, начинающееся с двух дефисов, доезжает через форму --флаг=значение', () => {
+test('a value that starts with two dashes arrives through the --flag=value form', () => {
   // A GitHub issue body very often opens with `---` (markdown front matter or a
   // horizontal rule). Passed as a separate argument it is read as a flag, the
   // command is rejected and the card is lost — silently, because this CLI
@@ -69,17 +71,17 @@ test('значение, начинающееся с двух дефисов, д�
 
   const split = runCli('issue', '--project', 'mac-config', '--action', 'opened',
     '--number', '322', '--title', 'T', '--body', body, '--dry-run');
-  assert.match(split.stderr, /failed:/, 'разделённая форма обязана быть явной ошибкой');
-  assert.equal(split.stdout, '', 'карточка не должна рендериться из битой команды');
+  assert.match(split.stderr, /failed:/, 'the split form must be an explicit error');
+  assert.equal(split.stdout, '', 'a card must not render from a broken command');
 
   const joined = runCli('issue', '--project=mac-config', '--action=opened',
     '--number=322', '--title=T', `--body=${body}`, '--dry-run');
   assert.equal(joined.code, 0);
-  assert.ok(joined.stdout.includes('Настоящее тело.'), 'тело задачи потеряно');
-  assert.ok(joined.stdout.includes('title: front matter'), 'начало тела съедено');
+  assert.ok(joined.stdout.includes('Настоящее тело.'), 'the issue body was lost');
+  assert.ok(joined.stdout.includes('title: front matter'), 'the start of the body was eaten');
 });
 
-test('--dry-run печатает карточку в stdout и ничего не отправляет', () => {
+test('--dry-run prints the card to stdout and sends nothing', () => {
   // stdout, not stderr: watchdogs read stderr for `sent|failed|skipped`, and a
   // card printed there would be read as a verdict.
   const { code, stdout, stderr } = runCli('job', '--project=vault', '--job=Self-check',
@@ -87,10 +89,10 @@ test('--dry-run печатает карточку в stdout и ничего не
 
   assert.equal(code, 0);
   assert.ok(stdout.startsWith('#job #self_check #fail\n🔴 <b>Job:</b> Self-check'), stdout);
-  assert.doesNotMatch(stderr, /sent|skipped|failed/, 'сухой прогон не должен выдавать вердикт');
+  assert.doesNotMatch(stderr, /sent|skipped|failed/, 'a dry run must not give a verdict');
 });
 
-test('флаг без значения — явная ошибка, а не href="true"', () => {
+test('a flag with no value is an explicit error, not href="true"', () => {
   const { code, stderr } = runCli('deploy', '--project', 'playhub', '--status', 'ok', '--url');
 
   assert.equal(code, 0);
@@ -98,48 +100,50 @@ test('флаг без значения — явная ошибка, а не href
   // `failed` is what the Action and the VPS watchdog match on; `sent` must not
   // appear, or heartbeat-check.sh reads this failure as a success.
   assert.match(stderr, /failed:/);
-  assert.ok(!/sent/.test(stderr), 'слово sent в отказе — сторож примет его за успех');
-  // И ничего не улетело: до отправки дело не дошло, значит нет ни sent, ни skipped.
+  assert.ok(!/sent/.test(stderr), 'the word sent in a refusal — the watchdog would read it as a success');
+  // And nothing was sent out: it never got to the sending step, so there is neither sent nor skipped.
   assert.doesNotMatch(stderr, /skipped/);
 });
 
-test('без токена CLI отдаёт skipped и код 0 — задача не должна падать из-за уведомления', () => {
+test('with no token the CLI gives back skipped and code 0 — a task must not crash because of a notification', () => {
   const { code, stderr } = runCli('job', '--project', 'playhub', '--job', 'тест', '--status', 'ok');
 
   assert.equal(code, 0);
   assert.match(stderr, /skipped/);
 });
 
-test('--status success не должен рисовать красное: опечатка при ручном вызове', () => {
+test('--status success must not draw red: a typo made by hand', () => {
   const { stderr } = runCli('deploy', '--project', 'playhub', '--status', 'success');
 
-  // Токена нет, поэтому дальше skipped — но событие СОБРАЛОСЬ, а не отвалилось
-  // на разборе: значит `success` признан успехом наравне с `ok`.
+  // There is no token, so it becomes skipped afterward — but the event WAS
+  // BUILT, it did not fall over during parsing: so `success` is recognized as
+  // a success just like `ok`.
   assert.match(stderr, /skipped/);
   assert.doesNotMatch(stderr, /без значения/);
 });
 
-test('служебные имена прототипа не проходят гвард проекта', async () => {
-  // `in` ходил по цепочке прототипов: --project toString терял событие И карточку.
+test('a prototype\'s own property names do not pass the project guard', async () => {
+  // `in` walked the prototype chain: --project toString lost the event AND the card.
   const res = await notify({ type: 'job', project: 'toString', job: 'x', status: 'ok' } as never);
 
   assert.equal(res, 'skipped');
 });
 
 
-// Три пути, на которых CLI раньше выходил нулём и НЕ говорил ни слова из
-// контракта `sent|failed|skipped`. Каждый означал одно и то же для владельца:
-// карточки нет, а вызвавшая задача считает, что всё хорошо.
-test('опечатка в имени флага — отказ, а не карточка без поля', () => {
+// Three paths where the CLI used to exit with code 0 and NOT say a single
+// word from the `sent|failed|skipped` contract. Each one meant the same
+// thing for the owner: there is no card, and the task that called it thinks
+// everything is fine.
+test('a typo in a flag name — a refusal, not a card with a missing field', () => {
   const { code, stderr } = runCli('job', '--project=playhub', '--job=x', '--status=fail', '--noto=missed');
 
   assert.equal(code, 0);
   assert.match(stderr, /unknown flag --noto/);
   assert.match(stderr, /failed:/);
-  assert.ok(!/sent/.test(stderr), 'слово sent в отказе — сторож примет его за успех');
+  assert.ok(!/sent/.test(stderr), 'the word sent in a refusal — the watchdog would read it as a success');
 });
 
-test('неизвестный тип события — отказ, а не тишина', () => {
+test('an unknown event type — a refusal, not silence', () => {
   const { code, stderr } = runCli('jib', '--project=playhub', '--status=fail');
 
   assert.equal(code, 0);
@@ -147,9 +151,9 @@ test('неизвестный тип события — отказ, а не ти�
   assert.match(stderr, /failed:/);
 });
 
-test('каждое имя флага, которое читает код, объявлено в KNOWN_FLAGS', async () => {
-  // Сторож против дрейфа: список известных флагов — единственное, что отличает
-  // опечатку от нового поля, и разойтись с кодом молча он не должен.
+test('every flag name the code reads is declared in KNOWN_FLAGS', async () => {
+  // A guard against drift: the list of known flags is the only thing that
+  // tells a typo apart from a new field, and it must not drift apart from the code silently.
   const src = readFileSync(new URL('./cli.ts', import.meta.url), 'utf-8');
   const used = new Set(
     [...src.matchAll(/(?:one|num|pairs)\('([a-z-]+)'\)/g)].map((m) => m[1])
@@ -158,18 +162,18 @@ test('каждое имя флага, которое читает код, объ
   const { KNOWN_FLAGS } = await import('./cli-flags.ts');
   const missing = [...used].filter((f) => !KNOWN_FLAGS.has(f));
 
-  assert.deepEqual(missing, [], `эти флаги читаются, но не объявлены: ${missing.join(', ')}`);
+  assert.deepEqual(missing, [], `these flags are read but not declared: ${missing.join(', ')}`);
 });
 
-test('ошибка разбора не возвращает слово-контракт из ввода', () => {
-  // `sent`, `failed`, `skipped` читают другие программы: notify-fail.sh грепает
-  // `^[notify] sent$`, серверный сторож молчания матчит `*sent*`. Вызов
-  // `notify sent --project=x` печатал `unknown event type: sent`, и сторож
-  // читал недоставленную карточку как доставленную, после чего переставал
-  // повторять тревогу. Нашёл Codex 25.08.2026.
+test('a parsing error does not give back the contract word out of the input', () => {
+  // Other programs read `sent`, `failed`, `skipped`: notify-fail.sh greps for
+  // `^[notify] sent$`, and the server's silence watchdog matches `*sent*`.
+  // The call `notify sent --project=x` used to print `unknown event type:
+  // sent`, and the watchdog read the undelivered card as delivered, and then
+  // stopped repeating the alarm. Found by Codex on 25.08.2026.
   const res = runCli('sent', '--project=playhub', '--status=fail');
 
-  assert.ok(res.stderr.includes('failed:'), 'провал обязан назвать себя');
-  assert.ok(!/\bsent\b/.test(res.stderr), `слово-контракт вернулось из ввода: ${res.stderr}`);
-  assert.match(res.stderr, /event type: s.ent/, 'имя события должно остаться узнаваемым');
+  assert.ok(res.stderr.includes('failed:'), 'a failure must name itself as a failure');
+  assert.ok(!/\bsent\b/.test(res.stderr), `the contract word came back out of the input: ${res.stderr}`);
+  assert.match(res.stderr, /event type: s.ent/, 'the event name must stay recognizable');
 });
