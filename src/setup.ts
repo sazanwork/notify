@@ -30,7 +30,7 @@ const createTopic = async (token: string, chat: string, name: string, color: num
     };
 
     if (!body.ok || !body.result) {
-      log(`не удалось создать «${name}»: ${body.description ?? `HTTP ${res.status}`}`);
+      log(`could not create "${name}": ${body.description ?? `HTTP ${res.status}`}`);
 
       return null;
     }
@@ -38,7 +38,7 @@ const createTopic = async (token: string, chat: string, name: string, color: num
     return body.result.message_thread_id;
   } catch (err) {
     // Сеть/таймаут/нечитаемый ответ — не роняем CLI (его контракт: всегда exit 0).
-    log(`не удалось создать «${name}»: ${err instanceof Error ? err.message : String(err)}`);
+    log(`could not create "${name}": ${err instanceof Error ? err.message : String(err)}`);
 
     return null;
   }
@@ -48,7 +48,7 @@ export const setupTopic = async (chatId: string, projectKey: string): Promise<vo
   const token = process.env.OPS_BOT_TOKEN?.trim();
 
   if (!token) {
-    log('нет OPS_BOT_TOKEN — не могу создать вкладки');
+    log('no OPS_BOT_TOKEN — cannot create the tabs');
 
     return;
   }
@@ -59,19 +59,19 @@ export const setupTopic = async (chatId: string, projectKey: string): Promise<vo
   // Частичный успех: если создался только Ops — печатаем его, иначе повторный
   // запуск создал бы ДРУГУЮ тему Ops, а старый id потерялся бы.
   if (ops === null) {
-    log('Ops не создан — проверь: бот админ группы с правом «Управление темами», темы включены?');
+    log('Ops was not created — check: is the bot a group admin with "Manage topics", and are topics on?');
 
     return;
   }
   if (dev === null) {
-    log(`Ops создан (id=${ops}), Dev нет — добавь Dev вручную или повтори, и возьми ops=${ops}`);
-    log('добавь в src/routes.ts (dev подставь после):');
-    log(`  ${JSON.stringify(projectKey)}: { chat: '${chatId}', ops: ${ops}, dev: <вставь> },`);
+    log(`Ops created (id=${ops}), Dev was not — add Dev by hand or run again, and keep ops=${ops}`);
+    log('add to src/routes.ts (fill dev in afterwards):');
+    log(`  ${JSON.stringify(projectKey)}: { chat: '${chatId}', ops: ${ops}, dev: <fill in> },`);
 
     return;
   }
 
-  log(`вкладки созданы: Ops=${ops}, Dev=${dev}`);
-  log('добавь в src/routes.ts:');
+  log(`tabs created: Ops=${ops}, Dev=${dev}`);
+  log('add to src/routes.ts:');
   log(`  ${JSON.stringify(projectKey)}: { chat: '${chatId}', ops: ${ops}, dev: ${dev} },`);
 };

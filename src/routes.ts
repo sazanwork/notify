@@ -74,7 +74,7 @@ export const targets = (e: NotifyEvent): Target[] => {
   // Возвращаем пустой список, а не падаем: уведомление не имеет права уронить
   // вызвавший его деплой или крон (в bash с `set -e` падение было бы фатальным).
   if (!forum) {
-    console.error(`[notify] неизвестный проект «${e.project}» — известны: ${Object.keys(ROUTES).join(', ')}`);
+    console.error(`[notify] unknown project "${e.project}" — known: ${Object.keys(ROUTES).join(', ')}`);
 
     return [];
   }

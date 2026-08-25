@@ -232,11 +232,18 @@ const ICON = { red: '🔴', alarm: '🚨', ok: '✅', info: 'ℹ️' } as const;
 // `action` объявлен строкой, но приходит и из `--json`, и из прямых вызовов на
 // JS, где типов нет. Пустое или отсутствующее значение давало строку `ℹ️ null`
 // прямо во второй строке карточки. Пустая строка честнее: поле просто исчезает.
-const typeLine = (icon: string, type: string, action: string | undefined): string => {
+// A link belongs on the NAME of the thing it opens, never on a separate row
+// whose only text is the verb `open`. The owner read `Details: open` under a
+// report and asked what "open" was — the answer is the report itself, which was
+// sitting three lines above as dead text. So line 2 takes an optional URL and
+// the action text becomes the link: `Report: <a>Analytics for 12.08</a>`.
+const typeLine = (icon: string, type: string, action: string | undefined, url?: string): string => {
   // `field` возвращает null на пустом значении, а интерполяция null в шаблон
   // печатает слово «null». Так вторая строка карточки становилась `ℹ️ null` —
   // достижимо через `--json` и прямой вызов на JS, где типов нет.
-  const line = field(type, action);
+  // `action || 'open'` in the linked case: an empty title must not swallow the
+  // link, which would be the one thing the card cannot afford to lose.
+  const line = url ? fieldLink(type, url, action || 'open') : field(type, action);
 
   return line === null ? `${icon} <b>${esc(cap(type))}</b>` : `${icon} ${line}`;
 };
@@ -276,7 +283,10 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // repeating the label of the line right above it reads as a mistake.
     // Until now the name was dropped entirely — every caller passed it and the
     // owner only ever saw it as the small grey instance tag.
-    field('Task', e.job),
+    // The run link rides on the task's own name. It used to sit at the bottom
+    // as `Workflow: open` — every job caller passes a URL and none passes a
+    // workflow name, so that row was the bare verb the owner objected to.
+    fieldLink('Task', e.workflowUrl ?? e.url, e.job),
     field('Reason', e.note),
     ...(e.stats ?? []).map(([label, value]) => field(label, value)),
     hasItems ? '' : null,
@@ -285,8 +295,10 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // "Disabled workflows".
     disabledList ? group('Disabled workflows') : null,
     ...(hasItems ? bullets(e.items, disabledList) : []),
-    e.workflowUrl ?? e.url ? '' : null,
-    fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName)
+    // Kept only when the caller actually names the workflow — a named row is a
+    // second, different destination; an unnamed one repeats the Task link.
+    e.workflowName && (e.workflowUrl ?? e.url) ? '' : null,
+    e.workflowName ? fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName) : null
   ]);
 };
 
@@ -295,26 +307,22 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     const body = e.groups.flatMap((g, i) => (i === 0 ? renderGroup(g) : ['', ...renderGroup(g)]));
 
     return join([
-      typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title),
+      typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
       '',
-      ...body,
-      e.url ? '' : null,
-      fieldAction('Details', e.url, undefined)
+      ...body
     ]);
   }
 
   const items = bullets(e.items, false);
 
   return join([
-    typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title),
+    // Both analytics jobs send a link to the day's snapshot in docs/. It used to
+    // hang off a trailing `Details: open` row; now it is the report's own name.
+    typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
     '',
     ...(e.lines ?? []).map(([label, value]) => field(label, value)),
     items.length > 0 ? '' : null,
-    ...items,
-    // Обе аналитики шлют сюда ссылку на снимок дня в docs/. Рендер её не читал,
-    // и дневной отчёт приходил без единственного способа посмотреть подробности.
-    e.url ? '' : null,
-    fieldAction('Details', e.url, undefined)
+    ...items
   ]);
 };
 
@@ -391,11 +399,12 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
     // commit now: short label, full text quoted under it.
     // Ярлык `Title`, а не `Reason`: у аварии заголовок — такой же заголовок,
     // как у коммита и задачи, и называться в одной карточке он должен так же.
-    titleField(e.title),
+    // Same rule as the report: the link rides on the incident's own title
+    // rather than on a trailing row whose only text is the word `open`.
+    fieldLink('Title', e.url, e.title),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
-    e.logs || e.url ? '' : null,
-    fieldCode('Logs', e.logs),
-    fieldAction('Workflow', e.url, undefined)
+    e.logs ? '' : null,
+    fieldCode('Logs', e.logs)
   ]);
 
 // Раньше всё это склеивалось в одну строку `Reason:` через тире: «имя — no

@@ -702,3 +702,75 @@ test('clampMessage closes nested tags in the order they were opened', () => {
   assert.ok(wellFormed(clamped), 'the clamped body is not well-formed');
 });
 
+
+// ── The link rides on the name, never on a bare verb ────────────────────────
+// The owner read `Details: open` under a daily report and asked what "open"
+// meant. It meant the report — which was printed three lines above as dead
+// text. These four tests fail if any card goes back to that shape.
+
+test('link/report: the report name is the link, and there is no Details row', () => {
+  const out = render({
+    type: 'report', project: 'game-publisher', title: 'Analytics for 2026-08-22',
+    period: 'compared with 2026-08-21',
+    lines: [['Humans in the server log', '262 ▲23']],
+    url: 'https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md'
+  });
+
+  assert.ok(
+    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22 · compared with 2026-08-21</a>'),
+    'the report name is not the link'
+  );
+  assert.ok(!out.includes('Details'), 'the Details row came back');
+  assert.ok(!out.includes('>open</a>'), 'a bare "open" link came back');
+});
+
+test('link/report with groups: same rule', () => {
+  const out = render({
+    type: 'report', project: 'mac-config', title: 'Board',
+    groups: [{ name: 'Ready', items: [{ text: '#12 do a thing', url: 'https://x/12' }] }],
+    url: 'https://x/board'
+  });
+
+  assert.ok(out.includes('<b>Report:</b> <a href="https://x/board">Board</a>'), 'grouped report lost its link');
+  assert.ok(!out.includes('Details'), 'the Details row came back in the grouped report');
+});
+
+test('link/job: the task name is the link, not a trailing Workflow: open', () => {
+  const out = render({
+    type: 'job', project: 'playhub', job: 'Yandex game import', status: 'fail',
+    note: 'Yandex returned no games at all',
+    url: 'https://github.com/sazanwork/playhub/actions/runs/42'
+  });
+
+  assert.ok(
+    out.includes('<b>Task:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">Yandex game import</a>'),
+    'the task name is not the link'
+  );
+  assert.ok(!out.includes('>open</a>'), 'the bare Workflow: open row came back');
+});
+
+test('link/job: a NAMED workflow still gets its own row — a second destination', () => {
+  const out = render({
+    type: 'job', project: 'playhub', job: 'Game validator', status: 'ok',
+    url: 'https://x/run', workflowName: 'validate-games.yml', workflowUrl: 'https://x/wf'
+  });
+
+  assert.ok(out.includes('<b>Task:</b> <a href="https://x/wf">Game validator</a>'), 'task lost its link');
+  assert.ok(out.includes('<b>Workflow:</b> <a href="https://x/wf">validate-games.yml</a>'), 'named workflow row was dropped');
+});
+
+test('link/incident: the title is the link', () => {
+  const out = render({
+    type: 'incident', project: 'vault', title: 'The vault needs repair',
+    detail: 'three lines of diagnosis', url: 'https://x/run'
+  });
+
+  assert.ok(out.includes('<b>Title:</b> <a href="https://x/run">The vault needs repair</a>'), 'incident title is not the link');
+  assert.ok(!out.includes('>open</a>'), 'the bare Workflow: open row came back on the incident');
+});
+
+test('link/no url: the name stays plain text, the card does not invent a link', () => {
+  const out = render({ type: 'report', project: 'vault', title: 'Keys', lines: [['Total', 3]] });
+  assert.ok(out.includes('ℹ️ <b>Report:</b> Keys'), 'report without a url lost its name');
+  assert.ok(!out.includes('<a href'), 'a link appeared out of nowhere');
+});
