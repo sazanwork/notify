@@ -211,7 +211,7 @@ const deliver = async (where: Target[], text: string): Promise<SendResult> => {
 const sendFileOnce = async (
   token: string,
   target: Target,
-  e: Extract<NotifyEvent, { type: 'file' }>,
+  e: NotifyEvent & { path: string },
   caption: string
 ): Promise<Attempt> => {
   try {
@@ -268,7 +268,7 @@ const sendFileOnce = async (
   }
 };
 
-const sendFile = async (e: Extract<NotifyEvent, { type: 'file' }>): Promise<SendResult> => {
+const sendFile = async (e: NotifyEvent & { path: string }): Promise<SendResult> => {
   const token = process.env.OPS_BOT_TOKEN?.trim();
 
   if (!token || !/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
@@ -348,8 +348,9 @@ export const notify = async (e: NotifyEvent): Promise<SendResult> => {
     return 'skipped';
   }
 
-  if (e.type === 'file') {
-    return sendFile(e);
+  // A card with a file becomes the caption of that file — one card, not two.
+  if (e.path) {
+    return sendFile(e as NotifyEvent & { path: string });
   }
 
   return deliver(targets(e), render(e));

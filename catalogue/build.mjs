@@ -108,11 +108,6 @@ const TYPES = [
        { type: 'pr', ...P, action: 'changes_requested', number: 1, title: 'x' }]
     ]
   },
-  {
-    tag: '#file', what: 'Файл вложением с подписью-карточкой',
-    who: 'arvent-eval-report.sh',
-    lines: [['одна строка на все случаи', { type: 'file', ...P, title: 'x', path: '/tmp/x' }]]
-  }
 ];
 
 // Numbered here, not in the list: hand-kept numbers went 07a, 07b the first

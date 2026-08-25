@@ -311,17 +311,18 @@ export const CARDS = [
     note: 'Тег тот же, что у красной карточки выше, — вот как выглядит пара «сломалось → починилось». Теперь её закрывает и сторож, и обычный удачный прогон задачи: поток один. И время подписано по-другому — «last seen», пока задачи не видно, и «last run», когда она вернулась.'
   },
   {
-    id: 'file', title: 'Файл вложением',
-    forum: 'Arvent', when: 'после ночного прогона качества ответов бота',
-    live: ['live', 'работает'],
+    id: 'file', title: 'Карточка с вложением',
+    forum: 'Arvent', when: 'после вечернего прогона качества ответов бота',
+    live: ['new', 'после выпуска 1.4.2'],
     sender: 'arvent-eval-report.sh',
-    expectTag: '#file #arvent_eval_dialogues',
+    expectTag: '#job #arvent_eval',
     event: {
-      type: 'file', project: 'arvent', key: 'arvent-eval-dialogues',
-      title: 'Eval Arvent 24.08: full dialogues',
+      type: 'job', project: 'arvent', key: 'arvent-eval',
+      job: 'Eval: bot answer quality', status: 'ok',
+      stats: [['verdict', '12 of 12 answers passed']],
       path: '/tmp/arvent-eval-24-08.txt',
       filename: 'arvent-eval-24-08.txt'
     },
-    note: 'Подпись к файлу режется на 1024 знаках, а не на 4000 — это отдельный, более низкий потолок Telegram для сообщений с вложением.'
+    note: 'Отдельного вида «файл» больше нет: вложение — свойство ЛЮБОЙ карточки. Раньше прогон слал две карточки про одну новость — вердикт и лог под своим тегом; теперь лог прицеплен к самому вердикту. Подпись к вложению Telegram режет на 1024 знаках вместо 4000, поэтому очень длинный список замечаний в такой карточке укоротится — сам лог приезжает целиком.'
   }
 ];

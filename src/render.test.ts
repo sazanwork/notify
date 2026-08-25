@@ -95,7 +95,6 @@ const VOCABULARY: Array<[NotifyEvent, string]> = [
   [{ type: 'session', project: 'mac-config', action: 'back to normal', status: 'ok' }, ICON.ok],
   [{ type: 'incident', project: 'arvent', title: 't' }, ICON.alarm],
   [{ type: 'report', project: 'arvent', title: 't', lines: [] }, ICON.info],
-  [{ type: 'file', project: 'arvent', title: 't', path: '/tmp/x' }, ICON.fresh],
   [{ type: 'heartbeat_miss', project: 'arvent', job: 'x' }, ICON.unknown],
   [{ type: 'heartbeat_miss', project: 'arvent', job: 'x', recovered: true }, ICON.ok]
 ];
@@ -256,7 +255,7 @@ test('clampMessage режет длинный текст, теги остаютс
 
 test('гигантский заголовок файла без --key не выносит caption за 1024', () => {
   const caption = render({
-    type: 'file',
+    type: 'report',
     project: 'arvent',
     title: 'Щ'.repeat(1100),
     path: '/tmp/x.txt'
@@ -267,15 +266,15 @@ test('гигантский заголовок файла без --key не вы�
 
 test('подпись файла укладывается в лимит caption 1024 и несёт тег', () => {
   const caption = render({
-    type: 'file',
+    type: 'report',
     project: 'arvent',
     title: 'Полные диалоги',
     path: '/tmp/x.txt',
-    note: 'Ы'.repeat(3000)
+    period: 'Ы'.repeat(3000)
   });
 
   assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
-  assert.ok(caption.startsWith('#file #полные_диалоги\n'));
+  assert.ok(caption.startsWith('#report #полные_диалоги\n'));
 });
 
 test('длинный текст ОДНОЙ строкой не выбрасывается целиком', () => {
@@ -653,14 +652,24 @@ test('card/heartbeat miss', () => {
   ].join('\n'));
 });
 
-test('card/file: caption is clamped at 1024, not 4000', () => {
+test('card with a file: the caption is clamped at 1024, not 4000', () => {
   const out = render({
-    type: 'file', project: 'arvent', title: 'Eval dialogues',
-    path: '/tmp/x.txt', note: 'Ц'.repeat(4000)
+    type: 'job', project: 'arvent', job: 'Eval: bot answer quality', status: 'ok',
+    key: 'arvent-eval', path: '/tmp/x.txt', note: 'Ц'.repeat(4000)
   });
 
   assert.ok(out.length <= 1024, `caption ${out.length} chars — Telegram cuts at 1024`);
-  assert.ok(out.startsWith('#file #eval_dialogues\n🆕 <b>File:</b> new'));
+  assert.ok(out.startsWith('#job #arvent_eval\n✅ <b>Job:</b> ok'),
+    'a card carrying a file is still the card of its own type');
+});
+
+test('the same card without a file gets the full 4000', () => {
+  const out = render({
+    type: 'job', project: 'arvent', job: 'Eval: bot answer quality', status: 'ok',
+    key: 'arvent-eval', note: 'Ц'.repeat(4000)
+  });
+
+  assert.ok(out.length > 1024, 'a card with no attachment must not be cut to caption size');
 });
 
 test('card/report', () => {
@@ -957,7 +966,7 @@ test('sound: every red or alarm card rings, and only those', () => {
     { type: 'pr', ...P, action: 'merged', number: 1, title: 'T' },
     { type: 'pr', ...P, action: 'approved', number: 1, title: 'T' },
     { type: 'pr', ...P, action: 'changes_requested', number: 1, title: 'T' },
-    { type: 'file', ...P, title: 'T', path: '/tmp/x' },
+    { type: 'report', ...P, title: 'T', path: '/tmp/x' },
     { type: 'heartbeat_miss', ...P, job: 'x' },
     { type: 'heartbeat_miss', ...P, job: 'x', recovered: true }
   ];

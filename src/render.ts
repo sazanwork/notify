@@ -424,18 +424,6 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
   ]);
 };
 
-// Подпись файла — та же карточка, но лимит Telegram у caption свой: 1024.
-const renderFile: Renderer<Extract<NotifyEvent, { type: 'file' }>> = (e) =>
-  join([
-    typeLine(iconFor(e), 'File', 'new'),
-    '',
-    // Раньше здесь стояло `field('Title', e.note ?? e.title)`: подпись файла
-    // приходила под ярлыком заголовка, а сам заголовок из карточки исчезал.
-    // Один ярлык — один смысл: Title это title, Reason это note.
-    field('Title', e.title),
-    field('Reason', e.note)
-  ]);
-
 const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { type: K }>> } = {
   deploy: renderDeploy,
   job: renderJob,
@@ -445,8 +433,7 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
   issue: renderIssue,
   incident: renderIncident,
   session: renderSession,
-  heartbeat_miss: renderHeartbeatMiss,
-  file: renderFile
+  heartbeat_miss: renderHeartbeatMiss
 };
 
 // Тег наверху карточки И машинный ключ разборщика — ОДНО И ТО ЖЕ значение
@@ -475,8 +462,7 @@ const TYPE_TAG: Record<NotifyEvent['type'], string> = {
   issue: 'issue',
   incident: 'incident',
   session: 'session',
-  heartbeat_miss: 'heartbeat',
-  file: 'file'
+  heartbeat_miss: 'heartbeat'
 };
 
 /**
@@ -499,7 +485,6 @@ export const eventKey = (e: NotifyEvent): string => {
         return slug(e.job);
       case 'report':
       case 'incident':
-      case 'file':
         return slug(e.title);
       // NOT the session id: an id is unique per session, so the tag would be
       // new every time and nothing could ever be paired with anything.
@@ -538,7 +523,8 @@ export const render = (e: NotifyEvent): string => {
   // clampMessage может выйти за переданный limit на хвост закрывающих тегов и
   // многоточие — минус 40 оставляет ему этот запас. У сообщений свой запас уже
   // есть (4000 против 4096 у Telegram), у caption лимит 1024 настоящий.
-  const budget = Math.max(64, e.type === 'file' ? 1024 - tags.length - 40 : 4000 - tags.length - 1);
+  // Карточка с вложением — это подпись, поэтому бюджет выбирается по `path`.
+  const budget = Math.max(64, e.path ? 1024 - tags.length - 40 : 4000 - tags.length - 1);
 
   return `${tags}\n${clampMessage(renderer(e), budget)}`;
 };

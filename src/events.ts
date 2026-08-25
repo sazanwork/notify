@@ -26,7 +26,19 @@ export type Project = 'playhub' | 'one-q' | 'arvent' | 'game-publisher' | 'vault
  * потоком по словам `sent|failed|skipped`) ключ не попадает никогда — новое
  * слово там ослепило бы сторожа.
  */
-type Keyed = { key?: string };
+/**
+ * Общая часть любого события. `path` — локальный файл, который едет ВМЕСТЕ с
+ * карточкой: карточка становится подписью к вложению. Отдельного вида `file`
+ * нет с 25.08.2026 — прогон Arvent слал вердикт и лог двумя карточками про
+ * одну новость.
+ */
+type Keyed = {
+  key?: string;
+  /** Локальный файл; карточка уедет как подпись к нему (лимит подписи 1024). */
+  path?: string;
+  /** Имя файла в чате; по умолчанию — имя из `path`. */
+  filename?: string;
+};
 
 /**
  * Позиция списка внутри сообщения: задача из дайджеста, упавшая проверка,
@@ -266,24 +278,6 @@ export type NotifyEvent = Keyed &
       /** Готовое предложение-причина; без него собирается из lastSeen/expected. */
       note?: string;
     }
-  /**
-   * Файл-вложение (sendDocument) с подписью-карточкой. Появился, когда
-   * eval-отчёт Arvent слал файл голым curl мимо пакета: без ретраев файл
-   * терялся в любую сетевую икоту, а chat_id и номер вкладки жили копией,
-   * которая устаревает молча. Маршрут — тот же `ROUTES`, транспорт — с теми
-   * же повторами. Подпись у Telegram ограничена 1024 символами — режется
-   * тем же безопасным клампом.
-   */
-  | {
-      type: 'file';
-      project: Project;
-      title: string;
-      /** Путь к локальному файлу. */
-      path: string;
-      /** Имя файла в чате; по умолчанию — имя из `path`. */
-      filename?: string;
-      note?: string;
-    }
   );
 
 export type EventType = NotifyEvent['type'];
@@ -362,8 +356,6 @@ export const iconFor = (e: NotifyEvent): string => {
       return ISSUE_ICON[e.action];
     case 'report':
       return ICON.info;
-    case 'file':
-      return ICON.fresh;
   }
 };
 

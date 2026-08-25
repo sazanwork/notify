@@ -376,22 +376,19 @@ if (flags.has('json')) {
         note: one('note')
       };
       break;
-    case 'file': {
-      const path = one('path');
-
-      if (!path) {
-        parseErrors.push('--path: required for a file event');
-      }
+    // `file` is no longer a kind of event — an attachment is a property any
+    // card may have. The word is kept as an alias so senders that still say
+    // `notify file` deliver a report card with the log attached, instead of
+    // falling into the unknown-type branch and going silent.
+    case 'file':
       event = {
-        type: 'file',
+        type: 'report',
         project: project(),
         title: one('title') ?? '(no title)',
-        path: path ?? '',
-        filename: one('filename'),
-        note: one('note')
+        period: one('note'),
+        lines: []
       };
       break;
-    }
     default:
       // В parseErrors, а не просто в лог: иначе неизвестный тип уходил в
       // тишину — событие не собиралось, ошибок разбора не было, и CLI выходил
@@ -405,6 +402,13 @@ if (flags.has('json')) {
 // key в самом объекте, отсутствие флага не должно его затирать.
 if (event) {
   event.key = one('key') ?? event.key;
+  // --path is applicable to any type too, for the same reason --key is.
+  event.path = one('path') ?? event.path;
+  event.filename = one('filename') ?? event.filename;
+}
+
+if (event?.filename && !event.path) {
+  parseErrors.push('--filename: given without --path, so there is no file to name');
 }
 
 // Ошибки разбора — до отправки: лучше внятно сказать, что не так с командой,
