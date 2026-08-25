@@ -1,30 +1,31 @@
 /**
- * Один рендерер на тип события, все по одному каркасу — утверждён
- * владельцем 20.08.2026 после ~15 живых раундов в тестовом форуме:
+ * One renderer per event type, all built on one skeleton — approved by
+ * the owner on 20.08.2026 after ~15 live rounds in the test forum:
  *
- *   #тип #экземпляр
- *   значок <b>Тип:</b> действие
+ *   #type #instance
+ *   icon <b>Type:</b> action
  *
- *   <b>Ярлык:</b> значение
- *   <blockquote>цитата чужого текста — тело коммита, тело задачи</blockquote>
+ *   <b>Label:</b> value
+ *   <blockquote>quoted text from someone else — commit body, task body</blockquote>
  *
- *   <i><u>Группа</u></i>
- *   <b>#N (overdue):</b> <a>заголовок</a>
+ *   <i><u>Group</u></i>
+ *   <b>#N (overdue):</b> <a>title</a>
  *
- *   <b>Ярлык:</b> значение   ← действия/направления
+ *   <b>Label:</b> value   ← actions/directions
  *
- * Три уровня начертания, никогда не смешиваются: поле — жирный ярлык с
- * большой буквы + обычное значение; группа — курсив+подчёркивание, без
- * жирности и без двоеточия; строка 2 (тип) — тот же закон поля. Пустая
- * строка разделяет БЛОКИ ПО СМЫСЛУ (шапка / суть / действия), не механически
- * после каждой строки.
+ * Three levels of styling, never mixed: a field is a bold, capitalized
+ * label plus a plain value; a group is italic+underline, no bold and no
+ * colon; line 2 (the type) follows the same field rule. A blank line
+ * separates BLOCKS BY MEANING (header / body / actions), not mechanically
+ * after every line.
  */
 import { ICON, LOUD, iconFor, type Item, type NotifyEvent } from './events.ts';
 
-/** Первая буква — заглавная, остальное как есть (ga4/GitHub остаются собой). */
+/** First letter capitalized, the rest left as is (ga4/GitHub stay themselves). */
 /**
- * Ярлык с большой буквы — но НЕ у имени, которое пишется со строчной нарочно:
- * `iOS` превращалось в `IOS`. Признак — вторая буква заглавная.
+ * A label gets a capital letter — but NOT a name that is deliberately
+ * written lowercase: `iOS` was turning into `IOS`. The signal is a capital
+ * second letter.
  */
 const cap = (s: string): string => {
   if (s.length === 0 || /^[a-z][A-Z]/.test(s)) {
@@ -34,7 +35,7 @@ const cap = (s: string): string => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-/** Экранируется ВСЁ, что пришло снаружи — теги ставит только шаблон. */
+/** Escapes EVERYTHING that comes from outside — only the template adds tags. */
 export const esc = (v: unknown): string =>
   String(v ?? '')
     .replace(/&/g, '&amp;')
@@ -43,17 +44,18 @@ export const esc = (v: unknown): string =>
     .replace(/"/g, '&quot;');
 
 /**
- * Telegram режет сообщение на 4096 символах — режем сами, по возможности по
- * границе строки.
+ * Telegram cuts a message at 4096 characters — we cut it ourselves first,
+ * on a line boundary where possible.
  *
- * Два подвоха, оба приводили к ТИХОЙ потере сообщения:
- * 1. Резать строго по последнему `\n` нельзя: если длинный кусок идёт одной
- *    строкой (стектрейс, вывод команды — самый частый `detail` у инцидента),
- *    последний перевод строки стоит ПЕРЕД ним, и содержимое выбрасывалось
- *    целиком — приходил заголовок без единого факта о поломке.
- * 2. Резать посреди HTML-тега или сущности тоже нельзя: Telegram отвечает
- *    `400 can't parse entities`, а 4xx мы считаем постоянной ошибкой и не
- *    повторяем — сообщение исчезало совсем.
+ * Two traps, both caused a SILENT loss of the message:
+ * 1. Cutting strictly at the last `\n` does not work: if a long chunk runs
+ *    as one line (a stack trace, command output — the most common `detail`
+ *    on an incident), the last line break sits BEFORE it, and the whole
+ *    content got dropped — only the heading arrived, with not a single
+ *    fact about what broke.
+ * 2. Cutting in the middle of an HTML tag or entity does not work either:
+ *    Telegram replies `400 can't parse entities`, and we treat a 4xx as a
+ *    permanent error and do not retry — the message disappeared for good.
  */
 export const clampMessage = (text: string, limit = 4000): string => {
   if (text.length <= limit) {
@@ -62,10 +64,10 @@ export const clampMessage = (text: string, limit = 4000): string => {
 
   const cut = text.slice(0, limit);
   const lastBreak = cut.lastIndexOf('\n');
-  // По границе строки — только если так остаётся большая часть содержимого.
+  // Cut on a line boundary — only if that keeps most of the content.
   let end = lastBreak > limit * 0.6 ? lastBreak : limit;
 
-  // Не обрываемся внутри `<...>` и внутри `&...;` — иначе разметка ломается.
+  // Never cut inside `<...>` or inside `&...;` — otherwise the markup breaks.
   const openTag = cut.lastIndexOf('<', end - 1);
   if (openTag !== -1 && cut.indexOf('>', openTag) === -1) {
     end = openTag;
@@ -76,21 +78,22 @@ export const clampMessage = (text: string, limit = 4000): string => {
   }
 
   const body = cut.slice(0, end);
-  // Кламп мог отрезать закрывающие теги — добираем их, чтобы разметка сошлась.
-  // blockquote — с приходом цитаты для примечаний/деталей длинный detail режется
-  // прямо посередине неё, и без этого тега Telegram отвечал бы 400 на незакрытую
-  // цитату (regex `<blockquote[ >]` ловит и вариант с атрибутом `expandable`).
-  // `u` в списке с 2026-08-25: заголовок группы рисуется как `<i><u>…</u></i>`,
-  // и обрезанный посередине длинный заголовок оставлял `<u>` незакрытым.
-  // Telegram отвечает на такое 400 — то есть карточка пропадала целиком, а
-  // отправитель с `|| true` этого не замечал. Нашёл Codex; воспроизводится
-  // отчётом с именем группы в 5000 знаков.
+  // The clamp may have cut off closing tags — we add them back so the markup
+  // matches. blockquote — since quoting arrived for notes/details, a long
+  // detail gets cut right in the middle of it, and without this tag Telegram
+  // would answer 400 on the unclosed quote (the regex `<blockquote[ >]` also
+  // catches the variant with an `expandable` attribute).
+  // `u` joined the list on 2026-08-25: a group heading renders as
+  // `<i><u>…</u></i>`, and a long heading cut in the middle left `<u>` unclosed.
+  // Telegram answers 400 to that — meaning the whole card disappeared, and the
+  // sender with `|| true` never noticed. Codex found it; reproduces with a
+  // report whose group name is 5000 characters long.
   //
-  // Порядок закрытия — обратный порядку ОТКРЫТИЯ, а не фиксированный список.
-  // Фиксированный список закрывал `<i><u>` как `</i></u>`: тегов поровну,
-  // счётчик сходится, вложенность нарушена, и Telegram отвечает тем же 400.
-  // Второй заход того же бага (25.08.2026), поэтому теперь порядок берётся из
-  // самого текста: последний открытый закрывается первым.
+  // Closing order is the reverse of OPENING order, not a fixed list. A fixed
+  // list closed `<i><u>` as `</i></u>`: the tag count matches, but the nesting
+  // is wrong, and Telegram answers with the same 400. Second round of the same
+  // bug (25.08.2026), so now the order comes from the text itself: the last
+  // one opened is the first one closed.
   const open: string[] = [];
   const tagRe = /<(\/?)(b|a|i|u|code|blockquote)[ >]/g;
   for (let m = tagRe.exec(body); m !== null; m = tagRe.exec(body)) {
@@ -111,12 +114,12 @@ export const clampMessage = (text: string, limit = 4000): string => {
   return `${body}${tail}\n…`;
 };
 
-// Только первая строка: однострочное поле по контракту (коммит, ветка,
-// автор, статистика), а не место для абзаца. Живой случай (18.08): CI-карточка
-// понесла ПОЛНОЕ тело коммита с историей под-коммитов через `--commit` и вместо
-// одной строки развернулась на 3000 символов — многострочный текст либо
-// ошибка вызывающего, либо должен идти через `note()`, а не молча раздувать
-// карточку.
+// Only the first line: a field is single-line by contract (commit, branch,
+// author, a stat), not a place for a paragraph. A live case (18.08): a CI card
+// carried the FULL commit body with a sub-commit history through `--commit`
+// and instead of one line unrolled to 3000 characters — multi-line text is
+// either a caller mistake, or it belongs in `note()`, not a silent bloat of
+// the card.
 const firstLine = (value: string | number): string | number => {
   if (typeof value === 'number' || !value.includes('\n')) {
     return value;
@@ -126,18 +129,18 @@ const firstLine = (value: string | number): string | number => {
 };
 
 /**
- * Поле: `<b>Ярлык:</b> значение` — жирный ярлык с большой буквы, значение
- * обычным. `null` отбрасывается наравне с `undefined`/`''` — источники поля
- * это JSON со stdin (`--json`) и объекты с сервера, где отсутствующее
- * значение сериализуется как `null`, а не как пропущенный ключ.
+ * A field: `<b>Label:</b> value` — a bold, capitalized label, a plain value.
+ * `null` is dropped the same as `undefined`/`''` — the field's sources are
+ * JSON on stdin (`--json`) and objects from the server, where a missing
+ * value serializes as `null`, not as a missing key.
  */
 const field = (label: string, value: string | number | null | undefined): string | null =>
   value === undefined || value === null || value === '' ? null : `<b>${esc(cap(label))}:</b> ${esc(firstLine(value))}`;
 
 /**
- * Поле-идентификатор (`commit:`/`pr:`/`issue:`): значение — ссылка, если
- * она есть, иначе обычный текст того же поля — идентификатор не должен
- * пропадать целиком только потому, что вызывающий не передал url.
+ * An identifier field (`commit:`/`pr:`/`issue:`): the value is a link if
+ * one exists, otherwise the plain text of the same field — an identifier
+ * must not disappear entirely just because the caller did not pass a url.
  */
 const fieldLink = (
   label: string,
@@ -157,48 +160,51 @@ const fieldLink = (
 };
 
 /**
- * Поле-действие (`workflow:`): в отличие от `fieldLink`, без URL это НЕ
- * поле — прогону просто некуда вести, показывать голое слово «run» без
- * ссылки бессмысленнее, чем не показывать строку вовсе.
+ * An action field (`workflow:`): unlike `fieldLink`, without a URL this is
+ * NOT a field — the run simply has nowhere to lead, and showing the bare
+ * word "run" with no link is more meaningless than not showing the row at
+ * all.
  */
-// Текст ссылки — имя того, куда она ведёт (имя workflow, имя прогона). Запасное
-// слово было «run»: существительное, которое ничего не называет — владелец читал
-// «Workflow: run» и не понимал, что это. «open» — глагол, он хотя бы честно
-// говорит, что это ссылка, а не название.
+// The link text is the name of where it leads (the workflow's name, the run's
+// name). The fallback word used to be "run": a noun that names nothing — the
+// owner read "Workflow: run" and did not understand what it was. "open" is a
+// verb, and it is at least honest about being a link, not a name.
 const fieldAction = (label: string, url: string | undefined, text: string | undefined): string | null =>
   url ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(text ?? 'open')}</a>` : null;
 
-/** Моноширинное поле — путь/команда для копирования, не ссылка. */
+/** A monospace field — a path/command to copy, not a link. */
 const fieldCode = (label: string, value: string | undefined): string | null =>
   value ? `<b>${esc(cap(label))}:</b> <code>${esc(value)}</code>` : null;
 
 /**
- * Строка, которая просит что-то ОТ ВЛАДЕЛЬЦА, а не сообщает факт. Она уже
- * стояла последней и через пустую строку, и всё равно читалась как рядовое
- * поле среди пяти других. Маркер `▶` — единственное отличие: заголовок группы
- * здесь был бы третьей строкой разметки на карточку из шести (25.08.2026, два
- * ревью против группировки), а маркер не тратит ни одной.
+ * A row that asks something FROM THE OWNER, rather than reports a fact. It
+ * already stood last, set off by a blank line, and still read as an
+ * ordinary field among five others. The `▶` marker is the only difference:
+ * a group heading here would have been a third line of markup on a card
+ * that already has six (25.08.2026, two reviews against grouping), and the
+ * marker spends none.
  */
 /**
- * Действие: что сделать и чем. Без объяснения команда НЕ печатается вовсе —
- * владелец на голую `rm` в карточке: «я ж не знаю, что делаю». Молча уронить
- * строку лучше, чем показать ему команду, которую он не может прочитать;
- * отправителя при этом ловит тест каталога, а не тишина в чате.
+ * Action: what to do and with what. Without an explanation the command is
+ * NOT printed at all — the owner on a bare `rm` in a card: "I don't even
+ * know what I'm doing." Silently dropping the row is better than showing
+ * him a command he cannot read; the sender is caught by the catalogue test
+ * instead, not by silence in the chat.
  */
 const fieldRun = (value: string | undefined, why: string | undefined): string[] => {
   const explain = field('To do', why);
 
-  // Без значка. `▶` был единственным символом такого рода на все двадцать
-  // видов карточек, и владелец справедливо спросил, что он значит: ничего,
-  // чего не сказала бы строка `To do:` над ним и моноширинный шрифт под ним —
-  // Telegram делает такую строку копируемой по нажатию сам.
+  // No icon. `▶` was the only symbol of its kind across all twenty kinds of
+  // cards, and the owner rightly asked what it meant: nothing that the row
+  // `To do:` above it and the monospace font below it did not already say —
+  // Telegram makes a row like that tap-to-copy on its own.
   return value && explain !== null ? [explain, `<code>${esc(value)}</code>`] : [];
 };
 
-/** Заголовок группы: курсив + подчёркивание, без жирности, без двоеточия. */
+/** A group heading: italic + underline, no bold, no colon. */
 const group = (name: string): string => `<i><u>${esc(cap(name))}</u></i>`;
 
-/** Позиция внутри группы: `<b>label:</b> <a>text</a>` — либо простая маркированная/нумерованная строка без label. */
+/** An item inside a group: `<b>label:</b> <a>text</a>` — or a plain bulleted/numbered row with no label. */
 const groupItem = (it: Item, index: number, numbered: boolean): string => {
   const linked = it.url ? `<a href="${esc(it.url)}">${esc(it.text)}</a>` : esc(it.text);
 
@@ -209,10 +215,11 @@ const groupItem = (it: Item, index: number, numbered: boolean): string => {
   return numbered ? `${index + 1}. ${linked}` : `• ${linked}`;
 };
 
-// Длинное пояснение (примечание, детали инцидента) — цитатой: у Telegram это
-// полоска слева и лёгкий отступ, читается как «подробности», а не как часть
-// заголовка. Длиннее ~400 знаков — цитата сворачивается сама (`expandable`,
-// Bot API), иначе стектрейс или дамп лога растягивает карточку на весь экран.
+// A long explanation (a note, incident details) — as a quote: in Telegram
+// that is a bar on the left and a light indent, reading as "details," not as
+// part of the heading. Longer than ~400 characters and the quote collapses
+// on its own (`expandable`, Bot API), otherwise a stack trace or a log dump
+// stretches the card across the whole screen.
 const EXPAND_AT = 400;
 const note = (text: string | undefined): string | null => {
   if (!text) {
@@ -224,11 +231,12 @@ const note = (text: string | undefined): string | null => {
 };
 
 /**
- * Цитата с подписью. Голая цитата читается как продолжение поля над ней:
- * владелец спросил про строку, которой открыта сессия, «что значит этот текст,
- * откуда он берётся» — и был прав, в карточке это нигде не сказано. Подпись
- * стоит отдельной строкой, потому что сам текст в поле не помещается: поле
- * держит одну строку и обрезает.
+ * A quote with a caption. A bare quote reads as a continuation of the
+ * field above it: the owner asked about the line that opens a session,
+ * "what does this text mean, where does it come from" — and he was right,
+ * the card says it nowhere. The caption stands on its own line, because
+ * the text itself does not fit in a field: a field holds one line and cuts
+ * it.
  */
 /**
  * A quote that needs saying what it is. The heading is a GROUP heading — the
@@ -241,10 +249,10 @@ const quoted = (label: string, text: string | undefined): string | null =>
   text ? `${group(label)}\n${note(text)}` : null;
 
 /**
- * Склейка карточки. Пустая строка здесь — знак смены блока, а не отступ:
- * две подряд означают пустой блок, ведущая — блок, которого нет. Обе
- * появляются, когда часть полей не пришла, и обе схлопываются тут, а не
- * в каждом рендерере по отдельности.
+ * Assembles the card. A blank line here marks a block change, not
+ * indentation: two in a row mean an empty block, a leading one means a
+ * block that does not exist. Both appear when some fields did not arrive,
+ * and both collapse here, not separately in every renderer.
  */
 const join = (parts: Array<string | null>): string => {
   const out: string[] = [];
@@ -264,12 +272,13 @@ const join = (parts: Array<string | null>): string => {
   return out.join('\n');
 };
 
-/** Плоский список позиций (без ярлыков) — job/report без групп. */
+/** A flat list of items (no labels) — job/report with no groups. */
 /**
- * Позиции списка. Именованная группа ВСЕГДА печатает свой заголовок — тот же
- * закон, что у `labelled`: карточка одного типа не должна выглядеть по-разному
- * в разные дни. Нумерация идёт внутри блока, а не сквозная: «1, 2» под своим
- * заголовком читается, сквозная «3, 4» под вторым — нет.
+ * List items. A named group ALWAYS prints its heading — the same law
+ * `labelled` follows: a card of one type must not look different on
+ * different days. Numbering runs within the block, not across it: "1, 2"
+ * under its own heading reads fine, a running "3, 4" under the second one
+ * does not.
  */
 const bullets = (items: Item[] | undefined, numbered: boolean): string[] => {
   const list = items ?? [];
@@ -291,24 +300,26 @@ const bullets = (items: Item[] | undefined, numbered: boolean): string[] => {
   return out;
 };
 
-/** Именованная группа целиком: заголовок + позиции, разделены строкой пустоты внутри вызова через join. */
+/** A whole named group: heading + items, separated by a blank line inside the call, via join. */
 const renderGroup = (g: { name: string; items: Item[] }): string[] => [
   group(g.name),
   ...g.items.map((it, i) => groupItem(it, i, false))
 ];
 
 /**
- * ОДНО правило на все карточки, где есть и заголовок, и тело: заголовок —
- * обычное поле `Title:`, тело — цитата, и в цитате больше ничего нет.
+ * ONE rule for every card that has both a title and a body: the title is
+ * an ordinary `Title:` field, the body is a quote, and the quote holds
+ * nothing else.
  *
- * Раньше заголовок клался В ЦИТАТУ вместе с телом, разделённые пустой
- * строкой. Владелец нашёл, чем это плохо: заголовок — главное в карточке, то,
- * ЧТО это, а лежал он серым текстом того же веса, что и описание, и отличить
- * одно от другого можно было только по пустой строке. У PR без тела карточка
- * вырождалась в одинокую серую цитату из одной строки.
+ * The title used to sit INSIDE THE QUOTE together with the body, separated
+ * by a blank line. The owner found the problem with that: the title is the
+ * main thing on a card, WHAT it is about, and it sat there as gray text of
+ * the same weight as the description — the only way to tell them apart was
+ * the blank line. On a PR with no body, the card degenerated into a single
+ * lonely gray one-line quote.
  *
- * Заголовок режется до первой строки: многострочный subject коммита не должен
- * затягивать в поле собственное тело.
+ * The title is cut to its first line: a multi-line commit subject must not
+ * drag its own body into the field.
  */
 const titleField = (title: string | undefined): string | null =>
   field('Title', title);
@@ -317,21 +328,22 @@ const bodyQuote = (body: string | undefined): string | null =>
   body ? note(body) : null;
 
 /**
- * Строки с ярлыками, разложенные по группам, которые назвал сам отправитель.
+ * Labelled rows, sorted into the groups the sender itself named.
  *
- * Закон простой и считается программой: назвал группу — заголовок печатается.
- * Всегда, сколько бы строк в ней ни было и сколько бы групп ни оказалось.
- * Порог «две и больше» я пробовал и снял: у карточки резервных копий все
- * цифры лежат в одной группе, а над ними — рассказ о прогоне, и порог гасил
- * ровно тот шов, ради которого владелец всё это и просил.
+ * The rule is simple and enforced by code: named a group — the heading
+ * prints. Always, no matter how many rows are in it or how many groups
+ * turn up. I tried a "two or more" threshold and dropped it: on the backup
+ * card all the numbers sit in one group, with a summary of the run above
+ * them, and the threshold was killing exactly the seam the owner asked
+ * for in the first place.
  *
- * Так же уходит и риск «одна и та же карточка выглядит по-разному в разные
- * дни»: вид зависит от того, что отправитель НАЗВАЛ в коде, а не от того,
- * сколько строк набралось сегодня.
+ * This also removes the risk of "the same card looks different on
+ * different days": the look depends on what the sender NAMED in code, not
+ * on how many rows happened to show up today.
  *
- * Порядок групп — порядок первого появления у отправителя: он знает, что
- * важнее. Строки без имени идут первыми и без заголовка — это факты о самой
- * карточке, а не о каком-то из её предметов.
+ * Group order is the order the sender first mentions them: it knows what
+ * matters more. Unnamed rows come first with no heading — they are facts
+ * about the card itself, not about any one of its subjects.
  */
 const labelled = (rows: Array<[string, string | number, string?]> | undefined): string[] => {
   const list = rows ?? [];
@@ -350,10 +362,10 @@ const labelled = (rows: Array<[string, string | number, string?]> | undefined): 
     }
   }
   for (const name of names) {
-    // Пустая строка перед КАЖДЫМ заголовком, включая первый: над ним всегда
-    // стоят поля самой карточки (Task, Period), и без шва заголовок читался
-    // как ещё одна их строка. Двойных пустот бояться не нужно — их схлопывает
-    // `join`.
+    // A blank line before EVERY heading, including the first: above it there
+    // are always the card's own fields (Task, Period), and without the seam
+    // the heading read as just another one of them. No need to worry about
+    // double blanks — `join` collapses them.
     out.push('');
     out.push(group(name));
     for (const [label, value] of list.filter(([, , g]) => g === name)) {
@@ -368,18 +380,19 @@ const labelled = (rows: Array<[string, string | number, string?]> | undefined): 
 };
 
 /**
- * Блоки, которыми владеет сам рендерер, — у выкатки и проверки их два, и они
- * про разные вещи: `Run` это сам прогон и его обстоятельства, `Change` это
- * изменение, из-за которого он случился. Владелец на CI-карточке: «commit,
- * actor, workflow — не знаю, всё так сумбурно».
+ * Blocks owned by the renderer itself — a deploy and a check have two of
+ * them, and they are about different things: `Run` is the run itself and
+ * its circumstances, `Change` is the change that caused it. The owner on a
+ * CI card: "commit, actor, workflow — I don't know, it's all a jumble."
  *
- * Заголовок печатается у КАЖДОГО непустого блока, а не только когда их два.
- * Сначала было «два и больше», ради экономии строки на зелёной карточке, и
- * это оказалось ошибкой: у зелёной выкатки нет ни цели, ни причины, блок один,
- * заголовки пропадали — и один и тот же вид уведомления выглядел в разные дни
- * по-разному. Владелец дважды спросил «почему здесь нет групп», глядя именно
- * на зелёную. Строка заголовка стоит дешевле, чем необходимость каждый раз
- * заново искать глазами, где что.
+ * The heading prints for EVERY non-empty block, not only when there are
+ * two. It used to be "two or more," to save a line on a green card, and
+ * that turned out to be a mistake: a green deploy has no target and no
+ * reason, there is only one block, the headings disappeared — and the same
+ * kind of notification looked different from one day to the next. The
+ * owner asked twice "why isn't there a group here," looking straight at a
+ * green one. A heading row costs less than having to hunt for what is what
+ * every single time.
  */
 /**
  * A deploy or a check has two subjects: the run itself and the commit it went
@@ -402,12 +415,13 @@ const twoBlocks = (run: Array<string | null>, change: Array<string | null>): Arr
 
 type Renderer<E extends NotifyEvent> = (e: E) => string;
 
-// Значок и его закон живут в events.ts: от него зависит и звук.
+// The icon and its rule live in events.ts: the sound depends on it too.
 
-/** Строка 2: значок вне жирного, `<b>Тип:</b> действие` — то же поле, не особый случай. */
-// `action` объявлен строкой, но приходит и из `--json`, и из прямых вызовов на
-// JS, где типов нет. Пустое или отсутствующее значение давало строку `ℹ️ null`
-// прямо во второй строке карточки. Пустая строка честнее: поле просто исчезает.
+/** Line 2: the icon sits outside the bold, `<b>Type:</b> action` — the same field, not a special case. */
+// `action` is typed as a string, but it also arrives from `--json` and from
+// direct calls in JS, where there are no types. An empty or missing value
+// produced the row `ℹ️ null` right on the card's second line. An empty string
+// is more honest: the field simply disappears.
 // A link belongs on the NAME of the thing it opens, never on a separate row
 // whose only text is the verb `open`. The owner read `Details: open` under a
 // report and asked what "open" was — the answer is the report itself, which was
@@ -437,11 +451,12 @@ const typeLine = (
   return line === null ? `${icon} <b>${esc(cap(type))}</b>${tail}` : `${icon} ${line}${tail}`;
 };
 
-// `workflowUrl ?? url`: половина отправителей шлёт ссылку на прогон под именем
-// `--url` — это имя было в пакете раньше и осталось в вызовах. Рендер читал
-// только `workflowUrl`, поэтому красная карточка приходила БЕЗ ЕДИНОЙ ССЫЛКИ
-// на логи. Отвергать `--url` было бы честнее по имени и хуже по делу: намерение
-// однозначно, а карточка без ссылки бесполезна ровно тогда, когда нужна.
+// `workflowUrl ?? url`: half the senders send the run link under the name
+// `--url` — that name was in the package before and stayed in their calls.
+// The renderer only read `workflowUrl`, so a red card arrived WITH NOT A
+// SINGLE LINK to the logs. Rejecting `--url` would be more honest by name and
+// worse in practice: the intent is unambiguous, and a card with no link is
+// useless exactly when it is needed most.
 /**
  * What to call the thing that ran. The workflow's own name first — it is the
  * only text here that identifies THIS run. Then the caller's own word for the
@@ -475,9 +490,10 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   const runUrl = e.workflowUrl ?? e.url;
 
   return join([
-    // Имя того, чем выкатили, — на строке типа. Исход говорят значок и третий
-    // тег; повторять его словом нечего, и это тот же закон, что у задачи и у
-    // отчёта. Строки `Via` больше нет: она несла это имя этажом ниже.
+    // The name of what shipped the deploy sits on the type line. The outcome
+    // is already said by the icon and the third tag; there is nothing to
+    // repeat in words, and it is the same law a job and a report follow. The
+    // `Via` row is gone: it used to carry this same name one floor below.
     typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via, runUrl) ?? e.status, runUrl),
     ...twoBlocks(
       [field('Target', e.target), field('Reason', e.note)],
@@ -598,20 +614,33 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
 const named = (number: number, title: string | undefined): string =>
   title ? `#${number} ${title}` : `#${number}`;
 
+// The people come BEFORE the text, and the text comes only when it is the
+// news. An `assigned` card carries one new fact — who took it — and it used to
+// sit dead last, under the issue's entire description: the owner read a card
+// about someone taking issue #312 and asked who, because he never got that far.
+//
+// The description is the news exactly once, when the thing is opened. On
+// assigned, closed, merged or a review verdict it is text he has already read,
+// and it buries the one line he came for.
+const opening = (action: string, body: string | undefined): string | null =>
+  action === 'opened' ? bodyQuote(body) : null;
+
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'PR', named(e.number, e.title), e.url),
-    bodyQuote(e.body),
     field('Author', e.author),
-    field('Reviewer', e.reviewer)
+    field('Reviewer', e.reviewer),
+    e.action === 'opened' && e.body ? '' : null,
+    opening(e.action, e.body)
   ]);
 
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'Issue', named(e.number, e.title), e.url),
-    bodyQuote(e.body),
     field('Author', e.author),
-    field('Assignee', e.assignee)
+    field('Assignee', e.assignee),
+    e.action === 'opened' && e.body ? '' : null,
+    opening(e.action, e.body)
   ]);
 
 // The incident's own title IS line 2, exactly as an issue's is. It used to say
@@ -680,13 +709,14 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
   heartbeat_miss: renderHeartbeatMiss
 };
 
-// Тег наверху карточки И машинный ключ разборщика — ОДНО И ТО ЖЕ значение
-// (решение владельца 20.08.2026): раньше это были два разных представления
-// одного факта (снизу — дефисный `#ci-arvent`, сверху — теги вручную), и это
-// читалось как дублирование. Разделитель — подчёркивание, не дефис: дефис
-// разрывает Telegram-хэштег на середине слова (`#mac-config` линкуется
-// только как `#mac`), а тег ДОЛЖЕН быть кликабельным — это и есть фильтр
-// «показать всю историю этого экземпляра», которым владелец пользуется вживую.
+// The tag at the top of the card AND the parser's machine key are ONE AND THE
+// SAME value (the owner's decision, 20.08.2026): they used to be two separate
+// representations of one fact (a hyphenated `#ci-arvent` at the bottom, tags
+// typed by hand at the top), and that read as duplication. The separator is
+// an underscore, not a hyphen: a hyphen splits a Telegram hashtag in the
+// middle of a word (`#mac-config` links only as `#mac`), and the tag MUST be
+// clickable — that is exactly the "show this instance's whole history" filter
+// the owner uses in practice.
 export const slug = (raw: string): string =>
   raw
     .toLowerCase()
@@ -694,9 +724,9 @@ export const slug = (raw: string): string =>
     .replace(/^_+|_+$/g, '')
     .slice(0, 60);
 
-// Тип-тег наверху — не буквальный `e.type`: `heartbeat_miss` читался бы как
-// `#heartbeat_miss`, а видимый тип у владельца всегда просто `#heartbeat`
-// (зелёная и красная карточки одного вида — один и тот же тип-тег).
+// The type tag at the top is not the literal `e.type`: `heartbeat_miss` would
+// read as `#heartbeat_miss`, while the type the owner sees is always just
+// `#heartbeat` (a green and a red card of one kind carry the same type tag).
 const TYPE_TAG: Record<NotifyEvent['type'], string> = {
   deploy: 'deploy',
   job: 'job',
@@ -710,12 +740,13 @@ const TYPE_TAG: Record<NotifyEvent['type'], string> = {
 };
 
 /**
- * Экземпляр-тег: что именно это конкретное событие (ветка, окружение,
- * задача, номер) — по нему разборщик сверяет 🔴 с более поздней зелёной
- * карточкой ТОГО ЖЕ экземпляра. Явный `key` побеждает всегда; без него —
- * выводится из самых стабильных полей типа (ветка/окружение важнее заголовка,
- * потому что заголовок у регулярной задачи не меняется, а у отчёта как раз
- * заголовок и есть единственное стабильное поле).
+ * The instance tag: exactly which concrete event this is (branch,
+ * environment, task, number) — the parser uses it to match a 🔴 against a
+ * later green card of the SAME instance. An explicit `key` always wins;
+ * without one, it is derived from the type's most stable fields (branch/
+ * environment outrank the title, because a recurring task's title does not
+ * change, while for a report the title is exactly the one stable field it
+ * has).
  */
 export const eventKey = (e: NotifyEvent): string => {
   const fallback = (): string => {
@@ -745,10 +776,11 @@ export const eventKey = (e: NotifyEvent): string => {
 };
 
 /**
- * Третий тег — ИСХОД, и он есть всегда. Владелец: «не хватает тега fail или
- * похожего, чтобы фейлы можно было группировать и ок можно было группировать».
- * Одно нажатие в Telegram собирает все падения проекта разом, каким бы типом
- * они ни пришли — выкатка, проверка, задача по расписанию, авария.
+ * The third tag is the OUTCOME, and it is always there. The owner: "I'm
+ * missing a fail tag or something like it, so failures can be grouped and
+ * ok can be grouped." One tap in Telegram collects every failure of a
+ * project at once, no matter what type it arrived as — a deploy, a check,
+ * a scheduled task, an incident.
  *
  * The value comes from the ICON, never from the status word. The icon is
  * already the single source of truth for the sound, and a second list of "what
@@ -778,36 +810,37 @@ const tagsLine = (e: NotifyEvent): string =>
   `#${TYPE_TAG[e.type]} #${esc(eventKey(e))} #${outcomeTag(e)}`;
 
 /**
- * Строка тегов для свободного HTML (`sendReport`). Тег — это ФИЛЬТР владельца,
- * и к формату тела он отношения не имеет: дневной отчёт остаётся свободным
- * текстом, но перестаёт быть единственной карточкой без тегов. Раньше ключ
- * висел хвостом в `<i><code>#ключ</code></i>` — это старый формат, до того как
- * теги переехали первой строкой.
+ * The tag line for free-form HTML (`sendReport`). The tag is the owner's
+ * FILTER, and it has nothing to do with the body's format: a daily report
+ * stays free-form text, but stops being the one card with no tags. The key
+ * used to hang off the tail as `<i><code>#key</code></i>` — that is the old
+ * format, from before tags moved to the first line.
  */
 export const reportTags = (key: string): string => `#report #${esc(slug(key))}`;
 
 /**
- * Рендерит событие в готовый HTML-текст, обрезанный под лимит Telegram.
- * Теги — ПЕРВАЯ строка, добавляются до обрезки (не после, как раньше): они
- * несут и человеческий фильтр, и машинный ключ разборщика — обрезанная
- * карточка без них была бы не только некликабельной, но и невидимой
- * разборщику ровно на самых длинных, то есть самых важных сообщениях.
+ * Renders an event into finished HTML text, cut to Telegram's limit.
+ * Tags are the FIRST line, added before the cut (not after, as before):
+ * they carry both the human filter and the parser's machine key — a card
+ * cut without them would be not only unclickable but invisible to the
+ * parser on exactly the longest, meaning the most important, messages.
  */
 export const render = (e: NotifyEvent): string => {
   const renderer = RENDERERS[e.type] as Renderer<typeof e> | undefined;
 
-  // Прикрывает путь `--json` и вызовы из JS без типов: там `type` — обычная
-  // строка, и неизвестное значение роняло процесс через `renderer is not a
-  // function`. Падать из-за уведомления нельзя.
+  // Covers the `--json` path and calls from JS with no types: there `type`
+  // is a plain string, and an unknown value crashed the process through
+  // `renderer is not a function`. A notification must never crash anything.
   if (typeof renderer !== 'function') {
     throw new Error(`unknown event type: ${String(e.type)}`);
   }
 
   const tags = tagsLine(e);
-  // clampMessage может выйти за переданный limit на хвост закрывающих тегов и
-  // многоточие — минус 40 оставляет ему этот запас. У сообщений свой запас уже
-  // есть (4000 против 4096 у Telegram), у caption лимит 1024 настоящий.
-  // Карточка с вложением — это подпись, поэтому бюджет выбирается по `path`.
+  // clampMessage can go past the passed limit for the tail of closing tags
+  // and the ellipsis — minus 40 leaves it that margin. Messages already have
+  // their own margin (4000 against Telegram's 4096); for a caption the 1024
+  // limit is the real one. A card with an attachment is a caption, so the
+  // budget is chosen by `path`.
   const budget = Math.max(64, e.path ? 1024 - tags.length - 40 : 4000 - tags.length - 1);
 
   return `${tags}\n${clampMessage(renderer(e), budget)}`;

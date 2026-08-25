@@ -283,6 +283,22 @@ export const CARDS = [
     note: "Номер и заголовок — одна строка, как их пишет сам GitHub, и она же ссылка. Что именно случилось, говорит значок: 🆕 завели, 🙋 назначили, ✅ закрыли."
   },
   {
+    id: 'issue-taken', title: 'Задачу взяли',
+    forum: 'Arvent · One-Q · PlayHub · Game Publisher',
+    when: 'у задачи появился исполнитель',
+    live: ['live', 'работает'],
+    sender: 'home/.claude/scripts/github-cards.py',
+    expectTag: '#issue #i312 #news',
+    event: {
+      type: 'issue', project: 'arvent', action: 'assigned', number: 312,
+      url: 'https://github.com/sazanwork/arvent/issues/312',
+      title: 'Запись клиента в вебе: страница, не зависящая от Telegram',
+      body: 'Длинное описание задачи, которое было новостью один раз — когда задачу завели.',
+      author: 'chelsnebes', assignee: 'Ilja-Prihach'
+    },
+    note: "Люди стоят сразу под второй строкой, а описание задачи приходит ровно один раз — когда задачу завели. На «взяли» новость одна: кто взял, и она вторая строка снизу, а не последняя под простынёй текста."
+  },
+  {
     id: 'pr', title: 'Pull request',
     forum: 'Arvent · One-Q · PlayHub · Game Publisher',
     when: 'PR открыли, закрыли или влили',

@@ -711,8 +711,27 @@ test('card/issue: body arrives — it never did before', () => {
   assert.equal(out, [
     '#issue #i322 #news',
     '🆕 <b>Issue:</b> <a href="https://x/i/322">#322 Commit convention for all repos</a>',
-    '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
-    '<b>Author:</b> mikitasazan'
+    '<b>Author:</b> mikitasazan',
+    '',
+    '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>'
+  ].join('\n'));
+});
+
+// The whole reason the order was turned around: on `assigned` the one new fact
+// is the person, and it used to be the last row under a 1400-character quote.
+test('card/issue: the assignee is the second row, and the old body is gone', () => {
+  const out = render({
+    type: 'issue', project: 'arvent', action: 'assigned', number: 312,
+    title: 'Web booking page',
+    body: 'A very long description the owner has already read.',
+    author: 'mikitasazan', assignee: 'Ilja-Prihach', url: 'https://x/i/312'
+  });
+
+  assert.equal(out, [
+    '#issue #i312 #news',
+    '🙋 <b>Issue:</b> <a href="https://x/i/312">#312 Web booking page</a>',
+    '<b>Author:</b> mikitasazan',
+    '<b>Assignee:</b> Ilja-Prihach'
   ].join('\n'));
 });
 
@@ -727,8 +746,9 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
   assert.equal(out, [
     '#pr #p294 #news',
     '🆕 <b>PR:</b> <a href="https://x/p/294">#294 Onboarding: question drafts</a>',
-    '<blockquote>PR description here.</blockquote>',
-    '<b>Author:</b> Ilja-Prihach'
+    '<b>Author:</b> Ilja-Prihach',
+    '',
+    '<blockquote>PR description here.</blockquote>'
   ].join('\n'));
 
   // One title is one line, the same for every type. It is the identifier now,
