@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { CARDS } from './cards.mjs';
 const at = (n) => readFileSync(new URL('./' + n, import.meta.url), 'utf8');
@@ -12,12 +13,33 @@ const NOW = new Date();
 const STAMP = `${NOW.toISOString().slice(0, 10).split('-').reverse().join('.')} в ${
   String(NOW.getHours()).padStart(2, '0')}:${String(NOW.getMinutes()).padStart(2, '0')}`;
 
+// Раньше здесь стояла жёсткая фраза «сегодняшние правки в него ещё не вошли».
+// Она была правдой один день и ложью в тот же вечер, когда правки выпустили, —
+// то есть ровно тот сорт текста, который эта страница и должна ловить. Теперь
+// это ВОПРОС к git: чист ли `src/` относительно тега выпущенной версии.
+const root = new URL('..', import.meta.url).pathname;
+const git = (...args) => {
+  try {
+    return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+};
+const dirty = git('status', '--porcelain', '--', 'src');
+const behind = git('diff', '--stat', `v${VERSION}..HEAD`, '--', 'src');
+const RELEASED =
+  dirty === null || behind === null
+    ? `выпущен ${VERSION}`
+    : dirty === '' && behind === ''
+      ? `ровно тот, что выпущен под номером ${VERSION}`
+      : `выпущен ${VERSION}, и правки поверх него сюда уже попали, а в него ещё нет`;
+
 const page = `${at('head.html')}
 <div class="wrap">
   <div class="lede">
     <h1>Что придёт в Telegram</h1>
     <p>Каждый вид уведомления: где появляется, чем запускается и как выглядит его карточка сегодня. ${CARDS.length} видов.</p>
-    <p class="meta">Карточки напечатал сам пакет уведомлений, теми же аргументами, какие передают настоящие отправители. Ничего не нарисовано руками, и сборка страницы падает, если строка тегов у карточки разошлась с тем, что даёт её отправитель — именно так шесть карточек однажды показывали тег, которого не бывает. Собрано ${STAMP}. Отрисовано исходниками пакета: выпущен ${VERSION}, сегодняшние правки в него ещё не вошли.</p>
+    <p class="meta">Карточки напечатал сам пакет уведомлений, теми же аргументами, какие передают настоящие отправители. Ничего не нарисовано руками, и сборка страницы падает, если строка тегов у карточки разошлась с тем, что даёт её отправитель — именно так шесть карточек однажды показывали тег, которого не бывает. Собрано ${STAMP}. Отрисовано исходниками пакета: ${RELEASED}.</p>
   </div>
 
   <nav>${at('nav.html')}</nav>
