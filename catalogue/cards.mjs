@@ -41,7 +41,7 @@ export const CARDS = [
       workflowUrl: 'https://github.com/sazanwork/playhub/actions/runs/1',
       workflowName: 'Deploy to Beget'
     },
-    note: "Заголовки Run и Change стоят у каждого непустого блока. У зелёной выкатки блок один — Change, — поэтому она короче, но выглядит так же."
+    note: "Причина срыва стоит вплотную к имени прогона — там же, где она стоит у любой упавшей задачи. Заголовок остаётся только у коммита: это уже другой предмет."
   },
   {
     id: 'deploy-manual', title: 'Выкатка руками с Mac',

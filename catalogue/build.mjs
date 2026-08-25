@@ -168,7 +168,27 @@ const articles = CARDS.map((c) => {
   // есть, а имени у него нет ни одного, и такая карточка означает отправителя,
   // забывшего имя, — пусть страница краснеет на нём.
   {
-    // One number, one shape. A comparison is an arrow — ▲ ▼ = — and a number
+    // One place for a card-level fact. Every card puts the facts ABOUT the thing
+  // between the type line and the first group heading; a heading opens a
+  // different subject (the commit, the copies, the disabled workflows). Deploy
+  // and CI used to wrap theirs in a `Run` heading, so `Reason:` sat against the
+  // name on a job card and under a heading on a deploy one, and the owner asked
+  // which of the two was the standard.
+  {
+    const rows = html.split('\n');
+    const firstGroup = rows.findIndex((r) => r.includes('<i><u>'));
+    for (const label of ['Reason', 'State', 'Actor', 'Expected', 'Last run', 'Last seen']) {
+      const at = rows.findIndex((r) => r.startsWith(`<b>${label}:</b>`));
+      if (at !== -1 && firstGroup !== -1 && at > firstGroup) {
+        throw new Error(
+          `card ${c.id}: "${label}:" sits under a group heading. A fact about the card ` +
+          `itself belongs above the first heading, where every other card puts it.`
+        );
+      }
+    }
+  }
+
+  // One number, one shape. A comparison is an arrow — ▲ ▼ = — and a number
   // with nothing behind it is printed bare. A signed number is neither: the
   // morning server report printed `210 +3` for a real comparison and `+37`
   // for a plain count of today, next to analytics printing `485 ▲207`. The

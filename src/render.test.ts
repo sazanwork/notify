@@ -497,30 +497,32 @@ test('run: a hand deploy names the means and has nothing to open', () => {
   assert.ok(!out.includes('<a href="https://x/run"'), 'a hand deploy has no run');
 });
 
-// Худший случай: ссылка на прогон есть, а имени нет ни одного. Потерять ссылку
-// на логи у красной карточки нельзя — она остаётся, пусть и безымянной.
-// Владелец на CI-карточке: «commit, actor, workflow — не знаю, всё так
-// сумбурно». Два блока, и заголовок есть у каждого непустого — иначе один и
-// тот же вид карточки выглядит в разные дни по-разному.
-test('blocks: every non-empty block is named, so a type keeps its shape', () => {
+// Facts about the RUN touch the type line, because the type line already names
+// the run — the same place a job card puts `Reason:`. Facts about the COMMIT
+// are a different subject and keep a heading. The owner read `Reason:` against
+// the name on one card and under a heading on another and asked for one rule.
+test('blocks: run facts touch the name, the commit keeps its heading', () => {
   const both = render({
     type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
     commit: '9b1fc68', commitUrl: 'https://x/c', actor: '@chelsnebes',
     note: '3 tests failed', workflowUrl: 'https://x/run', workflowName: 'nightly'
   });
+  const rows = both.split('\n');
 
-  assert.ok(both.includes('<i><u>Run</u></i>'), 'блок прогона потерялся');
-  assert.ok(both.includes('<i><u>Change</u></i>'), 'блок изменения потерялся');
-  assert.ok(both.indexOf('<i><u>Run</u></i>') < both.indexOf('<i><u>Change</u></i>'), 'прогон идёт первым');
+  assert.ok(!both.includes('<i><u>Run</u></i>'), 'the Run heading announced what line 2 already said');
+  assert.equal(rows[2], '<b>Actor:</b> @chelsnebes');
+  assert.equal(rows[3], '<b>Reason:</b> 3 tests failed');
+  assert.equal(rows[4], '');
+  assert.equal(rows[5], '<i><u>Change</u></i>');
 
-  // Зелёная выкатка: причины нет, блок один — и он всё равно подписан.
+  // A green deploy: no reason to give, so the card is only name plus commit.
   const one = render({
     type: 'deploy', project: 'game-publisher', status: 'ok',
     commit: '3f1a882', commitUrl: 'https://x/c', via: 'manual, from the Mac'
   });
 
-  assert.ok(one.includes('<i><u>Change</u></i>'), 'единственный блок тоже должен быть подписан');
-  assert.ok(!one.includes('<i><u>Run</u></i>'), 'пустой блок подписывать нечем');
+  assert.ok(one.includes('<i><u>Change</u></i>'), 'the commit block lost its heading');
+  assert.ok(!one.includes('<i><u>Run</u></i>'), 'a heading appeared over nothing');
 });
 
 // Группу называет отправитель, и названная группа печатается всегда — порога
@@ -654,8 +656,6 @@ test('card/ci: commit hash links, body quoted under it', () => {
   assert.equal(out, [
     '#ci #master #ok',
     '✅ <b>CI:</b> <a href="https://x/run">the run</a>',
-    '',
-    '<i><u>Run</u></i>',
     '<b>Actor:</b> @chelsnebes',
     '',
     '<i><u>Change</u></i>',
@@ -675,8 +675,6 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
   assert.equal(out, [
     '#ci #master #ok',
     '✅ <b>CI:</b> <a href="https://x/run">the run</a>',
-    '',
-    '<i><u>Run</u></i>',
     '<b>Reason:</b> nightly check of master',
     '',
     '<i><u>Change</u></i>',

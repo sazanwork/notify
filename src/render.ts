@@ -381,16 +381,23 @@ const labelled = (rows: Array<[string, string | number, string?]> | undefined): 
  * на зелёную. Строка заголовка стоит дешевле, чем необходимость каждый раз
  * заново искать глазами, где что.
  */
+/**
+ * A deploy or a check has two subjects: the run itself and the commit it went
+ * out with. Facts about the RUN touch the type line with no heading, because
+ * the type line already names the run — that is how every job card is built,
+ * and `Reason:` must not sit against the name on one card and under a heading
+ * on another. Facts about the COMMIT are a different subject, so they keep a
+ * heading of their own.
+ *
+ * The `Run` heading is gone for the same reason the word `open` went: it
+ * announced what line 2 had already said.
+ */
 const twoBlocks = (run: Array<string | null>, change: Array<string | null>): Array<string | null> => {
   const live = (rows: Array<string | null>): string[] => rows.filter((r): r is string => r !== null && r !== '');
-  const out: Array<string | null> = [];
-  for (const [name, rows] of [['Run', live(run)], ['Change', live(change)]] as Array<[string, string[]]>) {
-    if (rows.length > 0) {
-      out.push('', group(name), ...rows);
-    }
-  }
+  const runRows = live(run);
+  const changeRows = live(change);
 
-  return out;
+  return [...runRows, ...(changeRows.length > 0 ? ['', group('Change'), ...changeRows] : [])];
 };
 
 type Renderer<E extends NotifyEvent> = (e: E) => string;
