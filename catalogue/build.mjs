@@ -9,9 +9,9 @@ import { writeFileSync } from 'node:fs';
 // The stripe down the left of a bubble follows the ICON, the same way the
 // sound does. Anything that rings gets a warm stripe; the rest are quiet.
 const STRIPE = {
-  '🚨': 'alarm', '🔴': 'red', '⏸️': 'wait', '❓': 'wait',
+  '🚨': 'alarm', '🔴': 'red', '🚫': 'wait', '❓': 'wait',
   '✅': 'ok', '👍': 'ok', '🔀': 'ok',
-  '🆕': 'info', '🙋': 'info', '🚫': 'info', 'ℹ️': 'info'
+  '🆕': 'info', '🙋': 'info', '🗑️': 'info', 'ℹ️': 'info'
 };
 const ICON_CLASS = (html) => {
   const line = html.split('\n')[1] ?? '';
@@ -82,14 +82,14 @@ const TYPES = [
     lines: [['одна строка на все случаи', { type: 'incident', ...P, title: 'x' }]]
   },
   {
-    tag: '#session', what: 'Рабочая сессия на маке в беде: жжёт лимит, остановлена',
+    tag: '#session', what: 'Рабочая сессия на маке жжёт лимит',
     who: 'context-runaway-guard.sh',
     lines: [['на месте действия — что именно случилось с сессией; зелёной пары у этого тега нет — сессия не выздоравливает, она заканчивается',
              { type: 'session', ...P, action: 'burning the limit', status: 'fail' }]]
   },
   {
     tag: '#issue', what: 'Задача на доске GitHub',
-    who: 'github-cards.py',
+    who: 'github-cards.py, ops-notify.yml',
     lines: [
       ['завели', { type: 'issue', ...P, action: 'opened', number: 1, title: 'x' }],
       ['назначили исполнителя', { type: 'issue', ...P, action: 'assigned', number: 1, title: 'x' }],
@@ -98,7 +98,7 @@ const TYPES = [
   },
   {
     tag: '#pr', what: 'Pull request и вердикт ревью',
-    who: 'github-cards.py',
+    who: 'github-cards.py, ops-notify.yml',
     lines: [
       ['открыли', { type: 'pr', ...P, action: 'opened', number: 1, title: 'x' }],
       ['влили', { type: 'pr', ...P, action: 'merged', number: 1, title: 'x' }],
@@ -190,12 +190,12 @@ const MEANING = {
   ok: 'прошло, закрыто, готово',
   red: 'сломалось',
   alarm: 'горит прямо сейчас',
-  paused: 'выключено намеренно — само не чинится, но и не падало',
+  off: 'выключено — само не запустится, пока кто-то не включит обратно',
   unknown: 'не отчиталось: живо оно или нет — неизвестно',
   fresh: 'появилось новое',
   taken: 'кто-то взял на себя',
   merged: 'влито',
-  rejected: 'закрыто, не доведя до результата',
+  discarded: 'закрыто, не доведя до результата',
   approved: 'человек одобрил',
   info: 'сводка, к сведению'
 };

@@ -81,13 +81,13 @@ const VOCABULARY: Array<[NotifyEvent, string]> = [
   [{ type: 'ci', project: 'arvent', status: 'fail' }, ICON.red],
   [{ type: 'job', project: 'arvent', job: 'x', status: 'ok' }, ICON.ok],
   [{ type: 'job', project: 'arvent', job: 'x', status: 'fail' }, ICON.red],
-  [{ type: 'job', project: 'arvent', job: 'x', status: 'disabled' }, ICON.paused],
+  [{ type: 'job', project: 'arvent', job: 'x', status: 'disabled' }, ICON.off],
   [{ type: 'job', project: 'arvent', job: 'x', status: 'silent' }, ICON.unknown],
   [{ type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
   [{ type: 'pr', project: 'arvent', action: 'approved', number: 1, title: 't' }, ICON.approved],
   [{ type: 'pr', project: 'arvent', action: 'changes_requested', number: 1, title: 't' }, ICON.red],
   [{ type: 'pr', project: 'arvent', action: 'merged', number: 1, title: 't' }, ICON.merged],
-  [{ type: 'pr', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.rejected],
+  [{ type: 'pr', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.discarded],
   [{ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
   [{ type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 't' }, ICON.taken],
   [{ type: 'issue', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.ok],
@@ -499,7 +499,7 @@ test('card/job disabled: heading present, list numbered', () => {
 
   assert.equal(out, [
     '#job #actions_minutes_guard',
-    '⏸️ <b>Job:</b> disabled',
+    '🚫 <b>Job:</b> disabled',
     '',
     '<b>Task:</b> GitHub Actions minutes watchdog',
     '<b>Reason:</b> free minutes almost gone',
@@ -964,7 +964,7 @@ test('sound: every red or alarm card rings, and only those', () => {
 
   // The sound belongs to the ICON, so the expectation is written as the icon
   // list — not as a second opinion about which events are bad.
-  const LOUD = ['🔴', '🚨', '⏸️', '❓'];
+  const LOUD = ['🔴', '🚨', '🚫', '❓'];
 
   for (const e of all) {
     const line = render(e).split('\n')[1];

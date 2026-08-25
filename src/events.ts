@@ -308,25 +308,25 @@ export const ICON = {
   ok: '✅',        // passed, closed, done
   red: '🔴',       // broken
   alarm: '🚨',     // burning right now
-  paused: '⏸️',    // switched off on purpose, comes back by itself
+  off: '🚫',       // switched off — it will not run until someone turns it back on
   unknown: '❓',   // did not report: alive or dead is unknown
   fresh: '🆕',     // something new appeared
   taken: '🙋',     // someone took it
   merged: '🔀',    // merged
-  rejected: '🚫',  // closed without reaching the result
+  discarded: '🗑️', // closed without reaching the result
   approved: '👍',  // a human approved it
   info: 'ℹ️'       // a summary, for information
 } as const;
 
 /** The sound is a property of the icon, and of nothing else. */
-export const LOUD: ReadonlySet<string> = new Set([ICON.red, ICON.alarm, ICON.paused, ICON.unknown]);
+export const LOUD: ReadonlySet<string> = new Set([ICON.red, ICON.alarm, ICON.off, ICON.unknown]);
 
 export const PR_ICON: Record<Extract<NotifyEvent, { type: 'pr' }>['action'], string> = {
   opened: ICON.fresh,
   approved: ICON.approved,
   changes_requested: ICON.red,
   merged: ICON.merged,
-  closed: ICON.rejected
+  closed: ICON.discarded
 };
 
 export const ISSUE_ICON: Record<Extract<NotifyEvent, { type: 'issue' }>['action'], string> = {
@@ -338,7 +338,7 @@ export const ISSUE_ICON: Record<Extract<NotifyEvent, { type: 'issue' }>['action'
 const JOB_ICON: Record<Extract<NotifyEvent, { type: 'job' }>['status'], string> = {
   ok: ICON.ok,
   fail: ICON.red,
-  disabled: ICON.paused,
+  disabled: ICON.off,
   silent: ICON.unknown
 };
 
