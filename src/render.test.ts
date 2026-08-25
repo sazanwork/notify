@@ -903,3 +903,55 @@ test('severity: every status that is not ok rings', () => {
   }
   assert.equal(severity({ type: 'job', project: 'playhub', job: 'x', status: 'ok' }), 'info');
 });
+
+// ── The icon decides the sound, and nothing else does ───────────────────────
+// Two lists — one of icons, one of "which events are bad" — is how
+// `🔴 PR: changes_requested` became the only red card in the package that
+// arrived MUTED: severity() looked at `status`, and a pull request has an
+// `action`.
+
+test('sound: every red or alarm card rings, and only those', () => {
+  const P = { project: 'playhub' } as const;
+  const all: NotifyEvent[] = [
+    { type: 'deploy', ...P, status: 'ok' },
+    { type: 'deploy', ...P, status: 'fail' },
+    { type: 'ci', ...P, status: 'ok' },
+    { type: 'ci', ...P, status: 'fail' },
+    { type: 'job', ...P, job: 'x', status: 'ok' },
+    { type: 'job', ...P, job: 'x', status: 'fail' },
+    { type: 'job', ...P, job: 'x', status: 'disabled' },
+    { type: 'job', ...P, job: 'x', status: 'silent' },
+    { type: 'report', ...P, title: 'T' },
+    { type: 'incident', ...P, title: 'T' },
+    { type: 'session', ...P, action: 'burning', status: 'fail' },
+    { type: 'session', ...P, action: 'calm', status: 'ok' },
+    { type: 'issue', ...P, action: 'opened', number: 1, title: 'T' },
+    { type: 'issue', ...P, action: 'assigned', number: 1, title: 'T' },
+    { type: 'issue', ...P, action: 'closed', number: 1, title: 'T' },
+    { type: 'pr', ...P, action: 'opened', number: 1, title: 'T' },
+    { type: 'pr', ...P, action: 'closed', number: 1, title: 'T' },
+    { type: 'pr', ...P, action: 'merged', number: 1, title: 'T' },
+    { type: 'pr', ...P, action: 'approved', number: 1, title: 'T' },
+    { type: 'pr', ...P, action: 'changes_requested', number: 1, title: 'T' },
+    { type: 'file', ...P, title: 'T', path: '/tmp/x' },
+    { type: 'heartbeat_miss', ...P, job: 'x' },
+    { type: 'heartbeat_miss', ...P, job: 'x', recovered: true }
+  ];
+
+  for (const e of all) {
+    const line = render(e).split('\n')[1];
+    const loud = line.startsWith('🔴') || line.startsWith('🚨');
+    assert.equal(
+      severity(e), loud ? 'error' : 'info',
+      `${e.type} "${line.replace(/<[^>]+>/g, '')}" — icon and sound disagree`
+    );
+  }
+});
+
+test('sound: a pull request needing changes is not delivered quietly', () => {
+  const e: NotifyEvent = {
+    type: 'pr', project: 'playhub', action: 'changes_requested', number: 1, title: 'T'
+  };
+  assert.ok(render(e).split('\n')[1].startsWith('🔴'), 'changes_requested stopped being red');
+  assert.equal(severity(e), 'error', 'the only red card that did not ring is back');
+});

@@ -19,7 +19,7 @@
  * строка разделяет БЛОКИ ПО СМЫСЛУ (шапка / суть / действия), не механически
  * после каждой строки.
  */
-import type { Item, NotifyEvent } from './events.ts';
+import { iconFor, type Item, type NotifyEvent } from './events.ts';
 
 /** Первая буква — заглавная, остальное как есть (ga4/GitHub остаются собой). */
 const cap = (s: string): string => (s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -223,10 +223,7 @@ const bodyQuote = (body: string | undefined): string | null =>
 
 type Renderer<E extends NotifyEvent> = (e: E) => string;
 
-// Значок = статус сообщения, не тип события. Ровно четыре на весь пакет —
-// закреплённая легенда в форумах обещает это владельцу как факт, не как
-// приближение. 🔴 сломалось, 🚨 инцидент, ✅ прошло, ℹ️ к сведению.
-const ICON = { red: '🔴', alarm: '🚨', ok: '✅', info: 'ℹ️' } as const;
+// Значок и его закон живут в events.ts: от него зависит и звук.
 
 /** Строка 2: значок вне жирного, `<b>Тип:</b> действие` — то же поле, не особый случай. */
 // `action` объявлен строкой, но приходит и из `--json`, и из прямых вызовов на
@@ -254,7 +251,7 @@ const typeLine = (icon: string, type: string, action: string | undefined, url?: 
 // на логи. Отвергать `--url` было бы честнее по имени и хуже по делу: намерение
 // однозначно, а карточка без ссылки бесполезна ровно тогда, когда нужна.
 const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => {
-  const icon = e.status === 'ok' ? ICON.ok : ICON.red;
+  const icon = iconFor(e);
 
   return join([
     typeLine(icon, 'Deploy', e.status),
@@ -271,7 +268,7 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
 };
 
 const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
-  const icon = e.status === 'ok' ? ICON.ok : ICON.red;
+  const icon = iconFor(e);
   const hasItems = (e.items ?? []).length > 0;
   const disabledList = hasItems && e.status === 'disabled';
 
@@ -314,7 +311,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     const body = e.groups.flatMap((g, i) => (i === 0 ? renderGroup(g) : ['', ...renderGroup(g)]));
 
     return join([
-      typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
+      typeLine(iconFor(e), 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
       '',
       ...body
     ]);
@@ -325,7 +322,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   return join([
     // Both analytics jobs send a link to the day's snapshot in docs/. It used to
     // hang off a trailing `Details: open` row; now it is the report's own name.
-    typeLine(ICON.info, 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
+    typeLine(iconFor(e), 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
     '',
     ...(e.lines ?? []).map(([label, value]) => field(label, value)),
     items.length > 0 ? '' : null,
@@ -334,7 +331,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
 };
 
 const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
-  const icon = e.status === 'ok' ? ICON.ok : ICON.red;
+  const icon = iconFor(e);
 
   return join([
     typeLine(icon, 'CI', e.status),
@@ -349,29 +346,9 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   ]);
 };
 
-// PR/Issue: значок теперь по статусу (четыре на пакет), не по действию —
-// `merged`/`approved` = успех, `changes_requested` = требует внимания,
-// остальное = к сведению. Слово действия само по себе уже говорит, что
-// произошло (`opened`, `ready_for_review` и т.д.), значок дублировать не должен.
-const PR_ICON: Record<Extract<NotifyEvent, { type: 'pr' }>['action'], string> = {
-  opened: ICON.info,
-  ready_for_review: ICON.info,
-  review_requested: ICON.info,
-  approved: ICON.ok,
-  changes_requested: ICON.red,
-  merged: ICON.ok,
-  closed: ICON.info
-};
-
-const ISSUE_ICON: Record<Extract<NotifyEvent, { type: 'issue' }>['action'], string> = {
-  opened: ICON.info,
-  assigned: ICON.info,
-  closed: ICON.ok
-};
-
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
-    typeLine(PR_ICON[e.action], 'PR', e.action),
+    typeLine(iconFor(e), 'PR', e.action),
     '',
     // Идентификатор первым, заголовок под ним: так вещь читается «#118, вот
     // такая», а не «вот такая, кстати #118» — и так её пишет сам GitHub.
@@ -387,7 +364,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
 
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
-    typeLine(ISSUE_ICON[e.action], 'Issue', e.action),
+    typeLine(iconFor(e), 'Issue', e.action),
     '',
     fieldLink('Number', e.url, `#${e.number}`),
     titleField(e.title),
@@ -398,7 +375,7 @@ const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
 
 const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e) =>
   join([
-    typeLine(ICON.alarm, 'Incident', 'open'),
+    typeLine(iconFor(e), 'Incident', 'open'),
     '',
     // `detail` is a diagnosis of several lines (vault greps three of them plus a
     // log path). It used to go through `field`, which keeps only the first line,
@@ -423,7 +400,7 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
 // keeps one line and clipped the name of the very session the card is about.
 const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =>
   join([
-    typeLine(e.status === 'ok' ? ICON.ok : ICON.alarm, 'Session', e.action),
+    typeLine(iconFor(e), 'Session', e.action),
     '',
     field('Id', e.id),
     field('Project', e.workdir),
@@ -434,7 +411,7 @@ const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =
   ]);
 
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {
-  const icon = e.recovered ? ICON.ok : ICON.red;
+  const icon = iconFor(e);
   const action = e.recovered ? 'ok' : 'miss';
 
   return join([
@@ -450,7 +427,7 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
 // Подпись файла — та же карточка, но лимит Telegram у caption свой: 1024.
 const renderFile: Renderer<Extract<NotifyEvent, { type: 'file' }>> = (e) =>
   join([
-    typeLine(ICON.info, 'File', 'new'),
+    typeLine(iconFor(e), 'File', 'new'),
     '',
     // Раньше здесь стояло `field('Title', e.note ?? e.title)`: подпись файла
     // приходила под ярлыком заголовка, а сам заголовок из карточки исчезал.

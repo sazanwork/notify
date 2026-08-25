@@ -291,25 +291,65 @@ export type NotifyEvent = Keyed &
 export type EventType = NotifyEvent['type'];
 
 /** Красное = со звуком. Всё остальное — тихо. (Отдельной темы «инциденты» больше нет — авария видна в ленте проекта.) */
+/**
+ * Значок = СОСТОЯНИЕ, не вид события. Ровно четыре на весь пакет — закреплённая
+ * легенда в форумах обещает это владельцу как факт, не как приближение.
+ * 🔴 сломалось, 🚨 горит прямо сейчас, ✅ прошло, ℹ️ к сведению.
+ *
+ * Живёт здесь, а не в render.ts, потому что от значка зависит и звук: одно
+ * слово всегда носит один значок, а значок всегда решает, звонить или нет.
+ */
+export const ICON = { red: '🔴', alarm: '🚨', ok: '✅', info: 'ℹ️' } as const;
+
+// PR/Issue: значок по состоянию, не по действию — `merged`/`approved` = успех,
+// `changes_requested` = требует внимания, остальное = к сведению. Слово
+// действия само по себе уже говорит, что произошло, значок дублировать не должен.
+export const PR_ICON: Record<Extract<NotifyEvent, { type: 'pr' }>['action'], string> = {
+  opened: ICON.info,
+  ready_for_review: ICON.info,
+  review_requested: ICON.info,
+  approved: ICON.ok,
+  changes_requested: ICON.red,
+  merged: ICON.ok,
+  closed: ICON.info
+};
+
+export const ISSUE_ICON: Record<Extract<NotifyEvent, { type: 'issue' }>['action'], string> = {
+  opened: ICON.info,
+  assigned: ICON.info,
+  closed: ICON.ok
+};
+
+/** Одно место, где решается значок карточки, — и рендер, и звук берут его отсюда. */
+export const iconFor = (e: NotifyEvent): string => {
+  switch (e.type) {
+    case 'deploy':
+    case 'ci':
+    case 'job':
+      return e.status === 'ok' ? ICON.ok : ICON.red;
+    case 'session':
+      return e.status === 'ok' ? ICON.ok : ICON.alarm;
+    case 'incident':
+      return ICON.alarm;
+    case 'heartbeat_miss':
+      return e.recovered ? ICON.ok : ICON.red;
+    case 'pr':
+      return PR_ICON[e.action];
+    case 'issue':
+      return ISSUE_ICON[e.action];
+    case 'report':
+    case 'file':
+      return ICON.info;
+  }
+};
+
 export const severity = (e: NotifyEvent): 'info' | 'error' => {
-  if (e.type === 'heartbeat_miss') {
-    return e.recovered ? 'info' : 'error';
-  }
+  // ONE law: the icon decides the sound. There is no second list of "which
+  // events are bad" to keep in sync with the icons — keeping two lists is how
+  // `🔴 PR: changes_requested` ended up arriving MUTED, the only red card in
+  // the package that did not ring, because severity() looked at `status` and a
+  // pull request has an `action`.
+  const icon = iconFor(e);
 
-  if (e.type === 'incident') {
-    return 'error';
-  }
-
-  // `disabled` рисуется красным (`ICON.red` в render.ts) ровно как `fail` —
-  // задача не работает, что бы ни было тому причиной. Молчаливая отправка
-  // красной карточки без звука хуже отсутствия карточки: авария выглядит
-  // аварией, но не будит (тот же довод, что уже был у `fail`).
-  // Everything except `ok` rings. A task that has gone silent is not a
-  // quieter kind of broken than one that failed — it is the kind you find
-  // out about days late, which is exactly why it must not arrive muted.
-  if ('status' in e && e.status !== undefined && e.status !== 'ok') {
-    return 'error';
-  }
-
-  return 'info';
+  return icon === ICON.red || icon === ICON.alarm ? 'error' : 'info';
 };
