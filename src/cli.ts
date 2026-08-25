@@ -1,24 +1,25 @@
 #!/usr/bin/env node
 /**
- * `notify <type> [--flag value]...` — тонкий диспетчер. Ноль зависимостей:
- * разбор аргументов написан руками (не yargs/commander), потому что здесь
- * нужно ровно два вида флагов (одиночный и повторяемый `key=value`).
+ * `notify <type> [--flag value]...` — a thin dispatcher. Zero dependencies:
+ * argument parsing is written by hand (not yargs/commander), because it
+ * needs exactly two kinds of flags (a single one and a repeatable
+ * `key=value`).
  *
- * Код возврата ВСЕГДА 0 — уведомление не имеет права уронить вызвавший его
- * деплой или задачу. Все ошибки — только в stderr. Исключения намеренно нет
- * (см. docs/rollout.md «чего не делаем»): сценария, где деплой должен упасть
- * из-за неотправленного сообщения, не существует.
+ * The exit code is ALWAYS 0 — a notification has no right to bring down the
+ * deploy or task that called it. All errors go to stderr only. There is
+ * deliberately no exception (see docs/rollout.md "what we don't do"): there
+ * is no scenario where a deploy should fail because a message did not send.
  *
  *   notify deploy   --project playhub --status ok --commit "msg" [--commit-url "..."] --url "..."
- *   notify job      --project playhub --job "Импорт игр" --status ok --stat "добавлено=5"
- *   notify report   --project playhub --title "Сводка за день" --line "Игр=1284"
+ *   notify job      --project playhub --job "Game import" --status ok --stat "added=5"
+ *   notify report   --project playhub --title "Daily summary" --line "Games=1284"
  *   notify ci       --project arvent  --status fail --branch master --actor saz_sam
  *   notify pr       --project arvent  --action opened --number 142 --title "..."
- *   notify incident --project arvent  --title "Redis недоступен" --detail "$ERR"
- *   notify file     --project arvent  --title "Полные диалоги" --path ./out.txt [--filename имя.txt]
- *   notify <type> [--key стабильный-ключ]   # ключ задачи в последней строке карточки
- *   notify <type> --json < payload.json   # весь объект события со stdin
- *   notify setup <chat_id форума> <ключ-проекта>   # создать вкладки, см. setup.ts
+ *   notify incident --project arvent  --title "Redis is unreachable" --detail "$ERR"
+ *   notify file     --project arvent  --title "Full dialogues" --path ./out.txt [--filename name.txt]
+ *   notify <type> [--key stable-key]   # the task's key on the card's last line
+ *   notify <type> --json < payload.json   # the whole event object on stdin
+ *   notify setup <forum chat_id> <project key>   # create the tabs, see setup.ts
  */
 import { readFileSync } from 'node:fs';
 import type { NotifyEvent, Project } from './events.ts';
@@ -62,7 +63,7 @@ if (command === 'setup') {
 const flags = new Map<string, string[]>();
 const parseErrors: string[] = [];
 
-/** Флаги без значения. Всё остальное обязано его иметь. */
+/** Flags with no value. Everything else must have one. */
 const BOOLEAN_FLAGS = new Set(['json', 'recovered', 'dry-run']);
 
 for (let i = 1; i < args.length; i++) {
@@ -73,8 +74,8 @@ for (let i = 1; i < args.length; i++) {
     continue;
   }
 
-  // Форма `--key=value` обязательна для значений, начинающихся с `--`
-  // (текст ошибки, кусок диффа): иначе они были бы съедены как флаги.
+  // The `--key=value` form is required for values that start with `--`
+  // (an error message, a diff chunk): otherwise they would get eaten as flags.
   const eq = arg.indexOf('=');
 
   if (eq !== -1) {
@@ -92,10 +93,10 @@ for (let i = 1; i < args.length; i++) {
 
   const next = args[i + 1];
 
-  // Раньше флаг без значения молча становился строкой 'true'. Отсюда
-  // `--url` в конце команды давал `href="true"`, Telegram отвечал 400 и
-  // ТЕРЯЛОСЬ ВСЁ сообщение, а `--status` без значения рисовал 🔴 на
-  // успешном деплое. Теперь это явная ошибка разбора.
+  // A flag with no value used to silently become the string 'true'. That is
+  // how `--url` at the end of a command produced `href="true"`, Telegram
+  // answered 400 and THE WHOLE MESSAGE WAS LOST, and `--status` with no value
+  // painted 🔴 on a successful deploy. Now it is an explicit parse error.
   if (next === undefined || next.startsWith('--')) {
     parseErrors.push(`flag --${safe(key)} with no value`);
     continue;
@@ -114,7 +115,7 @@ for (const key of flags.keys()) {
   }
 }
 
-// Число с явной ошибкой разбора, иначе рендер рисовал «PR #NaN».
+// A number with an explicit parse error, otherwise the render drew "PR #NaN".
 const num = (key: string): number => {
   const raw = one(key);
   const n = Number(raw);
@@ -129,12 +130,13 @@ const num = (key: string): number => {
 };
 
 /**
- * `--item "текст"` или `--item "текст|https://ссылка"`.
+ * `--item "text"` or `--item "text|https://link"`.
  *
- * Имя группы у позиции нельзя передать так же, как у `--stat`: черта здесь
- * уже занята ссылкой. Поэтому `--item-group "Red checks"` — одно имя на все
- * позиции этого вызова. Списки у отправителей однородные (красные проверки,
- * выключенные процессы), а разнородный список — это `--json`.
+ * An item's group name cannot be passed the same way `--stat` does it: the
+ * bar here is already taken by the link. So `--item-group "Red checks"` is
+ * one name for all the items in this call. Senders' lists are homogeneous
+ * (red checks, disabled processes), and a mixed list is what `--json` is
+ * for.
  */
 const items = (): Array<{ text: string; url?: string; group?: string }> => {
   const name = flags.get('item-group')?.[0];
@@ -148,13 +150,13 @@ const items = (): Array<{ text: string; url?: string; group?: string }> => {
   });
 };
 /**
- * `--stat "label=value"`, и с 25.08.2026 — `--stat "Group | label=value"`:
- * имя группы, вертикальная черта, ярлык. Черта выбрана потому, что её нет ни
- * в одном живом ярлыке, а двоеточие есть («Eval: bot answer quality») и
- * равенство занято значением. Пробелы вокруг черты необязательны.
+ * `--stat "label=value"`, and since 25.08.2026 — `--stat "Group | label=value"`:
+ * group name, vertical bar, label. The bar was chosen because it appears in
+ * no live label, while a colon does ("Eval: bot answer quality") and equals
+ * is taken by the value. Spaces around the bar are optional.
  *
- * Без черты всё как было — так шлют больше двадцати отправителей, и ни один
- * из них менять не нужно.
+ * Without the bar everything works as before — over twenty senders send it
+ * that way, and not one of them needs to change.
  */
 const pairs = (key: string): Array<[string, string, string?]> =>
   (flags.get(key) ?? []).map((s) => {
@@ -171,14 +173,15 @@ const pairs = (key: string): Array<[string, string, string?]> =>
 const project = (): Project => one('project') as Project;
 
 /**
- * GitHub называет действия своими словами, и одно наше событие собирается из
- * двух разных его событий: `pull_request` (opened/closed/…) и
- * `pull_request_review` (submitted + state). Поэтому принимаем и сырые имена
- * GitHub, и наши.
+ * GitHub calls actions by its own words, and one of our events is built from
+ * two of its different events: `pull_request` (opened/closed/…) and
+ * `pull_request_review` (submitted + state). So we accept both GitHub's raw
+ * names and our own.
  *
- * Неизвестное действие — ОШИБКА, а не «сойдёт за opened». Молчаливая подмена
- * означала бы, что «запрошены правки» приедет как «открыт», и владелец увидит
- * не то, что произошло, — а он именно по этой ленте следит за работой команды.
+ * An unknown action is an ERROR, not "close enough to opened." A silent
+ * substitution would mean "changes requested" arrives as "opened," and the
+ * owner would see something other than what happened — and this is exactly
+ * the feed he uses to follow the team's work.
  */
 type PrAction = Extract<NotifyEvent, { type: 'pr' }>['action'];
 type IssueAction = Extract<NotifyEvent, { type: 'issue' }>['action'];
@@ -203,9 +206,10 @@ const ISSUE_ALIASES: Record<string, IssueAction> = {
   closed: 'closed'
 };
 
-// Ошибка кладётся в parseErrors — тот же путь, что у остального разбора: ниже
-// он печатает все ошибки разом и выходит ДО отправки. Значение-заглушка нужно
-// только чтобы удовлетворить тип, до сети оно не доживёт.
+// The error goes into parseErrors — the same path the rest of parsing takes:
+// below, it prints all the errors together and exits BEFORE sending. The
+// placeholder value only needs to satisfy the type; it never lives to reach
+// the network.
 const prAction = (raw: string | undefined): PrAction => {
   const hit = PR_ALIASES[(raw ?? '').toLowerCase()];
 
@@ -233,12 +237,13 @@ const issueAction = (raw: string | undefined): IssueAction => {
 };
 
 /**
- * Всё, что не признано успехом, считается провалом.
+ * Anything not recognized as a success counts as a failure.
  *
- * Тут важна не строгость, а согласованность: раньше `--status success`
- * (естественная опечатка при ручном вызове) рисовал 🔴 «упал», но `severity()`
- * видел «не fail» и слал сообщение БЕЗ звука. Красная плашка без звука —
- * худший исход: авария выглядит аварией, но не будит.
+ * What matters here is not strictness but consistency: `--status success`
+ * used to (a natural typo on a manual call) paint 🔴 "failed," but
+ * `severity()` saw "not fail" and sent the message WITH NO SOUND. A red
+ * card with no sound is the worst outcome: it looks like an incident but
+ * does not wake anyone up.
  */
 const status = (): 'ok' | 'fail' => {
   const raw = (one('status') ?? '').toLowerCase();
@@ -246,8 +251,9 @@ const status = (): 'ok' | 'fail' => {
   return raw === 'ok' || raw === 'success' || raw === 'passed' || raw === '0' ? 'ok' : 'fail';
 };
 
-// `job` — единственный тип с третьим состоянием (`disabled`): задача не
-// провалилась сама, её выключил кто-то извне (GitHub Actions без минут).
+// `job` is the only type with a third state (`disabled`): the task did not
+// fail on its own, someone switched it off from outside (GitHub Actions out
+// of minutes).
 const jobStatus = (): 'ok' | 'fail' | 'disabled' | 'silent' => {
   const raw = (one('status') ?? '').toLowerCase();
 
@@ -268,12 +274,13 @@ if (flags.has('json')) {
   try {
     const payload = JSON.parse(readFileSync(0, 'utf-8')) as Record<string, unknown>;
 
-    // type — за командой, не за payload: иначе --pr <объект с type:deploy>
-    // отправил бы событие другого типа.
+    // type comes from the command, not from the payload: otherwise --pr
+    // <object with type:deploy> would send an event of a different type.
     event = { ...payload, type: command } as NotifyEvent;
   } catch (err) {
-    // Тоже в parseErrors: обе аналитики зовут CLI через `|| true`, и молчащий
-    // разбор JSON означал бы зелёный крон без дневного отчёта.
+    // Also into parseErrors: both analytics jobs call the CLI through
+    // `|| true`, and a silent JSON parse failure would mean a green cron run
+    // with no daily report.
     parseErrors.push(`--json from stdin did not parse: ${safe(err instanceof Error ? err.message : err)}`);
   }
 } else {
@@ -421,16 +428,16 @@ if (flags.has('json')) {
       };
       break;
     default:
-      // В parseErrors, а не просто в лог: иначе неизвестный тип уходил в
-      // тишину — событие не собиралось, ошибок разбора не было, и CLI выходил
-      // нулём, ничего не отправив и ничего об этом не сказав.
+      // Into parseErrors, not just into the log: otherwise an unknown type
+      // went quiet — no event was built, there were no parse errors, and
+      // the CLI exited zero, sending nothing and saying nothing about it.
       parseErrors.push(`unknown event type: ${safe(command ?? '(none given)')}`);
   }
 }
 
-// --key применим к любому типу — одна точка вместо строки в каждом case
-// (девять копий уже потеряли бы десятую). `??`: путь --json может нести
-// key в самом объекте, отсутствие флага не должно его затирать.
+// --key applies to any type — one spot instead of a line in every case
+// (nine copies would already have lost the tenth). `??`: the --json path
+// may carry key in the object itself, a missing flag must not overwrite it.
 if (event) {
   event.key = one('key') ?? event.key;
   // --path is applicable to any type too, for the same reason --key is.
@@ -442,8 +449,9 @@ if (event?.filename && !event.path) {
   parseErrors.push('--filename: given without --path, so there is no file to name');
 }
 
-// Ошибки разбора — до отправки: лучше внятно сказать, что не так с командой,
-// чем прислать сообщение с «true» вместо ссылки или 🔴 на успешном деплое.
+// Parse errors — before sending: better to say clearly what is wrong with
+// the command than to send a message with "true" instead of a link, or a
+// 🔴 on a successful deploy.
 if (parseErrors.length > 0) {
   for (const err of parseErrors) {
     log(err);
@@ -473,14 +481,16 @@ if (event && flags.has('dry-run')) {
 }
 
 if (event) {
-  // Ловим ВСЁ: уведомление не имеет права уронить деплой или крон, который
-  // его вызвал. В bash с `set -e` (или в `trap ... ERR`) ненулевой код здесь
-  // завалил бы саму задачу — ровно то, чего пакет обязан не делать.
+  // Catches EVERYTHING: a notification has no right to bring down the
+  // deploy or cron job that called it. In bash with `set -e` (or in
+  // `trap ... ERR`) a non-zero code here would fail the task itself — the
+  // exact thing this package must never do.
   try {
     log(await notify(event));
   } catch (err) {
-    // Слово `failed` — контракт, тот же, что у ошибки разбора выше. Без него
-    // исключение при отправке читалось сторожами как «ничего не случилось».
+    // The word `failed` is a contract, the same one the parse error above
+    // uses. Without it, an exception while sending read to watchdogs as
+    // "nothing happened."
     log(`failed: ${safe(err instanceof Error ? err.message : err)}`);
   }
 }

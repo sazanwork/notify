@@ -1,116 +1,123 @@
 /**
- * Каталог событий — единственная точка входа для отправки. `notify()` (см.
- * `send.ts`) принимает ТОЛЬКО значения этого типа: свободного текста в API
- * нет, значит «своё» сообщение технически не написать.
+ * The event catalogue — the single entry point for sending. `notify()` (see
+ * `send.ts`) accepts ONLY values of this type: there is no free text in the
+ * API, so a "custom" message cannot technically be written.
  *
- * Правило эволюции схемы (версии нет и не будет — сообщение живёт секунду и
- * читается глазами, версионировать нечего):
- *   - новое поле у СУЩЕСТВУЮЩЕГО типа добавляется ТОЛЬКО опциональным;
- *   - обязательные поля не добавляются никогда — только новый тип события.
- * Тогда старый вызывающий код и новый пакет совместимы в обе стороны.
+ * The schema evolution rule (there is no version and never will be — a
+ * message lives one second and is read by eyes, there is nothing to
+ * version):
+ *   - a new field on an EXISTING type is added ONLY as optional;
+ *   - required fields are never added — only a new event type.
+ * That keeps old caller code and a new package compatible both ways.
  */
 
-// `vault` — не продукт, а инфраструктура: сейф секретов. Форум ему нужен по той
-// же причине, что и проектам: роботу надо куда-то писать. Людей там нет.
+// `vault` is not a product, it is infrastructure: a secrets safe. It needs a
+// forum for the same reason projects do: a robot needs somewhere to write.
+// There are no people there.
 export type Project = 'playhub' | 'one-q' | 'arvent' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools';
 
 /**
- * Стабильный машинный ключ задачи — последняя строка каждой карточки, вида
- * `#ключ` (без названия проекта: карточка и так лежит в форуме своего
- * проекта — `targets()` не шлёт её в чужой). По нему дневной разборщик
- * сверяет «это 🔴 уже закрыто более поздней карточкой того же ключа?» без
- * сравнения человеческих формулировок, которые меняются. Необязателен: без
- * него ключ выводится из типа и заголовка (см. `render.ts`), но выведенный
- * наследует хрупкость формулировки — наши регулярные отправители передают
- * его явно. В вывод CLI (stderr, и его же сторож на VPS читает объединённым
- * потоком по словам `sent|failed|skipped`) ключ не попадает никогда — новое
- * слово там ослепило бы сторожа.
+ * A stable machine key for the task — the last line of every card, shaped
+ * as `#key` (with no project name: the card already sits in its own
+ * project's forum — `targets()` never sends it to someone else's). The
+ * daily parser uses it to check "is this 🔴 already closed by a later card
+ * with the same key?" without comparing human wording, which changes. It
+ * is optional: without it, the key is derived from the type and the title
+ * (see `render.ts`), but a derived one inherits the fragility of wording —
+ * our regular senders pass it explicitly. The key never reaches CLI output
+ * (stderr, which the VPS watchdog also reads as one combined stream by the
+ * words `sent|failed|skipped`) — a new word there would blind the
+ * watchdog.
  */
 /**
- * Общая часть любого события. `path` — локальный файл, который едет ВМЕСТЕ с
- * карточкой: карточка становится подписью к вложению. Отдельного вида `file`
- * нет с 25.08.2026 — прогон Arvent слал вердикт и лог двумя карточками про
- * одну новость.
+ * The common part of any event. `path` is a local file that travels WITH the
+ * card: the card becomes a caption on the attachment. There has been no
+ * separate `file` type since 25.08.2026 — an Arvent run used to send the
+ * verdict and the log as two cards about one piece of news.
  */
 type Keyed = {
   key?: string;
-  /** Локальный файл; карточка уедет как подпись к нему (лимит подписи 1024). */
+  /** A local file; the card goes out as its caption (caption limit 1024). */
   path?: string;
-  /** Имя файла в чате; по умолчанию — имя из `path`. */
+  /** The file's name in the chat; defaults to the name from `path`. */
   filename?: string;
 };
 
 /**
- * Позиция списка внутри сообщения: задача из дайджеста, упавшая проверка,
- * замечание. `url` необязателен — тогда рендерится просто строкой.
+ * A list item inside a message: a task from a digest, a failed check, a
+ * remark. `url` is optional — then it renders as a plain row.
  */
 /**
- * `label` — необязательный жирный префикс перед `text` (`#243 (overdue)`,
- * `#287`) для позиций внутри именованных групп отчёта. Без `label` позиция
- * рендерится как обычная нумерованная/маркированная строка — так уже
- * работают дайджест-задачи и список выключенных workflow.
+ * `label` — an optional bold prefix before `text` (`#243 (overdue)`,
+ * `#287`) for items inside a report's named groups. Without `label` an
+ * item renders as an ordinary numbered/bulleted row — that is already how
+ * digest tasks and the list of disabled workflows work.
  */
 /**
- * `group` — имя блока, под которым позиция встанет. Тот же закон, что у
- * `lines` и `stats`: без имени позиция идёт в общий список, как раньше.
+ * `group` — the name of the block the item will sit under. The same law
+ * `lines` and `stats` follow: without a name the item goes into the
+ * general list, as before.
  *
- * Заведено потому, что список импорта смешивал три РАЗНЫЕ вещи в одном
- * перечне и различал их значком в начале строки: 🆕 вышло сегодня,
- * 🔁 вышло из очереди, ⚠ не вышло совсем. Значок делал работу заголовка.
+ * Introduced because the import list was mixing three DIFFERENT things in
+ * one listing and telling them apart by an icon at the start of the row:
+ * 🆕 came out today, 🔁 came out of the queue, ⚠ did not come out at all.
+ * The icon was doing a heading's job.
  */
 export type Item = { text: string; url?: string; label?: string; group?: string };
 
 export type NotifyEvent = Keyed &
   (
-  /** Выкатка кода на сервер. */
+  /** Shipping code to the server. */
   | {
       type: 'deploy';
       project: Project;
       status: 'ok' | 'fail';
       commit?: string;
-      /** Ссылка на коммит — строка «коммит» становится кликабельной. */
+      /** A link to the commit — the "commit" row becomes clickable. */
       commitUrl?: string;
-      /** Заголовок коммита — рендерится полем `Title:`, тело идёт цитатой ниже. */
+      /** The commit's title — renders as the `Title:` field, the body follows as a quote. */
       commitTitle?: string;
-      /** Тело коммита, если есть — та же цитата, что и заголовок. */
+      /** The commit's body, if there is one — the same quote shape as the title. */
       commitBody?: string;
       workflowUrl?: string;
-      /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
+      /** The run's name, for the link's visible text (defaults to `open`). */
       workflowName?: string;
       url?: string;
       /**
-       * Куда выкатили. Заполнять ТОЛЬКО когда окружений больше одного: у сайтов
-       * с единственным продом «куда: прод» — строка, которую читают глазами и
-       * ничего из неё не узнают.
+       * Where it shipped to. Fill it in ONLY when there is more than one
+       * environment: on sites with a single prod, "where: prod" is a row
+       * the eye reads and learns nothing from.
        */
       target?: string;
       /**
-       * Откуда запустили: «вручную с Mac», «GitHub Actions». Вот это как раз
-       * новость — путей выкатки два, они дают разные последствия (ручной идёт
-       * с ноутбука и переменные берёт из локального .env), и по карточке видно,
-       * какой сработал.
+       * Where it was run from: "manually from the Mac," "GitHub Actions."
+       * This is exactly the news — there are two deploy paths, they carry
+       * different consequences (a manual one runs from the laptop and takes
+       * its variables from the local .env), and the card shows which one
+       * fired.
        */
       via?: string;
-      /** Пояснение: почему отменён/пропущен прогон после деплоя. */
+      /** An explanation: why a post-deploy run was cancelled/skipped. */
       note?: string;
     }
-  /** Регулярная задача по расписанию: импорт игр, бэкап БД, валидатор. */
+  /** A recurring scheduled task: a game import, a DB backup, a validator. */
   | {
       type: 'job';
       project: Project;
       job: string;
       /**
-       * `disabled` — задача выключена извне (например GitHub Actions кончил
-       * бесплатные минуты), не провалилась сама.
+       * `disabled` — the task was switched off from outside (GitHub Actions
+       * ran out of free minutes, for example), it did not fail on its own.
        *
-       * `silent` — задача не отчиталась в срок: она не упала, она вообще не
-       * подала признаков жизни. Это состояние ЗАДАЧИ, а не отдельный вид
-       * события — оно жило типом `heartbeat_miss`, и владелец справедливо
-       * спросил, почему задача по расписанию у него под двумя разными тегами.
-       * Хуже того: сторож молчания шлёт тот же машинный ключ, что и сама
-       * задача, так что красная карточка `#heartbeat #daily_import` не
-       * закрывалась зелёной `#job #daily_import` — разборщик ищет пару по
-       * ПОЛНОМУ тегу. Один поток на задачу это чинит.
+       * `silent` — the task did not report in on time: it did not fail, it
+       * gave no sign of life at all. This is a state of the TASK, not a
+       * separate event type — it used to live under the type
+       * `heartbeat_miss`, and the owner rightly asked why one scheduled task
+       * of his carried two different tags. Worse: the silence watchdog sends
+       * the same machine key as the task itself, so a red card
+       * `#heartbeat #daily_import` did not get closed by a green
+       * `#job #daily_import` — the parser looks for a pair by the FULL tag.
+       * One stream per task fixes that.
        */
       status: 'ok' | 'fail' | 'disabled' | 'silent';
       /**
@@ -121,22 +128,23 @@ export type NotifyEvent = Keyed &
        * finishes the name.
        */
       aside?: string;
-      /** Как часто задача обязана отмечаться — для `silent` и для возврата из него. */
+      /** How often the task owes a check-in — for `silent` and for recovering from it. */
       expected?: string;
-      /** Когда её видели в последний раз. */
+      /** When it was last seen. */
       lastSeen?: string;
       /**
-       * Цифры от отправителя. Третий элемент — ИМЯ ГРУППЫ, под которой строка
-       * встанет. Владелец шесть раз просил группы, и каждый раз отправитель
-       * уже пытался их изобразить подручным: скобками в ярлыке
-       * («GA4 users (sum of days)»), значком в начале строки (🆕 против ⚠),
-       * лишней строкой внизу. Группировать было нечем — теперь есть.
+       * Numbers from the sender. The third element is the GROUP NAME the
+       * row will sit under. The owner asked for groups six times, and every
+       * time the sender was already trying to fake them with whatever was
+       * at hand: parentheses in the label ("GA4 users (sum of days)"), an
+       * icon at the start of the row (🆕 versus ⚠), an extra row at the
+       * bottom. There was nothing to group with — now there is.
        *
-       * Без третьего элемента строка идёт без заголовка, как раньше: все
-       * существующие отправители продолжают работать не меняясь.
+       * Without the third element the row goes with no heading, as before:
+       * every existing sender keeps working unchanged.
        */
       stats?: Array<[label: string, value: string | number, group?: string]>;
-      /** Детали: что именно упало, замечания прогона; у `disabled` — список выключенных процессов (каждый со своей ссылкой). */
+      /** Details: exactly what failed, notes from the run; for `disabled` — the list of switched-off processes (each with its own link). */
       items?: Item[];
       note?: string;
       /**
@@ -146,9 +154,10 @@ export type NotifyEvent = Keyed &
        */
       command?: string;
       /**
-       * WHAT that command does. The owner, on a bare `rm` in a card: "я сейчас
-       * введу её и сделаю хуй пойми что, я ж не знаю, что делаю". A command he
-       * cannot read is one he cannot run, so it never travels alone.
+       * WHAT that command does. The owner, on a bare `rm` in a card: "I'm
+       * about to type it and do god knows what, I don't even know what I'm
+       * doing." A command he cannot read is one he cannot run, so it never
+       * travels alone.
        */
       commandNote?: string;
       /**
@@ -158,16 +167,16 @@ export type NotifyEvent = Keyed &
        */
       logs?: string;
       workflowUrl?: string;
-      /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
+      /** The run's name, for the link's visible text (defaults to `open`). */
       workflowName?: string;
       /**
-       * Запасное имя для ссылки на прогон: половина отправителей шлёт её как
-       * `--url`. Рендер берёт `workflowUrl ?? url`, так что оба имени работают.
-       * В новых вызовах предпочитай `workflowUrl` — оно говорит, куда ведёт.
+       * A fallback name for the run link: half the senders send it as
+       * `--url`. The renderer takes `workflowUrl ?? url`, so both names
+       * work. In new calls prefer `workflowUrl` — it says where it leads.
        */
       url?: string;
     }
-  /** Сводка с цифрами: дневной отчёт, дайджест аналитики. */
+  /** A summary with numbers: a daily report, an analytics digest. */
   | {
       type: 'report';
       project: Project;
@@ -179,35 +188,35 @@ export type NotifyEvent = Keyed &
        * accepts `--period` for it.
        */
       aside?: string;
-      /** Пусто/не передано, когда используются `groups` — два вида отчёта не смешиваются в одном событии. */
+      /** Empty/not passed when `groups` is used — the two kinds of report are not mixed in one event. */
       lines?: Array<[label: string, value: string | number, group?: string]>;
       /**
-       * Список позиций со ссылками — для дайджестов задач, где ценность в
-       * самих названиях, а не в цифре. Рендерятся отдельным блоком после
-       * `lines`.
+       * A list of items with links — for task digests, where the value is
+       * in the names themselves, not in a number. Renders as a separate
+       * block after `lines`.
        */
       items?: Item[];
       /**
-       * Именованные группы (доска задач: Ready/In Progress/Not on the
-       * board; аналитика: Metrics/Links) — каждая со своим заголовком и
-       * списком позиций. Заменяет `lines`/`items`, когда задан: разные
-       * отчёты используют либо плоский вид, либо группы, не оба разом.
+       * Named groups (a task board: Ready/In Progress/Not on the board;
+       * analytics: Metrics/Links) — each with its own heading and list of
+       * items. Replaces `lines`/`items` when set: different reports use
+       * either the flat form or groups, never both at once.
        */
       groups?: Array<{ name: string; items: Item[] }>;
       url?: string;
     }
-  /** Итог CI на основной ветке. */
+  /** The CI outcome on the main branch. */
   | {
       type: 'ci';
       project: Project;
       status: 'ok' | 'fail';
       branch?: string;
       commit?: string;
-      /** Ссылка на коммит — хэш становится кликабельным. */
+      /** A link to the commit — the hash becomes clickable. */
       commitUrl?: string;
-      /** Заголовок коммита (subject) — отдельное поле `Title:`, не цитата. */
+      /** The commit's title (subject) — a separate `Title:` field, not a quote. */
       commitTitle?: string;
-      /** Тело коммита (после subject) — та же цитата, что и заголовок. */
+      /** The commit's body (after the subject) — the same quote shape as the title. */
       commitBody?: string;
       actor?: string;
       /**
@@ -215,16 +224,17 @@ export type NotifyEvent = Keyed &
        * schedule, a manual press. Renders as `Reason:`, same as on deploy.
        */
       note?: string;
-      /** Ссылка на прогон (workflow run) — отдельно от `url` — запасной для `workflowUrl`. */
+      /** A link to the run (workflow run) — separate from `url`, a fallback for `workflowUrl`. */
       workflowUrl?: string;
-      /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
+      /** The run's name, for the link's visible text (defaults to `open`). */
       workflowName?: string;
       url?: string;
     }
   /**
-   * Событие пул-реквеста. Виды покрывают весь путь PR, потому что владелец
-   * следит за работой команды по вкладке Ops, а не по почте: почта приходит
-   * только когда тебя позвали лично, и половина событий в неё не попадает.
+   * A pull request event. The kinds cover the whole life of a PR, because
+   * the owner follows the team's work through the Ops tab, not through
+   * mail: mail only arrives when you were personally pinged, and half of
+   * the events never reach it.
    */
   | {
       type: 'pr';
@@ -243,26 +253,26 @@ export type NotifyEvent = Keyed &
       reviewer?: string;
       url?: string;
     }
-  /** Событие задачи: заведена, взята в работу, закрыта. */
+  /** An issue event: filed, taken up, closed. */
   | {
       type: 'issue';
       project: Project;
       action: 'opened' | 'assigned' | 'closed';
       number: number;
       title: string;
-      /** Тело задачи — цитата под полем `Title:`, отдельно от заголовка. */
+      /** The issue's body — a quote under the `Title:` field, separate from the title. */
       body?: string;
       author?: string;
       assignee?: string;
       url?: string;
     }
-  /** Приложение сломалось прямо сейчас (рантайм-алерт). */
+  /** The app is broken right now (a runtime alert). */
   | {
       type: 'incident';
       project: Project;
       title: string;
       detail?: string;
-      /** Локальный путь к логам (не URL — рендерится моноширинным, для копирования, не для клика). */
+      /** A local path to the logs (not a URL — renders monospaced, to copy, not to click). */
       logs?: string;
       url?: string;
     }
@@ -302,10 +312,10 @@ export type NotifyEvent = Keyed &
       status?: 'fail' | 'ok';
     }
   /**
-   * УСТАРЕЛО с 1.4.2: используйте `job` со статусом `silent`. Тип остаётся,
-   * потому что сторож молчания живёт на сервере и до выкатки шлёт именно его —
-   * убрать значит потерять карточку молчания ровно тогда, когда она нужна.
-   * Новых вызовов не добавлять.
+   * DEPRECATED since 1.4.2: use `job` with status `silent`. The type stays,
+   * because the silence watchdog lives on the server and sends exactly this
+   * one until it is redeployed — removing it means losing the silence card
+   * exactly when it is needed. Do not add new calls.
    */
   | {
       type: 'heartbeat_miss';
@@ -313,30 +323,31 @@ export type NotifyEvent = Keyed &
       job: string;
       lastSeen?: string;
       expected?: string;
-      /** Задача снова отчиталась — тот же тип, зелёная карточка вместо красной, ключ (для сверки) не меняется. */
+      /** The task reported in again — same type, a green card instead of a red one, the key (for matching) does not change. */
       recovered?: boolean;
-      /** Готовое предложение-причина; без него собирается из lastSeen/expected. */
+      /** A ready-made reason sentence; without it, one is built from lastSeen/expected. */
       note?: string;
     }
   );
 
 export type EventType = NotifyEvent['type'];
 
-/** Красное = со звуком. Всё остальное — тихо. (Отдельной темы «инциденты» больше нет — авария видна в ленте проекта.) */
+/** Red = with sound. Everything else is silent. (There is no separate "incidents" topic any more — an incident is visible in the project's feed.) */
 /**
- * Словарь значков. Два закона, и оба поставлены владельцем 25.08.2026:
+ * The icon dictionary. Two laws, both set by the owner on 25.08.2026:
  *
- * 1. ВНУТРИ одного тега у каждого слова свой значок. Раньше значков было
- *    ровно четыре на весь пакет, и `Issue: opened` с `Issue: assigned`
- *    выглядели одинаково, а у задачи три разных беды — fail, disabled,
- *    silent — были одним и тем же красным кругом.
- * 2. МЕЖДУ тегами одинаковый смысл выглядит одинаково. `fail` — это 🔴 и в
- *    выкатке, и в CI, и в задаче; «появилось новое» — 🆕 и у задачи на доске,
- *    и у PR, и у файла.
+ * 1. WITHIN one tag every word gets its own icon. There used to be exactly
+ *    four icons for the whole package, and `Issue: opened` looked the same
+ *    as `Issue: assigned`, while a task's three different kinds of trouble —
+ *    fail, disabled, silent — were the same red circle.
+ * 2. BETWEEN tags the same meaning looks the same. `fail` is 🔴 whether on a
+ *    deploy, on CI, or on a task; "something new appeared" is 🆕 on a board
+ *    task, on a PR, and on a file alike.
  *
- * И третий, который держит первые два честными: у значка фиксированный звук.
- * Не у события, не у статуса — у значка. Пока звук выводился отдельным
- * правилом, `🔴 PR: changes_requested` приходила беззвучно.
+ * And a third law that keeps the first two honest: the sound is a fixed
+ * property of the icon. Not of the event, not of the status — of the icon.
+ * While the sound was a separate rule, `🔴 PR: changes_requested` arrived
+ * silent.
  */
 export const ICON = {
   ok: '✅',        // passed, closed, done
@@ -377,7 +388,7 @@ const JOB_ICON: Record<Extract<NotifyEvent, { type: 'job' }>['status'], string> 
   silent: ICON.unknown
 };
 
-/** Одно место, где решается значок карточки, — и рендер, и звук берут его отсюда. */
+/** One place decides the card's icon — both the render and the sound take it from here. */
 export const iconFor = (e: NotifyEvent): string => {
   switch (e.type) {
     case 'deploy':
