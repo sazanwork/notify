@@ -87,9 +87,9 @@ export const CARDS = [
     expectTag: '#report #daily_report',
     event: {
       type: 'report', project: 'playhub', key: 'daily-report',
-      title: 'russkie-igry.ru — Report #128', period: '25.08.2026',
+      title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', period: '25.08.2026',
       lines: [
-        ['Games', 412], ['iOS', '210 +3'], ['Android', '202 +5'],
+        ['Number', 128], ['Games', 412], ['iOS', '210 +3'], ['Android', '202 +5'],
         ['Plays today', '+37'], ['Added this week', '+12'], ['Added today', '+6'],
         ['Through sync', '+6'],
         ['Server', '200 in 118ms'], ['Tests', 'ok'], ['Disk free', '34 GB']
