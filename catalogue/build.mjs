@@ -168,7 +168,17 @@ const articles = CARDS.map((c) => {
   // есть, а имени у него нет ни одного, и такая карточка означает отправителя,
   // забывшего имя, — пусть страница краснеет на нём.
   {
-    const BARE = new Set(['open', 'run', 'here', 'link', 'the run', 'details']);
+    // Пояснение под карточкой — две фразы, не журнал изменений. Оно росло тем,
+  // что я дописывал к нему новую правку вместо того, чтобы переписать: одно
+  // выросло до 2400 знаков, и владелец справедливо отказался это читать.
+  if (c.note && c.note.length > 320) {
+    throw new Error(
+      `card ${c.id}: the note is ${c.note.length} characters — say what is different now, ` +
+      `in two sentences; the history is in git log`
+    );
+  }
+
+  const BARE = new Set(['open', 'run', 'here', 'link', 'the run', 'details']);
     for (const m of html.matchAll(/<a href="[^"]*">([^<]*)<\/a>/g)) {
       if (BARE.has(m[1].trim().toLowerCase())) {
         throw new Error(`card ${c.id}: a link named "${m[1]}" — name the thing it opens, not the click`);
