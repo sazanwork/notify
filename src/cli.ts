@@ -273,6 +273,7 @@ if (flags.has('json')) {
         items: items(),
         note: one('note'),
         command: one('command'),
+        logs: one('logs'),
         workflowUrl: one('workflow-url'),
         workflowName: one('workflow-name'),
         url: one('url')

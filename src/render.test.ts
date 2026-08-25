@@ -834,3 +834,37 @@ test('card/session: a red session rings, and its tag does not change every sessi
   assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'fail' }), 'error');
   assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'ok' }), 'info');
 });
+
+test('card/job: facts get their own lines instead of one run-on Reason', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', job: 'Server backups', status: 'fail',
+    stats: [['Fresh copies', 10], ['Broken', 1]],
+    note: 're-downloading from the server did not help, there is nothing to roll back to',
+    logs: '~/Library/Logs/pull-vps-backups.log'
+  });
+
+  assert.equal(out, [
+    '#job #server_backups',
+    '🔴 <b>Job:</b> fail',
+    '',
+    '<b>Task:</b> Server backups',
+    '<b>Reason:</b> re-downloading from the server did not help, there is nothing to roll back to',
+    '<b>Fresh copies:</b> 10',
+    '<b>Broken:</b> 1',
+    '',
+    '<b>Log:</b> <code>~/Library/Logs/pull-vps-backups.log</code>'
+  ].join('\n'));
+});
+
+test('card/job: several red checks are a list, not a comma-separated tail', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', job: 'Config checks', status: 'fail',
+    note: '2 checks are red',
+    items: [{ text: 'test-update-all' }, { text: 'check-notify-flags' }],
+    logs: '/Users/chelsnebes/Library/Logs/update-all.log'
+  });
+
+  assert.ok(out.includes('• test-update-all\n• check-notify-flags'), 'the red checks did not become a list');
+  assert.ok(!out.includes('Disabled workflows'), 'the disabled heading leaked onto a plain list');
+  assert.ok(out.includes('<b>Log:</b> <code>/Users/chelsnebes/Library/Logs/update-all.log</code>'), 'the log path is not monospaced');
+});

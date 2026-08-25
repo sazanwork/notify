@@ -91,6 +91,12 @@ export type NotifyEvent = Keyed &
        * that no URL can reach — a stopped local session, a latch file.
        */
       command?: string;
+      /**
+       * A local log path — monospaced, not a link, same as on an incident.
+       * It used to be glued onto the end of the reason sentence behind a
+       * colon, which is what made a red card read as one long run-on line.
+       */
+      logs?: string;
       workflowUrl?: string;
       /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
       workflowName?: string;

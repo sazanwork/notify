@@ -295,7 +295,8 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // "Disabled workflows".
     disabledList ? group('Disabled workflows') : null,
     ...(hasItems ? bullets(e.items, disabledList) : []),
-    e.command ? '' : null,
+    e.command || e.logs ? '' : null,
+    fieldCode('Log', e.logs),
     fieldCode('Command', e.command),
     // Kept only when the caller actually names the workflow — a named row is a
     // second, different destination; an unnamed one repeats the Task link.
