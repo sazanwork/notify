@@ -283,31 +283,32 @@ export const CARDS = [
     }
   },
   {
-    id: 'heartbeat', title: 'Задача перестала отчитываться',
+    id: 'job-silent', title: 'Задача перестала отчитываться',
     forum: 'PlayHub · Game Publisher · Arvent',
     when: 'сторож на сервере не увидел отметки в срок',
-    live: ['live', 'работает — проверяет каждый час'],
+    live: ['new', 'новая форма — доедет после выкатки сервера PlayHub'],
     sender: 'scripts/heartbeat-check.sh',
-    expectTag: '#heartbeat #daily_import',
+    expectTag: '#job #daily_import',
     event: {
-      type: 'heartbeat_miss', project: 'playhub', key: 'daily-import',
-      job: 'Yandex game import',
+      type: 'job', project: 'playhub', key: 'daily-import',
+      job: 'Yandex game import', status: 'silent', note: 'no report in time',
       expected: 'at least once every 26h', lastSeen: '23.08 04:12'
-    }
+    },
+    note: 'Молчание — это СОСТОЯНИЕ задачи, а не отдельный вид события. Раньше оно уходило тегом #heartbeat, и получалось, что одна задача по расписанию живёт под двумя разными тегами, а вторая строка называла датчик («Heartbeat: miss»), а не то, что случилось. Хуже: сторож шлёт тот же машинный ключ, что и сама задача, а пара «сломалось → починилось» ищется по ПОЛНОЙ строке тегов — значит красную весть о молчании не закрывала зелёная весть о том, что задача отработала.'
   },
   {
-    id: 'heartbeat-ok', title: 'Задача снова отчитывается',
+    id: 'job-silent-ok', title: 'Задача снова отчитывается',
     forum: 'PlayHub · Game Publisher · Arvent',
     when: 'после молчания задача снова оставила отметку',
-    live: ['live', 'работает'],
-    sender: 'scripts/heartbeat-check.sh',
-    expectTag: '#heartbeat #daily_import',
+    live: ['new', 'новая форма — доедет после выкатки сервера PlayHub'],
+    sender: 'scripts/heartbeat-check.sh — или просто удачный прогон самой задачи',
+    expectTag: '#job #daily_import',
     event: {
-      type: 'heartbeat_miss', project: 'playhub', key: 'daily-import',
-      job: 'Yandex game import',
-      expected: 'at least once every 26h', lastSeen: '23.08 04:12', recovered: true
+      type: 'job', project: 'playhub', key: 'daily-import',
+      job: 'Yandex game import', status: 'ok', note: 'reporting again',
+      expected: 'at least once every 26h', lastSeen: '25.08 04:10'
     },
-    note: 'Тег тот же, что у красной карточки выше, — вот как выглядит пара «сломалось → починилось». Раньше зелёная весть уходила типом #job, и пары для разборщика не существовало.'
+    note: 'Тег тот же, что у красной карточки выше, — вот как выглядит пара «сломалось → починилось». Теперь её закрывает и сторож, и обычный удачный прогон задачи: поток один. И время подписано по-другому — «last seen», пока задачи не видно, и «last run», когда она вернулась.'
   },
   {
     id: 'file', title: 'Файл вложением',

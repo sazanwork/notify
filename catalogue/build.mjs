@@ -49,12 +49,13 @@ const TYPES = [
     ]
   },
   {
-    tag: '#job', what: 'Задача по расписанию: крон, прогон на GitHub, синхронизация доски, бэкапы',
+    tag: '#job', what: 'Задача по расписанию: крон, прогон на GitHub, синхронизация доски, бэкапы. Всё про одну задачу идёт одним тегом',
     who: '20 файлов, от notify-fail.sh до board.yml',
     lines: [
       ['отработала', { type: 'job', ...P, job: 'x', status: 'ok' }],
       ['упала', { type: 'job', ...P, job: 'x', status: 'fail' }],
-      ['выключена извне — не упала, а отключена', { type: 'job', ...P, job: 'x', status: 'disabled' }]
+      ['выключена извне — не упала, а отключена', { type: 'job', ...P, job: 'x', status: 'disabled' }],
+      ['молчит — не упала, а вообще не подала признаков жизни', { type: 'job', ...P, job: 'x', status: 'silent' }]
     ]
   },
   {
@@ -63,14 +64,6 @@ const TYPES = [
     lines: [
       ['всегда к сведению; на месте действия — НАЗВАНИЕ отчёта, и оно же ссылка',
        { type: 'report', ...P, title: 'Analytics for 2026-08-22', period: 'compared with 2026-08-21', url: 'https://x' }]
-    ]
-  },
-  {
-    tag: '#heartbeat', what: 'Задача не отметилась в срок — и она же, когда отметилась снова',
-    who: 'heartbeat-check.sh',
-    lines: [
-      ['замолчала', { type: 'heartbeat_miss', ...P, job: 'x' }],
-      ['снова отчитывается', { type: 'heartbeat_miss', ...P, job: 'x', recovered: true }]
     ]
   },
   {
