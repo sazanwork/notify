@@ -29,7 +29,7 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const TYPES = [
   ['#deploy', 'Выкатка сайта на сервер', '✅ / 🔴', 'deploy.yml, scripts/deploy.sh'],
   ['#ci', 'Проверка кода: линт, типы, тесты', '✅ / 🔴', 'nightly.yml, quality.yml'],
-  ['#job', 'Задача по расписанию: крон, прогон на GitHub, синхронизация доски, бэкапы', '✅ / 🔴', 'notify-fail.sh и ещё 14 отправителей'],
+  ['#job', 'Задача по расписанию: крон, прогон на GitHub, синхронизация доски, бэкапы', '✅ / 🔴', '20 файлов, от notify-fail.sh до board.yml'],
   ['#report', 'Сводка с цифрами: аналитика за день и за неделю, релизы Alitools', 'ℹ️', 'analytics-cron.sh, сторожа Alitools'],
   ['#heartbeat', 'Задача не отметилась в срок — и она же, когда отметилась снова', '🔴 / ✅', 'heartbeat-check.sh'],
   ['#incident', 'Приложение или сейф сломались прямо сейчас', '🚨', 'vault.sh'],
