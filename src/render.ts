@@ -22,7 +22,17 @@
 import { iconFor, type Item, type NotifyEvent } from './events.ts';
 
 /** Первая буква — заглавная, остальное как есть (ga4/GitHub остаются собой). */
-const cap = (s: string): string => (s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+/**
+ * Ярлык с большой буквы — но НЕ у имени, которое пишется со строчной нарочно:
+ * `iOS` превращалось в `IOS`. Признак — вторая буква заглавная.
+ */
+const cap = (s: string): string => {
+  if (s.length === 0 || /^[a-z][A-Z]/.test(s)) {
+    return s;
+  }
+
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 
 /** Экранируется ВСЁ, что пришло снаружи — теги ставит только шаблон. */
 export const esc = (v: unknown): string =>
@@ -200,6 +210,16 @@ const note = (text: string | undefined): string | null => {
   return body.length > EXPAND_AT ? `<blockquote expandable>${body}</blockquote>` : `<blockquote>${body}</blockquote>`;
 };
 
+/**
+ * Цитата с подписью. Голая цитата читается как продолжение поля над ней:
+ * владелец спросил про строку, которой открыта сессия, «что значит этот текст,
+ * откуда он берётся» — и был прав, в карточке это нигде не сказано. Подпись
+ * стоит отдельной строкой, потому что сам текст в поле не помещается: поле
+ * держит одну строку и обрезает.
+ */
+const quoted = (label: string, text: string | undefined): string | null =>
+  text ? `<b>${esc(cap(label))}</b>\n${note(text)}` : null;
+
 const join = (parts: Array<string | null>): string => parts.filter((p): p is string => p !== null).join('\n');
 
 /** Плоский список позиций (без ярлыков) — job/report без групп. */
@@ -320,11 +340,17 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   if (e.groups && e.groups.length > 0) {
     const body = e.groups.flatMap((g, i) => (i === 0 ? renderGroup(g) : ['', ...renderGroup(g)]));
 
+    // `lines` и `groups` вместе, а не «или»: раньше ветка с группами печатала
+    // ТОЛЬКО группы, и цифры отчёта молча исчезали. Поймано 25.08.2026 при
+    // переводе утреннего отчёта PlayHub на типизированное событие.
+    const numbers = (e.lines ?? []).map(([label, value]) => field(label, value));
+
     return join([
       typeLine(iconFor(e), 'Report', e.title, e.url),
       '',
       field('Period', e.period),
-      e.period ? '' : null,
+      ...numbers,
+      body.length > 0 ? '' : null,
       ...body
     ]);
   }
@@ -420,7 +446,8 @@ const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =
     field('Id', e.id),
     field('Project', e.workdir),
     field('Reason', e.reason),
-    note(e.opened),
+    e.opened ? '' : null,
+    quoted('Opened with', e.opened),
     e.command ? '' : null,
     fieldRun(e.command)
   ]);

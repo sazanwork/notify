@@ -78,22 +78,33 @@ export const CARDS = [
     }
   },
   {
-    id: 'report-free', title: 'Дневной отчёт сервера — свободный текст',
+    id: 'report-free', title: 'Утренний отчёт сервера',
     forum: 'PlayHub · Game Publisher',
     when: 'каждое утро с сервера',
-    live: ['live', 'работает'],
-    sender: 'scripts/daily-report.ts → sendReport()',
-    rawKey: 'daily-report',
-    raw: [
-      '📊 <b>russkie-igry.ru — Report #128</b>',
-      '📅 25.08.2026',
-      '',
-      '🎮 412 games (🍎 210 iOS · 🤖 202 Android) | 📈 +37 plays',
-      '📥 Today: +6 (sync: +6 / −0 / ↩0)',
-      '',
-      '✅ health 200 · ✅ tests ok'
-    ].join('\n'),
-    note: 'Единственная карточка, чьё ТЕЛО пакет не строит: формат тут собственный — плотная строка, которую типизированное событие не выражает. Стандартизирована доставка, а не формат. Но строка тегов теперь есть и здесь: тег — это твой фильтр, и к формату тела он отношения не имеет. Раньше ключ висел хвостом в italic-моноширинном виде — это старый формат, до того как теги переехали первой строкой.'
+    live: ['new', 'после выпуска 1.4.2'],
+    sender: 'scripts/daily-report.ts',
+    expectTag: '#report #daily_report',
+    event: {
+      type: 'report', project: 'playhub', key: 'daily-report',
+      title: 'russkie-igry.ru — Report #128', period: '25.08.2026',
+      lines: [
+        ['Games', 412], ['iOS', '210 +3'], ['Android', '202 +5'],
+        ['Plays today', '+37'], ['Added this week', '+12'], ['Added today', '+6'],
+        ['Through sync', '+6'],
+        ['Server', '200 in 118ms'], ['Tests', 'ok'], ['Disk free', '34 GB']
+      ],
+      groups: [
+        { name: 'Top 3 games', items: [
+          { label: 'Cut the Rope', text: '412' },
+          { label: 'Vex 7', text: '208' }
+        ] },
+        { name: 'Categories', items: [
+          { label: 'Action', text: '120' }, { label: 'Puzzle', text: '96' }
+        ] },
+        { name: 'Recommendations', items: [{ text: 'all good' }] }
+      ]
+    },
+    note: 'Последняя карточка, которая шла свободным текстом, — и та единственная, у которой не было тегов. Тело собиралось руками и несло три разделителя сразу: вертикальную черту между блоками, точку внутри скобок и тире перед числом. Теперь это обычное типизированное событие: один факт — одна строка, списки — именованные группы, рисует пакет. Свободного текста в уведомлениях больше нет нигде.'
   },
   {
     id: 'session', title: 'Сессия жжёт лимит',

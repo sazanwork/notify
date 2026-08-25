@@ -848,6 +848,10 @@ test('card/session: identifier first, his own words quoted, command copyable', (
     '<b>Id:</b> 8f03d18c-b7d6-438c-bb40-6756c3e1e835',
     '<b>Project:</b> mac-config',
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
+    '',
+    // Без подписи цитата читается как продолжение Reason — владелец спросил,
+    // что это за текст и откуда он берётся.
+    '<b>Opened with</b>',
     '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
     '',
     '▶ <b>Run:</b> <code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
