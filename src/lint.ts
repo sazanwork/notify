@@ -33,7 +33,7 @@ const NOT_A_NAME = new Set([
 ]);
 
 /** The five words the third tag is allowed to be, and there is no sixth. */
-const OUTCOMES = new Set(['ok', 'fail', 'off', 'unknown', 'news']);
+const OUTCOMES = new Set(['ok', 'fail', 'off', 'unknown', 'info']);
 
 /** Labels the template retired. Each one used to say what a neighbour said. */
 const RETIRED = ['Title', 'Number', 'State', 'Via', 'Check', 'Logs', 'Task', 'Id', 'Period'];
@@ -50,7 +50,7 @@ export const lintCard = (html: string): string[] => {
   if (tags.length !== 3 || !tags.every((t) => t.startsWith('#'))) {
     found.push(`line 1 is "${rows[0] ?? ''}" — it must be exactly three tags`);
   } else if (!OUTCOMES.has(tags[2].slice(1))) {
-    found.push(`the outcome tag is "${tags[2]}" — the vocabulary is ok, fail, off, unknown, news`);
+    found.push(`the outcome tag is "${tags[2]}" — the vocabulary is ok, fail, off, unknown, info`);
   }
 
   if (tags[1] === '#' || tags[1] === '#_') {
@@ -112,6 +112,20 @@ export const lintCard = (html: string): string[] => {
       found.push('"all good" is a status, not a recommendation');
       break;
     }
+  }
+
+  // A red card must say where to look. Here — and only here — that can be
+  // judged completely: a log row, a command to run, or any address at all,
+  // including the one riding on line 2 where the standard puts it. Read back
+  // from Telegram the addresses are gone, so the same rule there accused a
+  // deploy card whose own second line was the link to the failed run.
+  // `#fail` only. A task that has gone silent is `#unknown`, and it has no log
+  // by definition — it never ran. Demanding one there would be demanding a
+  // thing that cannot exist.
+  const broke = (rows[0] ?? '').includes('#fail');
+
+  if (broke && !html.includes('<b>Log:</b>') && !html.includes('<b>To do:</b>') && !html.includes('<a href=')) {
+    found.push('a red card with no log, no command and no link — nowhere to look');
   }
 
   return found;

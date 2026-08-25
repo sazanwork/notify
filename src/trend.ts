@@ -10,11 +10,15 @@
  * So the shape is not a sender's business any more. It lives here, one
  * implementation, and every report calls it:
  *
- *   trend(210, 207)        → '210 ▲3'
- *   trend(202, 207)        → '202 ▼5'
- *   trend(0, 0)            → '0 ='
+ *   trend(210, 207)        → '210 / 207 ▲3'
+ *   trend(202, 207)        → '202 / 207 ▼5'
+ *   trend(0, 0)            → '0 / 0 ='
  *   trend(37)              → '37'          nothing to compare to, so no mark
- *   trend(4.4, 3.6, '%')   → '4.4% ▲0.8'   the mark is in the unit left of it
+ *   trend(4.4, 3.6, '%')   → '4.4% / 3.6% ▲0.8'
+ *
+ * Both numbers are printed, now first and before first. The owner read
+ * `51 ▲5` and asked what the 5 was — the new value or the old one. Neither: it
+ * was the distance between two numbers, one of which the card never showed.
  *
  * The rule the owner asked for, in one line: where there is data to compare
  * against, the arrow is printed; where there is none, nothing is printed —
@@ -37,9 +41,11 @@ export const trend = (now: number, was?: number, unit = ''): string => {
     return head;
   }
 
+  const pair = `${head} / ${fmt(was)}${unit}`;
+
   if (same(now, was)) {
-    return `${head} =`;
+    return `${pair} =`;
   }
 
-  return now > was ? `${head} ▲${fmt(now - was)}` : `${head} ▼${fmt(was - now)}`;
+  return now > was ? `${pair} ▲${fmt(now - was)}` : `${pair} ▼${fmt(was - now)}`;
 };

@@ -290,7 +290,7 @@ test('the file caption fits under the 1024 caption limit and still carries the t
   });
 
   assert.ok(caption.length <= 1024, `caption is longer than the limit: ${caption.length}`);
-  assert.ok(caption.startsWith('#report #полные_диалоги #news\n'));
+  assert.ok(caption.startsWith('#report #полные_диалоги #info\n'));
 });
 
 test('a long text on ONE line is not thrown away whole', () => {
@@ -725,7 +725,7 @@ test('card/issue: body arrives — it never did before', () => {
   });
 
   assert.equal(out, [
-    '#issue #i322 #news',
+    '#issue #i322 #info',
     '🆕 <b>Issue:</b> <a href="https://x/i/322">#322 Commit convention for all repos</a>',
     '<b>Author:</b> mikitasazan',
     '',
@@ -744,7 +744,7 @@ test('card/issue: the assignee is the second row, and the old body is gone', () 
   });
 
   assert.equal(out, [
-    '#issue #i312 #news',
+    '#issue #i312 #info',
     '🙋 <b>Issue:</b> <a href="https://x/i/312">#312 Web booking page</a>',
     '<b>Author:</b> mikitasazan',
     '<b>Assignee:</b> Ilja-Prihach'
@@ -760,7 +760,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
   });
 
   assert.equal(out, [
-    '#pr #p294 #news',
+    '#pr #p294 #info',
     '🆕 <b>PR:</b> <a href="https://x/p/294">#294 Onboarding: question drafts</a>',
     '<b>Author:</b> Ilja-Prihach',
     '',
@@ -839,7 +839,7 @@ test('card/report', () => {
   });
 
   assert.equal(out, [
-    '#report #analytics #news',
+    '#report #analytics #info',
     'ℹ️ <b>Report:</b> Analytics (compared to 23.08)',
     // Ungrouped rows stand flush against the header: they are facts about the
     // report itself.
@@ -1317,17 +1317,19 @@ test('list items: with no group at all the list stays flat, as it did for earlie
 
 // ── One number, one shape ───────────────────────────────────────────────────
 
-test('trend: an arrow only where there is something to compare against', () => {
-  assert.equal(trend(210, 207), '210 ▲3');
-  assert.equal(trend(202, 207), '202 ▼5');
-  assert.equal(trend(0, 0), '0 =');
+test('trend: both numbers, and an arrow only where there is a second one', () => {
+  // Now first, before second. The owner read `51 ▲5` and asked what the 5 was:
+  // the distance between two numbers, only one of which the card showed.
+  assert.equal(trend(210, 207), '210 / 207 ▲3');
+  assert.equal(trend(202, 207), '202 / 207 ▼5');
+  assert.equal(trend(0, 0), '0 / 0 =');
   // Nothing to compare to: a plain number, never a `+37` that looks like one.
   assert.equal(trend(37), '37');
   assert.equal(trend(37, undefined), '37');
-  // A unit belongs to the number, so the arrow stands right of it.
-  assert.equal(trend(4.4, 3.6, '%'), '4.4% ▲0.8');
+  // The unit belongs to both numbers, and the arrow stands right of the pair.
+  assert.equal(trend(4.4, 3.6, '%'), '4.4% / 3.6% ▲0.8');
   // Noise in the second decimal is not movement.
-  assert.equal(trend(4.42, 4.44, '%'), '4.4% =');
+  assert.equal(trend(4.42, 4.44, '%'), '4.4% / 4.4% =');
   // No sender may print the other dialect: a signed count is not a comparison.
   for (const out of [trend(210, 207), trend(37), trend(0, 0)]) {
     assert.ok(!/[+]/.test(out), `a plus sign came back: ${out}`);
@@ -1357,8 +1359,8 @@ test('tags: the third tag follows the icon, and off is not fail', () => {
 
   // The whole vocabulary is five words and no more: a sixth would be a filter
   // he never asked for, and a missing one would file two meanings together.
-  const words = new Set(Object.values(ICON).map((i) => OUTCOME_TAG[i] ?? 'news'));
-  assert.deepEqual([...words].sort(), ['fail', 'news', 'off', 'ok', 'unknown']);
+  const words = new Set(Object.values(ICON).map((i) => OUTCOME_TAG[i] ?? 'info'));
+  assert.deepEqual([...words].sort(), ['fail', 'info', 'off', 'ok', 'unknown']);
   assert.notEqual(OUTCOME_TAG[ICON.off], OUTCOME_TAG[ICON.red], 'off is filed as a failure again');
   assert.notEqual(OUTCOME_TAG[ICON.unknown], OUTCOME_TAG[ICON.red], 'silence is filed as a failure again');
 });

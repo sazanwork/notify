@@ -25,12 +25,12 @@ test('lint: line 1 must be exactly three tags, and the third from the five words
 
 test('lint: line 2 never holds the outcome, an invented word, or nothing', () => {
   assert.match(lintCard('#deploy #x #fail\n🔴 <b>Deploy:</b> fail')[0], /where the name of the thing belongs/);
-  assert.match(lintCard('#report #x #news\nℹ️ <b>Report:</b> open')[0], /where the name of the thing belongs/);
+  assert.match(lintCard('#report #x #info\nℹ️ <b>Report:</b> open')[0], /where the name of the thing belongs/);
   assert.match(lintCard('#job #x #ok')[0], /no line 2/);
 });
 
 test('lint: a retired row is a fact already said somewhere else', () => {
-  const faults = lintCard('#issue #i1 #news\n🆕 <b>Issue:</b> #1 T\n<b>Number:</b> 1');
+  const faults = lintCard('#issue #i1 #info\n🆕 <b>Issue:</b> #1 T\n<b>Number:</b> 1');
 
   assert.match(faults[0], /"Number:" is back/);
 });
@@ -46,8 +46,8 @@ test('lint: a link goes to a real address and is named by what it opens', () => 
 });
 
 test('lint: a signed number is not a comparison, and "all good" is not advice', () => {
-  assert.match(lintCard('#report #x #news\nℹ️ <b>Report:</b> R\n<b>Added:</b> +6')[0], /not a comparison/);
-  assert.match(lintCard('#report #x #news\nℹ️ <b>Report:</b> R\nall good')[0], /is a status/);
+  assert.match(lintCard('#report #x #info\nℹ️ <b>Report:</b> R\n<b>Added:</b> +6')[0], /not a comparison/);
+  assert.match(lintCard('#report #x #info\nℹ️ <b>Report:</b> R\nall good')[0], /is a status/);
 });
 
 test('lint: "all good" quoted inside a body is not a card saying it', () => {
@@ -64,6 +64,33 @@ test('lint: "all good" quoted inside a body is not a card saying it', () => {
   });
 
   assert.deepEqual(lintCard(quoting), []);
+});
+
+test('lint: a red card must say where to look, a silent one need not', () => {
+  const deadEnd = render({
+    type: 'incident', project: 'vault', title: 'The vault needs repair',
+    detail: 'one recipient only — losing the key loses the whole vault'
+  });
+
+  assert.match(lintCard(deadEnd)[0], /nowhere to look/);
+
+  // The same card with the log it should have carried all along.
+  const withLog = render({
+    type: 'incident', project: 'vault', title: 'The vault needs repair',
+    detail: 'one recipient only — losing the key loses the whole vault',
+    logs: '~/Library/Logs/vault-selfcheck.log'
+  });
+
+  assert.deepEqual(lintCard(withLog), []);
+
+  // A task that has gone quiet is `#unknown`, and it has no log because it
+  // never ran. Asking for one would be asking for a thing that cannot exist.
+  const quiet = render({
+    type: 'job', project: 'playhub', job: 'Yandex game import',
+    status: 'silent', expected: 'at least once every 26h'
+  });
+
+  assert.deepEqual(lintCard(quiet), []);
 });
 
 test('lint: an empty instance tag groups nothing', () => {

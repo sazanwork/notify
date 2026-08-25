@@ -832,14 +832,14 @@ export const eventKey = (e: NotifyEvent): string => {
 type Icon = (typeof ICON)[keyof typeof ICON];
 
 /** The five words the third tag is allowed to be, and there is no sixth. */
-type OutcomeTag = 'ok' | 'fail' | 'off' | 'unknown' | 'news';
+type OutcomeTag = 'ok' | 'fail' | 'off' | 'unknown' | 'info';
 
 /**
  * The type is `Record` over EVERY icon, not over `string`. A new icon added to
  * `ICON` without a word here now fails to compile. Under the old loose type it
- * fell through a `?? 'news'` default instead: a card whose outcome nobody had
+ * fell through a `?? 'info'` default instead: a card whose outcome nobody had
  * decided was indistinguishable from a card that is genuinely just news, and
- * nothing anywhere went red. `news` is therefore written out for each icon
+ * nothing anywhere went red. `info` is therefore written out for each icon
  * that means it, never left to a fallback.
  */
 export const OUTCOME_TAG: Readonly<Record<Icon, OutcomeTag>> = {
@@ -850,12 +850,14 @@ export const OUTCOME_TAG: Readonly<Record<Icon, OutcomeTag>> = {
   [ICON.ok]: 'ok',
   [ICON.landed]: 'ok',
   [ICON.approved]: 'ok',
-  // Something happened; no verdict was passed on it.
-  [ICON.fresh]: 'news',
-  [ICON.taken]: 'news',
-  [ICON.discarded]: 'news',
-  [ICON.changes]: 'news',
-  [ICON.info]: 'news'
+  // Something happened; no verdict was passed on it. The word is `info`, not
+  // `news`: the icon on every one of these cards is ℹ️, and the owner read
+  // `#news` under it and asked what news meant. One thing wore two words.
+  [ICON.fresh]: 'info',
+  [ICON.taken]: 'info',
+  [ICON.discarded]: 'info',
+  [ICON.changes]: 'info',
+  [ICON.info]: 'info'
 };
 
 export const outcomeTag = (e: NotifyEvent): OutcomeTag => OUTCOME_TAG[iconFor(e) as Icon];

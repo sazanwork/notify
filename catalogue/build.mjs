@@ -146,13 +146,33 @@ const articles = CARDS.map((c) => {
     );
   }
   // A field is `<b>Label:</b> value`, and that colon is the ONE separator the
-  // format has. A value carrying a second one — `0 / 0`, `name · scope` — is a
-  // pair of facts smuggled onto one line, which is what the owner keeps
-  // catching by eye. An em dash is left alone: inside a value it is prose.
+  // format has. A value carrying another one is a pair of facts smuggled onto
+  // one line, which is what the owner keeps catching by eye.
+  //
+  // The slash is the exception, and it is the exception because he chose it:
+  // `51 / 46 ▲5` is now first-number-slash-second, one fact in three parts,
+  // and the same slash separates the two dates in a report's bracket. So a
+  // slash is allowed only in that shape — between two numbers or two dates —
+  // and `name / scope` still fails.
   {
+    // A slash is the comparison mark only when what stands on each side of it
+    // is a number or a date. `2026-08-23 / 2026-08-22` and `51 / 46` pass
+    // wherever they sit — including inside the bracket after a report's name.
+    // `name / scope` does not.
+    const NUMBERISH = /^-?[\d.]+%?$|^\d{4}-\d{2}-\d{2}$/;
+    const comparison = (value) =>
+      [...value.matchAll(/(\S+)\s\/\s(\S+)/g)].every(
+        (m) => NUMBERISH.test(m[1].replace(/[(),]/g, '')) && NUMBERISH.test(m[2].replace(/[(),]/g, ''))
+      );
     for (const line of html.split('\n')) {
       const m = /<b>[^<]+:<\/b>(.*)$/.exec(line);
-      if (m && / \/ | · /.test(m[1].replace(/<[^>]+>/g, ''))) {
+      const value = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+      if (m && / · /.test(value)) {
+        throw new Error(
+          `card ${c.id}: a field value carries a second separator — split it into two lines: ${line.replace(/<[^>]+>/g, '')}`
+        );
+      }
+      if (m && / \/ /.test(value) && !comparison(value)) {
         throw new Error(
           `card ${c.id}: a field value carries a second separator — split it into two lines: ${line.replace(/<[^>]+>/g, '')}`
         );
@@ -416,7 +436,7 @@ const iconRows = Object.entries(ICON)
   .map(([name, icon]) =>
     `<tr><td class="ic">${icon}</td><td>${esc(MEANING[name])}</td>` +
     `<td>${LOUD.has(icon) ? 'со звуком' : 'беззвучно'}</td>` +
-    `<td><code>#${OUTCOME_TAG[icon] ?? 'news'}</code></td></tr>`)
+    `<td><code>#${OUTCOME_TAG[icon] ?? 'info'}</code></td></tr>`)
   .join('\n');
 
 const typeRows = TYPES.map((t) => {

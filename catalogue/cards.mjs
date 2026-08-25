@@ -65,22 +65,22 @@ export const CARDS = [
     when: 'каждый день, данные за «сегодня минус 3»',
     live: ['live', 'работает'],
     sender: 'scripts/analytics-cron.sh → notify-digest.ts',
-    expectTag: '#report #analytics_daily #news',
+    expectTag: '#report #analytics_daily #info',
     // Real numbers, from playhub's own analytics file for 2026-08-23 against
     // 2026-08-22. Invented ones had grown their own labels (`Humans`, which no
     // sender prints) and their own arithmetic.
     event: {
       type: 'report', project: 'playhub', key: 'analytics-daily',
       title: 'Analytics',
-      aside: '2026-08-23, was 2026-08-22',
+      aside: '2026-08-23 / 2026-08-22',
       lines: [
-        ['Pageviews', '1438 ▼249', 'Server log'],
-        ['Game plays', '26 =', 'GA4'],
-        ['Visitors', '51 ▲5', 'Metrica'],
-        ['Users', '51 ▲13', 'GA4'],
-        ['Clicks', '0 =', 'Google Search'],
-        ['Impressions', '0 ▼1', 'Google Search'],
-        ['Visible', '3.5% ▲1.3 of server pageviews — the rest are blocked or have no JS', 'Coverage']
+        ['Pages', '1438 / 1687 ▼249', 'Server log'],
+        ['Game plays', '26 / 26 =', 'GA4'],
+        ['People', '51 / 46 ▲5', 'Metrica'],
+        ['People', '51 / 38 ▲13', 'GA4'],
+        ['Clicks', '0 / 0 =', 'Google Search'],
+        ['Impressions', '0 / 1 ▼1', 'Google Search'],
+        ['Visible', '3.5% / 2.2% ▲1.3 of the pages the server counted — the rest are blocked or have no JS', 'Coverage']
       ],
       url: 'https://github.com/sazanwork/playhub/blob/master/docs/analytics/2026-08-23.md'
     },
@@ -92,7 +92,7 @@ export const CARDS = [
     when: 'по понедельникам, за прошедшую неделю',
     live: ['live', 'работает'],
     sender: 'scripts/analytics-cron.sh → notify-digest.ts --weekly',
-    expectTag: '#report #analytics_weekly #news',
+    expectTag: '#report #analytics_weekly #info',
     // The real weekly card playhub sent for 2026-08-17 – 2026-08-23. The week
     // before it was not read, so there is nothing to compare against and not a
     // single arrow is drawn — which is the rule, not a gap in the example.
@@ -101,13 +101,14 @@ export const CARDS = [
       title: 'Analytics, week',
       aside: '2026-08-17 – 2026-08-23',
       lines: [
-        ['Pageviews', 7639, 'Server log'],
+        ['Pages', 7639, 'Server log'],
         ['Game plays', 164, 'GA4'],
-        ['Users (sum of days)', 342, 'GA4'],
-        ['Visitors (sum of days)', 317, 'Metrica'],
+        ['People (days added up)', 342, 'GA4'],
+        ['People (days added up)', 317, 'Metrica'],
         ['Clicks', 0, 'Google Search'],
         ['Impressions', 7, 'Google Search'],
-        ['Visible', '4.5% of server pageviews (sum of days)', 'Coverage']],
+        ['Visible', '4.5% of the pages the server counted', 'Coverage']],
+      url: 'https://github.com/sazanwork/playhub/tree/master/docs/analytics',
       groups: [{ name: 'Top search queries', items: [
         { label: 'online games ru', text: '0 clicks, pos. 55' },
         { label: 'online games russian', text: '0 clicks, pos. 59' }
@@ -123,12 +124,12 @@ export const CARDS = [
     when: 'каждое утро с сервера',
     live: ['new', 'после выпуска 1.4.2'],
     sender: 'scripts/daily-report.ts',
-    expectTag: '#report #daily_report #news',
+    expectTag: '#report #daily_report #info',
     event: {
       type: 'report', project: 'playhub', key: 'daily-report',
       title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', aside: '2026-08-25',
       lines: [
-        ['Games', '412 ▲8', 'Catalogue'], ['iOS', '210 ▲3', 'Catalogue'], ['Android', '202 ▲5', 'Catalogue'],
+        ['Games', '412 / 404 ▲8', 'Catalogue'], ['iOS', '210 / 207 ▲3', 'Catalogue'], ['Android', '202 / 197 ▲5', 'Catalogue'],
         ['Added this week', 12, 'Catalogue'],
         ['Plays', 37, 'Today'], ['Added', 6, 'Today'], ['Through sync', 6, 'Today'],
       ],
@@ -288,7 +289,7 @@ export const CARDS = [
     when: 'задачу завели, назначили или закрыли на GitHub',
     live: ['live', 'работает — опросник на маке ходит каждые 5 минут'],
     sender: 'home/.claude/scripts/github-cards.py',
-    expectTag: '#issue #i322 #news',
+    expectTag: '#issue #i322 #info',
     event: {
       type: 'issue', project: 'arvent', action: 'opened', number: 322,
       url: 'https://github.com/sazanwork/arvent/issues/322',
@@ -304,7 +305,7 @@ export const CARDS = [
     when: 'у задачи появился исполнитель',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py',
-    expectTag: '#issue #i312 #news',
+    expectTag: '#issue #i312 #info',
     event: {
       type: 'issue', project: 'arvent', action: 'assigned', number: 312,
       url: 'https://github.com/sazanwork/arvent/issues/312',
@@ -320,7 +321,7 @@ export const CARDS = [
     when: 'PR открыли, закрыли или влили',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py',
-    expectTag: '#pr #p118 #news',
+    expectTag: '#pr #p118 #info',
     event: {
       type: 'pr', project: 'arvent', action: 'opened', number: 118,
       url: 'https://github.com/sazanwork/arvent/pull/118',
@@ -336,7 +337,7 @@ export const CARDS = [
     when: 'ревьюер одобрил или запросил правки',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py — отдельный опрос, событий об этом GitHub не шлёт',
-    expectTag: '#pr #p118 #news',
+    expectTag: '#pr #p118 #info',
     event: {
       type: 'pr', project: 'arvent', action: 'changes_requested', number: 118,
       url: 'https://github.com/sazanwork/arvent/pull/118',
@@ -354,9 +355,10 @@ export const CARDS = [
     event: {
       type: 'incident', project: 'vault', key: 'vault-selfcheck',
       title: 'The vault needs repair',
-      detail: 'DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another\nSTALE IN ARCHIVE: ssh-keys.tar.gz.age\nBAD   only one recipient: losing the key loses the whole vault\nlog: ~/Library/Logs/vault-selfcheck-fail-20260824-031500.log'
+      detail: 'DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another\nSTALE IN ARCHIVE: ssh-keys.tar.gz.age\nBAD   only one recipient: losing the key loses the whole vault',
+      logs: '~/Library/Logs/vault-selfcheck-fail-20260824-031500.log'
     },
-    note: "Вторая строка — сам заголовок аварии, а не слово «open», которое и так говорит значок. Диагноз идёт цитатой целиком: раньше от него оставалась первая строка."
+    note: "Вторая строка — сам заголовок аварии. Путь к логу стоит своим моноширинным хвостом, а не строкой внутри диагноза: там он был просто словами, и красная карточка читалась как тупик."
   },
   {
     id: 'job-silent', title: 'Задача перестала отчитываться',
