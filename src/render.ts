@@ -295,6 +295,8 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // "Disabled workflows".
     disabledList ? group('Disabled workflows') : null,
     ...(hasItems ? bullets(e.items, disabledList) : []),
+    e.command ? '' : null,
+    fieldCode('Command', e.command),
     // Kept only when the caller actually names the workflow — a named row is a
     // second, different destination; an unnamed one repeats the Task link.
     e.workflowName && (e.workflowUrl ?? e.url) ? '' : null,
@@ -411,6 +413,21 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
 // reports — expected X, last seen Y». Каждая другая карточка кладёт факт на
 // свою строку с ярлыком, и владелец справедливо спросил, зачем тут отдельный
 // формат. Отдельного формата больше нет.
+// A session in trouble. Same law as every other card: identifier first, then
+// the facts as fields, then his own words as a quote — never as a field, which
+// keeps one line and clipped the name of the very session the card is about.
+const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =>
+  join([
+    typeLine(e.status === 'ok' ? ICON.ok : ICON.alarm, 'Session', e.action),
+    '',
+    field('Id', e.id),
+    field('Project', e.workdir),
+    field('Reason', e.reason),
+    note(e.opened),
+    e.command ? '' : null,
+    fieldCode('Command', e.command)
+  ]);
+
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {
   const icon = e.recovered ? ICON.ok : ICON.red;
   const action = e.recovered ? 'ok' : 'miss';
@@ -445,6 +462,7 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
   pr: renderPr,
   issue: renderIssue,
   incident: renderIncident,
+  session: renderSession,
   heartbeat_miss: renderHeartbeatMiss,
   file: renderFile
 };
@@ -474,6 +492,7 @@ const TYPE_TAG: Record<NotifyEvent['type'], string> = {
   pr: 'pr',
   issue: 'issue',
   incident: 'incident',
+  session: 'session',
   heartbeat_miss: 'heartbeat',
   file: 'file'
 };
@@ -500,6 +519,10 @@ export const eventKey = (e: NotifyEvent): string => {
       case 'incident':
       case 'file':
         return slug(e.title);
+      // NOT the session id: an id is unique per session, so the tag would be
+      // new every time and nothing could ever be paired with anything.
+      case 'session':
+        return slug(e.action);
       case 'pr':
         return `p${e.number}`;
       case 'issue':

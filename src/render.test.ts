@@ -774,3 +774,63 @@ test('link/no url: the name stays plain text, the card does not invent a link', 
   assert.ok(out.includes('ℹ️ <b>Report:</b> Keys'), 'report without a url lost its name');
   assert.ok(!out.includes('<a href'), 'a link appeared out of nowhere');
 });
+
+test('link/job: a command he must run is monospaced, so Telegram makes it copyable', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', job: 'Session is burning the limit', status: 'fail',
+    note: 'context 871k against a compact line of 500k',
+    stats: [['Session', 'Пройди на Хекслете следующие темы']],
+    command: 'claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835'
+  });
+
+  assert.ok(out.includes('<b>Command:</b> <code>claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835</code>'),
+    'the command is not monospaced');
+  assert.ok(out.includes('<b>Session:</b> Пройди на Хекслете следующие темы'), 'the session name was dropped');
+});
+
+// ── A session in trouble is not a job ───────────────────────────────────────
+// It went out under `#job` first. The owner asked what a burning session was
+// doing under a heading that promises something scheduled, and he was right.
+
+test('card/session: identifier first, his own words quoted, command copyable', () => {
+  const out = render({
+    type: 'session', project: 'mac-config', action: 'burning the limit', status: 'fail',
+    id: '8f03d18c-b7d6-438c-bb40-6756c3e1e835',
+    workdir: 'mac-config',
+    reason: 'context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
+    opened: 'Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»',
+    command: 'rm /var/folders/x/claude-ctxguard/8f03d18c.latch'
+  });
+
+  assert.equal(out, [
+    '#session #burning_the_limit',
+    '🚨 <b>Session:</b> burning the limit',
+    '',
+    '<b>Id:</b> 8f03d18c-b7d6-438c-bb40-6756c3e1e835',
+    '<b>Project:</b> mac-config',
+    '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
+    '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
+    '',
+    '<b>Command:</b> <code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
+  ].join('\n'));
+});
+
+test('card/session: the opening line is NOT clipped to one line the way a field is', () => {
+  const long = 'Пройди на Хекслете следующие темы по списку:\nсначала одну,\nпотом вторую';
+  const out = render({
+    type: 'session', project: 'mac-config', action: 'burning the limit', opened: long
+  });
+
+  assert.ok(out.includes('потом вторую'), 'the last line of his own text was cut off');
+  assert.ok(!out.includes('…'), 'the opening line was clipped like a field');
+});
+
+test('card/session: a red session rings, and its tag does not change every session', () => {
+  const one = render({ type: 'session', project: 'mac-config', action: 'burning the limit', id: 'aaa' });
+  const two = render({ type: 'session', project: 'mac-config', action: 'burning the limit', id: 'bbb' });
+
+  assert.ok(one.startsWith('#session #burning_the_limit'), 'wrong tag');
+  assert.equal(one.split('\n')[0], two.split('\n')[0], 'the tag changed with the session id');
+  assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'fail' }), 'error');
+  assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'ok' }), 'info');
+});

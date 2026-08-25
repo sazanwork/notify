@@ -85,6 +85,12 @@ export type NotifyEvent = Keyed &
       /** Детали: что именно упало, замечания прогона; у `disabled` — список выключенных процессов (каждый со своей ссылкой). */
       items?: Item[];
       note?: string;
+      /**
+       * A command for him to run, rendered monospaced so Telegram makes it
+       * tap-to-copy. For the case where the card names something on this Mac
+       * that no URL can reach — a stopped local session, a latch file.
+       */
+      command?: string;
       workflowUrl?: string;
       /** Название прогона для видимого текста ссылки (по умолчанию — `open`). */
       workflowName?: string;
@@ -189,6 +195,39 @@ export type NotifyEvent = Keyed &
       /** Локальный путь к логам (не URL — рендерится моноширинным, для копирования, не для клика). */
       logs?: string;
       url?: string;
+    }
+  /**
+   * A working session on this Mac is in trouble — not a job, not a workflow.
+   * It went out as `job` at first and read wrong: `#job` promises something
+   * scheduled that ran and failed, and the owner rightly asked what a burning
+   * session was doing under that heading.
+   *
+   * What makes it its own type rather than an `incident`: a session has an
+   * identity nothing else here has — an id, a working directory, and the line
+   * he typed to start it, which is the ONLY thing that tells two of his open
+   * sessions apart.
+   */
+  | {
+      type: 'session';
+      project: Project;
+      /** What happened, as the second line reads it: `Session: burning the limit`. */
+      action: string;
+      /** The session's own id — the identifier field, first, as everywhere else. */
+      id?: string;
+      /** Working directory name, when several sessions opened with a similar line. */
+      workdir?: string;
+      /** One line of measurement: what the guard saw. */
+      reason?: string;
+      /**
+       * The line he opened the session with. Quoted, never a field: it is his
+       * own writing, it runs long, and a field would clip it to one short line
+       * — which is exactly how the first version of this card lost it.
+       */
+      opened?: string;
+      /** A command for him to run, monospaced so Telegram makes it copyable. */
+      command?: string;
+      /** `fail` red, `ok` green — a session that recovered is not an alarm. */
+      status?: 'fail' | 'ok';
     }
   /** Задача не отметилась вовремя — сторож молчания (heartbeat). */
   | {

@@ -272,6 +272,7 @@ if (flags.has('json')) {
         stats: pairs('stat'),
         items: items(),
         note: one('note'),
+        command: one('command'),
         workflowUrl: one('workflow-url'),
         workflowName: one('workflow-name'),
         url: one('url')
@@ -329,6 +330,20 @@ if (flags.has('json')) {
         author: one('author'),
         assignee: one('assignee'),
         url: one('url')
+      };
+      break;
+    case 'session':
+      event = {
+        type: 'session',
+        project: project(),
+        action: one('action') ?? 'in trouble',
+        id: one('id'),
+        workdir: one('workdir'),
+        reason: one('reason'),
+        opened: one('opened'),
+        command: one('command'),
+        // Only two states here, so `disabled` must not leak in from jobStatus.
+        status: jobStatus() === 'ok' ? 'ok' : 'fail'
       };
       break;
     case 'incident':
