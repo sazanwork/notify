@@ -19,7 +19,7 @@
  * строка разделяет БЛОКИ ПО СМЫСЛУ (шапка / суть / действия), не механически
  * после каждой строки.
  */
-import { iconFor, type Item, type NotifyEvent } from './events.ts';
+import { ICON, LOUD, iconFor, type Item, type NotifyEvent } from './events.ts';
 
 /** Первая буква — заглавная, остальное как есть (ga4/GitHub остаются собой). */
 /**
@@ -229,7 +229,29 @@ const note = (text: string | undefined): string | null => {
 const quoted = (label: string, text: string | undefined): string | null =>
   text ? `<b>${esc(cap(label))}</b>\n${note(text)}` : null;
 
-const join = (parts: Array<string | null>): string => parts.filter((p): p is string => p !== null).join('\n');
+/**
+ * Склейка карточки. Пустая строка здесь — знак смены блока, а не отступ:
+ * две подряд означают пустой блок, ведущая — блок, которого нет. Обе
+ * появляются, когда часть полей не пришла, и обе схлопываются тут, а не
+ * в каждом рендерере по отдельности.
+ */
+const join = (parts: Array<string | null>): string => {
+  const out: string[] = [];
+  for (const part of parts) {
+    if (part === null) {
+      continue;
+    }
+    if (part === '' && (out.length === 0 || out[out.length - 1] === '')) {
+      continue;
+    }
+    out.push(part);
+  }
+  while (out.length > 0 && out[out.length - 1] === '') {
+    out.pop();
+  }
+
+  return out.join('\n');
+};
 
 /** Плоский список позиций (без ярлыков) — job/report без групп. */
 const bullets = (items: Item[] | undefined, numbered: boolean): string[] =>
@@ -259,6 +281,83 @@ const titleField = (title: string | undefined): string | null =>
 
 const bodyQuote = (body: string | undefined): string | null =>
   body ? note(body) : null;
+
+/**
+ * Строки с ярлыками, разложенные по группам, которые назвал сам отправитель.
+ *
+ * Закон простой и считается программой: назвал группу — заголовок печатается.
+ * Всегда, сколько бы строк в ней ни было и сколько бы групп ни оказалось.
+ * Порог «две и больше» я пробовал и снял: у карточки резервных копий все
+ * цифры лежат в одной группе, а над ними — рассказ о прогоне, и порог гасил
+ * ровно тот шов, ради которого владелец всё это и просил.
+ *
+ * Так же уходит и риск «одна и та же карточка выглядит по-разному в разные
+ * дни»: вид зависит от того, что отправитель НАЗВАЛ в коде, а не от того,
+ * сколько строк набралось сегодня.
+ *
+ * Порядок групп — порядок первого появления у отправителя: он знает, что
+ * важнее. Строки без имени идут первыми и без заголовка — это факты о самой
+ * карточке, а не о каком-то из её предметов.
+ */
+const labelled = (rows: Array<[string, string | number, string?]> | undefined): string[] => {
+  const list = rows ?? [];
+  const names = [...new Set(list.map(([, , g]) => g).filter((g): g is string => !!g))];
+
+  if (names.length === 0) {
+    return list.map(([label, value]) => field(label, value)).filter((l): l is string => l !== null);
+  }
+
+  const out: string[] = [];
+  const bare = list.filter(([, , g]) => !g);
+  for (const [label, value] of bare) {
+    const line = field(label, value);
+    if (line !== null) {
+      out.push(line);
+    }
+  }
+  for (const name of names) {
+    // Пустая строка перед КАЖДЫМ заголовком, включая первый: над ним всегда
+    // стоят поля самой карточки (Task, Period), и без шва заголовок читался
+    // как ещё одна их строка. Двойных пустот бояться не нужно — их схлопывает
+    // `join`.
+    out.push('');
+    out.push(group(name));
+    for (const [label, value] of list.filter(([, , g]) => g === name)) {
+      const line = field(label, value);
+      if (line !== null) {
+        out.push(line);
+      }
+    }
+  }
+
+  return out;
+};
+
+/**
+ * Блоки, которыми владеет сам рендерер, — у выкатки и проверки их два, и они
+ * про разные вещи: `Run` это сам прогон и его обстоятельства, `Change` это
+ * изменение, из-за которого он случился. Владелец на CI-карточке: «commit,
+ * actor, workflow — не знаю, всё так сумбурно».
+ *
+ * Заголовок печатается у КАЖДОГО непустого блока, а не только когда их два.
+ * Сначала было «два и больше», ради экономии строки на зелёной карточке, и
+ * это оказалось ошибкой: у зелёной выкатки нет ни цели, ни причины, блок один,
+ * заголовки пропадали — и один и тот же вид уведомления выглядел в разные дни
+ * по-разному. Владелец дважды спросил «почему здесь нет групп», глядя именно
+ * на зелёную. Строка заголовка стоит дешевле, чем необходимость каждый раз
+ * заново искать глазами, где что.
+ */
+const twoBlocks = (run: Array<string | null>, change: Array<string | null>): Array<string | null> => {
+  const live = (rows: Array<string | null>): string[] => rows.filter((r): r is string => r !== null && r !== '');
+  const out: Array<string | null> = [];
+  for (const [name, rows] of [['Run', live(run)], ['Change', live(change)]] as Array<[string, string[]]>) {
+    if (rows.length > 0) {
+      out.push('', group(name), ...rows);
+    }
+  }
+
+  return out;
+};
 
 type Renderer<E extends NotifyEvent> = (e: E) => string;
 
@@ -324,12 +423,10 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   return join([
     typeLine(icon, 'Deploy', e.status),
     fieldLink('Via', runUrl, mechanism(e.workflowName, e.via, runUrl)),
-    '',
-    fieldLink('Commit', e.commitUrl, e.commit),
-    titleField(e.commitTitle),
-    bodyQuote(e.commitBody),
-    field('Target', e.target),
-    field('Reason', e.note)
+    ...twoBlocks(
+      [field('Target', e.target), field('Reason', e.note)],
+      [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
+    )
   ]);
 };
 
@@ -355,7 +452,7 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // `Last run` when the task is alive, `Last seen` when it is not: the same
     // timestamp answers two different questions.
     field(e.status === 'silent' ? 'Last seen' : 'Last run', e.lastSeen),
-    ...(e.stats ?? []).map(([label, value]) => field(label, value)),
+    ...labelled(e.stats),
     hasItems ? '' : null,
     // Heading ONLY for `disabled`. It used to print for any job carrying a
     // list, so playhub's daily card of newly published games was headed
@@ -379,12 +476,16 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     // `lines` и `groups` вместе, а не «или»: раньше ветка с группами печатала
     // ТОЛЬКО группы, и цифры отчёта молча исчезали. Поймано 25.08.2026 при
     // переводе утреннего отчёта PlayHub на типизированное событие.
-    const numbers = (e.lines ?? []).map(([label, value]) => field(label, value));
+    const numbers = labelled(e.lines);
 
     return join([
       typeLine(iconFor(e), 'Report', e.title, e.url),
-      '',
+      // Период стоит ВПЛОТНУЮ к названию, без пустой строки, по тому же
+      // закону, что `Via` у выкатки и `Check` у проверки: строка, которая
+      // уточняет вторую строку, живёт рядом с ней, а не в блоке фактов.
+      // Владелец: «период пошёл не туда, он же должен быть рядом с датой».
       field('Period', e.period),
+      '',
       ...numbers,
       body.length > 0 ? '' : null,
       ...body
@@ -397,11 +498,10 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     // Both analytics jobs send a link to the day's snapshot in docs/. It used to
     // hang off a trailing `Details: open` row; now it is the report's own name.
     typeLine(iconFor(e), 'Report', e.title, e.url),
-    '',
-    // The period used to ride on the type line after a middot, which made the
-    // clickable name longer than the name and put two facts on one line.
+    // Вплотную к названию — см. соседнюю ветку.
     field('Period', e.period),
-    ...(e.lines ?? []).map(([label, value]) => field(label, value)),
+    '',
+    ...labelled(e.lines),
     items.length > 0 ? '' : null,
     ...items
   ]);
@@ -418,12 +518,10 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   return join([
     typeLine(icon, 'CI', e.status),
     fieldLink('Check', runUrl, mechanism(e.workflowName, undefined, runUrl)),
-    '',
-    fieldLink('Commit', e.commitUrl, e.commit),
-    titleField(e.commitTitle),
-    bodyQuote(e.commitBody),
-    field('Actor', e.actor),
-    field('Reason', e.note)
+    ...twoBlocks(
+      [field('Actor', e.actor), field('Reason', e.note)],
+      [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
+    )
   ]);
 };
 
@@ -582,7 +680,32 @@ export const eventKey = (e: NotifyEvent): string => {
   return e.key ? slug(e.key) : fallback();
 };
 
-const tagsLine = (e: NotifyEvent): string => `#${TYPE_TAG[e.type]} #${esc(eventKey(e))}`;
+/**
+ * Третий тег — ИСХОД, и он есть всегда. Владелец: «не хватает тега fail или
+ * похожего, чтобы фейлы можно было группировать и ок можно было группировать».
+ * Одно нажатие в Telegram собирает все падения проекта разом, каким бы типом
+ * они ни пришли — выкатка, проверка, задача по расписанию, авария.
+ *
+ * Значение берётся у ЗНАЧКА, а не у слова статуса, и это не мелочь: значок уже
+ * единственный источник правды про звук, и второй список «что считать
+ * падением» разошёлся бы с первым — так уже было, когда красная карточка
+ * приходила беззвучной. Громкий значок — `#fail`, зелёный — `#ok`, всё
+ * остальное (завели задачу, открыли PR, попросили правки, отчёт) — `#news`:
+ * это новость, а не приговор робота.
+ */
+const OK_ICONS: ReadonlySet<string> = new Set([ICON.ok, ICON.landed, ICON.approved]);
+
+const outcomeTag = (e: NotifyEvent): string => {
+  const icon = iconFor(e);
+  if (LOUD.has(icon)) {
+    return 'fail';
+  }
+
+  return OK_ICONS.has(icon) ? 'ok' : 'news';
+};
+
+const tagsLine = (e: NotifyEvent): string =>
+  `#${TYPE_TAG[e.type]} #${esc(eventKey(e))} #${outcomeTag(e)}`;
 
 /**
  * Строка тегов для свободного HTML (`sendReport`). Тег — это ФИЛЬТР владельца,

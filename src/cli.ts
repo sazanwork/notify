@@ -135,11 +135,25 @@ const items = (): Array<{ text: string; url?: string }> =>
 
     return idx === -1 ? { text: raw } : { text: raw.slice(0, idx), url: raw.slice(idx + 1) };
   });
-const pairs = (key: string): Array<[string, string]> =>
+/**
+ * `--stat "label=value"`, и с 25.08.2026 — `--stat "Group | label=value"`:
+ * имя группы, вертикальная черта, ярлык. Черта выбрана потому, что её нет ни
+ * в одном живом ярлыке, а двоеточие есть («Eval: bot answer quality») и
+ * равенство занято значением. Пробелы вокруг черты необязательны.
+ *
+ * Без черты всё как было — так шлют больше двадцати отправителей, и ни один
+ * из них менять не нужно.
+ */
+const pairs = (key: string): Array<[string, string, string?]> =>
   (flags.get(key) ?? []).map((s) => {
     const idx = s.indexOf('=');
+    const head = idx === -1 ? s : s.slice(0, idx);
+    const value = idx === -1 ? '' : s.slice(idx + 1);
+    const bar = head.indexOf('|');
 
-    return idx === -1 ? [s, ''] : [s.slice(0, idx), s.slice(idx + 1)];
+    return bar === -1
+      ? ([head, value] as [string, string, string?])
+      : ([head.slice(bar + 1).trim(), value, head.slice(0, bar).trim()] as [string, string, string?]);
   });
 
 const project = (): Project => one('project') as Project;

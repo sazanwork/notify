@@ -4,7 +4,13 @@ const at = (n) => readFileSync(new URL('./' + n, import.meta.url), 'utf8');
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 // Stamped so a reader can tell whether the "Сейчас" column is still true.
-const STAMP = new Date().toISOString().slice(0, 10).split('-').reverse().join('.');
+// Дата И ВРЕМЯ. Владелец трижды подряд смотрел на страницу, которую браузер
+// держал со старого захода, и трижды писал «а где группы». По одной дате
+// отличить вчерашнюю сборку от сегодняшней он мог, а сегодняшнюю утреннюю от
+// сегодняшней дневной — нет. Время в шапке отвечает на это без вопросов.
+const NOW = new Date();
+const STAMP = `${NOW.toISOString().slice(0, 10).split('-').reverse().join('.')} в ${
+  String(NOW.getHours()).padStart(2, '0')}:${String(NOW.getMinutes()).padStart(2, '0')}`;
 
 const page = `${at('head.html')}
 <div class="wrap">

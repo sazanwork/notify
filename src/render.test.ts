@@ -37,14 +37,14 @@ for (const sample of SAMPLES) {
 test('теги — первая строка, ДО текста, не после', () => {
   const text = render({ type: 'ci', project: 'arvent', status: 'ok', branch: 'master' });
 
-  assert.match(text, /^#ci #master\n/, `теги не на первой строке: ${text.slice(0, 40)}`);
+  assert.match(text, /^#ci #master #ok\n/, `теги не на первой строке: ${text.slice(0, 40)}`);
 });
 
 test('тег-экземпляр = машинный ключ разборщика — одно и то же значение, не два', () => {
   const e: NotifyEvent = { type: 'job', project: 'playhub', job: 'Импорт игр', status: 'fail' };
   const text = render(e);
 
-  assert.ok(text.startsWith(`#job #${eventKey(e)}\n`), 'тег наверху не совпал с eventKey()');
+  assert.ok(text.startsWith(`#job #${eventKey(e)} #fail\n`), 'тег наверху не совпал с eventKey()');
 });
 
 test('slug: разделитель — подчёркивание, не дефис (дефис рвёт Telegram-хэштег)', () => {
@@ -57,7 +57,7 @@ test('slug: разделитель — подчёркивание, не дефи
 test('явный --key побеждает выведенный, тоже через подчёркивание', () => {
   const text = render({ type: 'job', project: 'playhub', job: 'x', status: 'fail', key: 'vps backups' });
 
-  assert.ok(text.startsWith('#job #vps_backups\n'));
+  assert.ok(text.startsWith('#job #vps_backups #fail\n'));
 });
 
 test('один и тот же ключ у 🔴 и у последующего успеха — иначе разборщику не с чем сверять', () => {
@@ -249,7 +249,7 @@ test('clampMessage режет длинный текст, теги остаютс
   const clamped = render({ type: 'incident', project: 'playhub', title: 'x', detail: long });
 
   assert.ok(clamped.length <= 4096, `длина ${clamped.length} превышает лимит Telegram`);
-  assert.ok(clamped.startsWith('#incident #x\n'), `теги не сохранились первой строкой: ${clamped.slice(0, 40)}`);
+  assert.ok(clamped.startsWith('#incident #x #fail\n'), `теги не сохранились первой строкой: ${clamped.slice(0, 40)}`);
   assert.ok(clamped.includes('…'), 'обрезка потеряла многоточие');
 });
 
@@ -274,7 +274,7 @@ test('подпись файла укладывается в лимит caption 1
   });
 
   assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
-  assert.ok(caption.startsWith('#report #полные_диалоги\n'));
+  assert.ok(caption.startsWith('#report #полные_диалоги #news\n'));
 });
 
 test('длинный текст ОДНОЙ строкой не выбрасывается целиком', () => {
@@ -487,6 +487,68 @@ test('run: a hand deploy keeps the row and has nothing to open', () => {
 
 // Худший случай: ссылка на прогон есть, а имени нет ни одного. Потерять ссылку
 // на логи у красной карточки нельзя — она остаётся, пусть и безымянной.
+// Владелец на CI-карточке: «commit, actor, workflow — не знаю, всё так
+// сумбурно». Два блока, и заголовок есть у каждого непустого — иначе один и
+// тот же вид карточки выглядит в разные дни по-разному.
+test('blocks: every non-empty block is named, so a type keeps its shape', () => {
+  const both = render({
+    type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
+    commit: '9b1fc68', commitUrl: 'https://x/c', actor: '@chelsnebes',
+    note: '3 tests failed', workflowUrl: 'https://x/run', workflowName: 'nightly'
+  });
+
+  assert.ok(both.includes('<i><u>Run</u></i>'), 'блок прогона потерялся');
+  assert.ok(both.includes('<i><u>Change</u></i>'), 'блок изменения потерялся');
+  assert.ok(both.indexOf('<i><u>Run</u></i>') < both.indexOf('<i><u>Change</u></i>'), 'прогон идёт первым');
+
+  // Зелёная выкатка: причины нет, блок один — и он всё равно подписан.
+  const one = render({
+    type: 'deploy', project: 'game-publisher', status: 'ok',
+    commit: '3f1a882', commitUrl: 'https://x/c', via: 'manual, from the Mac'
+  });
+
+  assert.ok(one.includes('<i><u>Change</u></i>'), 'единственный блок тоже должен быть подписан');
+  assert.ok(!one.includes('<i><u>Run</u></i>'), 'пустой блок подписывать нечем');
+});
+
+// Группу называет отправитель, и названная группа печатается всегда — порога
+// «две и больше» нет: у карточки копий все цифры в одной группе, а порог гасил
+// ровно тот шов, ради которого владелец просил группы.
+test('groups: a named group always prints its heading, even alone', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', job: 'Server backups', status: 'fail',
+    note: 'nothing to roll back to',
+    stats: [['Fresh', 10, 'Copies on the Mac'], ['Broken', 1, 'Copies on the Mac']]
+  });
+
+  assert.ok(out.includes('<i><u>Copies on the Mac</u></i>'), 'заголовок одинокой группы потерялся');
+  assert.ok(out.indexOf('<b>Reason:</b>') < out.indexOf('<i><u>Copies'), 'рассказ о прогоне идёт до цифр');
+});
+
+// Строки без имени группы ведут себя как раньше — 20 с лишним отправителей
+// шлют плоские пары и не должны меняться.
+test('groups: untagged pairs still render flat', () => {
+  const out = render({
+    type: 'job', project: 'playhub', job: 'Import', status: 'ok',
+    stats: [['Published', 9], ['Stuck', 2]]
+  });
+
+  assert.ok(!out.includes('<i><u>'), 'у неназванных строк заголовков быть не должно');
+  assert.ok(out.includes('<b>Published:</b> 9'));
+});
+
+// Пустая строка означает смену блока. Две подряд означали бы пустой блок,
+// ведущая — блок, которого нет; обе появлялись, когда часть полей не пришла.
+test('seams: never two blank lines in a row, never one at the top', () => {
+  const out = render({
+    type: 'job', project: 'playhub', job: 'Import', status: 'ok',
+    stats: [['Published', 9, 'Result']]
+  });
+
+  assert.ok(!out.includes('\n\n\n'), 'двойная пустая строка');
+  assert.ok(!/^#[^\n]*\n\n\n/.test(out), 'пустой блок сразу под тегами');
+});
+
 test('run: a nameless run keeps its link rather than losing it', () => {
   const out = render({
     type: 'deploy', project: 'playhub', status: 'fail',
@@ -521,7 +583,7 @@ test('card/job fail: task name is on the card, not only in the tag', () => {
   });
 
   assert.equal(out, [
-    '#job #vps_backups',
+    '#job #vps_backups #fail',
     '🔴 <b>Job:</b> fail',
     '',
     '<b>Task:</b> Backups from the server',
@@ -538,7 +600,7 @@ test('card/job with items: no "Disabled workflows" heading unless disabled', () 
   });
 
   assert.equal(out, [
-    '#job #daily_import',
+    '#job #daily_import #ok',
     '✅ <b>Job:</b> ok',
     '',
     '<b>Task:</b> Game import',
@@ -557,7 +619,7 @@ test('card/job disabled: heading present, list numbered', () => {
   });
 
   assert.equal(out, [
-    '#job #actions_minutes_guard',
+    '#job #actions_minutes_guard #fail',
     '🚫 <b>Job:</b> disabled',
     '',
     '<b>Task:</b> GitHub Actions minutes watchdog',
@@ -579,14 +641,17 @@ test('card/ci: commit hash links, body quoted under it', () => {
   });
 
   assert.equal(out, [
-    '#ci #master',
+    '#ci #master #ok',
     '✅ <b>CI:</b> ok',
     '<b>Check:</b> <a href="https://x/run">the run</a>',
     '',
+    '<i><u>Run</u></i>',
+    '<b>Actor:</b> @chelsnebes',
+    '',
+    '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
     '<b>Title:</b> Онбординг: заготовки вопросов (#294)',
-    '<blockquote>Тело коммита, написанное человеком.</blockquote>',
-    '<b>Actor:</b> @chelsnebes'
+    '<blockquote>Тело коммита, написанное человеком.</blockquote>'
   ].join('\n'));
 });
 
@@ -598,12 +663,15 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
   });
 
   assert.equal(out, [
-    '#ci #master',
+    '#ci #master #ok',
     '✅ <b>CI:</b> ok',
     '<b>Check:</b> <a href="https://x/run">the run</a>',
     '',
-    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
-    '<b>Reason:</b> nightly check of master'
+    '<i><u>Run</u></i>',
+    '<b>Reason:</b> nightly check of master',
+    '',
+    '<i><u>Change</u></i>',
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>'
   ].join('\n'));
 });
 
@@ -615,10 +683,11 @@ test('card/deploy', () => {
   });
 
   assert.equal(out, [
-    '#deploy #playhub',
+    '#deploy #playhub #ok',
     '✅ <b>Deploy:</b> ok',
     '<b>Via:</b> <a href="https://x/run">GitHub Actions</a>',
     '',
+    '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a>',
     '<b>Title:</b> feat: new landing'
   ].join('\n'));
@@ -633,7 +702,7 @@ test('card/issue: body arrives — it never did before', () => {
   });
 
   assert.equal(out, [
-    '#issue #i322',
+    '#issue #i322 #news',
     '🆕 <b>Issue:</b> opened',
     '',
     '<b>Number:</b> <a href="https://x/i/322">#322</a>',
@@ -652,7 +721,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
   });
 
   assert.equal(out, [
-    '#pr #p294',
+    '#pr #p294 #news',
     '🆕 <b>PR:</b> opened',
     '',
     '<b>Number:</b> <a href="https://x/p/294">#294</a>',
@@ -680,7 +749,7 @@ test('card/incident: every line of the diagnosis survives', () => {
   });
 
   assert.equal(out, [
-    '#incident #vault_needs_a_fix',
+    '#incident #vault_needs_a_fix #fail',
     '🚨 <b>Incident:</b> open',
     '',
     '<b>Title:</b> Vault needs a fix',
@@ -699,7 +768,7 @@ test('card/heartbeat miss', () => {
   });
 
   assert.equal(out, [
-    '#heartbeat #yandex_game_import',
+    '#heartbeat #yandex_game_import #fail',
     '❓ <b>Heartbeat:</b> miss',
     '',
     '<b>Task:</b> Yandex game import',
@@ -715,7 +784,7 @@ test('card with a file: the caption is clamped at 1024, not 4000', () => {
   });
 
   assert.ok(out.length <= 1024, `caption ${out.length} chars — Telegram cuts at 1024`);
-  assert.ok(out.startsWith('#job #arvent_eval\n✅ <b>Job:</b> ok'),
+  assert.ok(out.startsWith('#job #arvent_eval #ok\n✅ <b>Job:</b> ok'),
     'a card carrying a file is still the card of its own type');
 });
 
@@ -736,15 +805,30 @@ test('card/report', () => {
   });
 
   assert.equal(out, [
-    '#report #analytics',
+    '#report #analytics #news',
     'ℹ️ <b>Report:</b> Analytics',
-    '',
     '<b>Period:</b> compared to 23.08',
+    '',
     '<b>Pageviews (server):</b> 1284',
     '<b>Game launches:</b> 412',
     '',
     '• <a href="https://x/q">query — 12 clicks</a>'
   ].join('\n'));
+});
+
+// Владелец: «период пошёл не туда, он же должен быть рядом с датой». То, что
+// уточняет вторую строку, стоит вплотную к ней — тот же закон, что у `Via` и
+// `Check`, а не в блоке фактов через пустую строку.
+test('report: the period touches the name, the facts start after the seam', () => {
+  const out = render({
+    type: 'report', project: 'playhub', key: 'daily', title: 'russkie-igry.ru',
+    period: '25.08.2026', lines: [['Games', 412, 'Catalogue']]
+  });
+  const rows = out.split('\n');
+
+  assert.equal(rows[2], '<b>Period:</b> 25.08.2026');
+  assert.equal(rows[3], '');
+  assert.ok(rows.includes('<i><u>Catalogue</u></i>'));
 });
 
 test('fieldLink: a multi-line value does not become multi-line link text', () => {
@@ -900,7 +984,7 @@ test('card/session: identifier first, his own words quoted, command copyable', (
   });
 
   assert.equal(out, [
-    '#session #burning_the_limit',
+    '#session #burning_the_limit #fail',
     '🚨 <b>Session:</b> burning the limit',
     '',
     '<b>Id:</b> 8f03d18c-b7d6-438c-bb40-6756c3e1e835',
@@ -946,7 +1030,7 @@ test('card/job: facts get their own lines instead of one run-on Reason', () => {
   });
 
   assert.equal(out, [
-    '#job #server_backups',
+    '#job #server_backups #fail',
     '🔴 <b>Job:</b> fail',
     '',
     '<b>Task:</b> Server backups',
@@ -988,8 +1072,17 @@ test('card/job silent: one task, one tag, and the pair closes', () => {
     status: 'ok', expected: 'at least once every 26h', lastSeen: '25.08 04:10'
   });
 
-  assert.equal(gone.split('\n')[0], '#job #daily_import');
-  assert.equal(gone.split('\n')[0], back.split('\n')[0], 'the pair does not share a tag line');
+  assert.equal(gone.split('\n')[0], '#job #daily_import #fail');
+  // Совпадает ТЕГ-ЭКЗЕМПЛЯР, а не вся строка: третий тег — исход, и он у пары
+  // разный по определению (упало → починилось). Пара находится по нажатию на
+  // `#daily_import`, и это единственное, что должно совпадать.
+  assert.equal(
+    gone.split('\n')[0].split(' ')[1],
+    back.split('\n')[0].split(' ')[1],
+    'the pair does not share an instance tag'
+  );
+  assert.equal(gone.split('\n')[0].split(' ')[2], '#fail');
+  assert.equal(back.split('\n')[0].split(' ')[2], '#ok');
   assert.ok(gone.includes('❓ <b>Job:</b> silent'), 'silence has lost its own icon');
   assert.ok(gone.includes('<b>Last seen:</b> 23.08 04:12'), 'a silent task must say when it was last seen');
   assert.ok(back.includes('<b>Last run:</b> 25.08 04:10'), 'a live task says last RUN, not last seen');

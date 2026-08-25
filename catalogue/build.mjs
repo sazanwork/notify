@@ -4,7 +4,21 @@
 import { render, eventKey } from '../dist/render.js';
 import { ICON, LOUD, severity } from '../dist/events.js';
 import { CARDS } from './cards.mjs';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, statSync, readdirSync } from 'node:fs';
+
+// The page draws its cards with the COMPILED package, not the sources. Edit
+// `src/` without running `npm run build` and the page silently shows the
+// renderer of the last build — which is exactly what happened on 25.08.2026:
+// the owner was told the groups were on the page, looked, and they were not.
+// A page that lies about what will arrive is worse than no page.
+{
+  const newest = (dir) =>
+    Math.max(...readdirSync(new URL(dir, import.meta.url)).map((f) =>
+      statSync(new URL(dir + f, import.meta.url)).mtimeMs));
+  if (newest('../src/') > newest('../dist/')) {
+    throw new Error('dist is older than src — run `npm run build` first, or the page shows the previous renderer');
+  }
+}
 
 // The stripe down the left of a bubble follows the ICON, the same way the
 // sound does. Anything that rings gets a warm stripe; the rest are quiet.

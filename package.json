@@ -33,7 +33,8 @@
     "build": "tsc -p tsconfig.build.json",
     "prepare": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test src/*.test.ts"
+    "test": "node --test src/*.test.ts",
+    "catalogue": "npm run build && node catalogue/build.mjs && node catalogue/assemble.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
