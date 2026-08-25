@@ -163,9 +163,21 @@ const line2 = (event) => {
   return rendered.replace(/<a href="[^"]*">/g, '').replace(/<\/a>/g, '');
 };
 
+// The sound is not a second opinion — it follows the icon. Shown so he can see
+// that it does, and so the page goes red the day it stops being true.
+const sound = (event) => {
+  const loud = severity(event) === 'error';
+  const icon = render(event).split('\n')[1].slice(0, 2);
+  const red = icon.startsWith('🔴') || icon.startsWith('🚨');
+  if (loud !== red) {
+    throw new Error(`type table: ${event.type} — icon and sound disagree`);
+  }
+  return loud ? 'со звуком' : 'беззвучно';
+};
+
 const typeRows = TYPES.map((t) => {
   const rows = t.lines
-    .map(([when, ev]) => `<div class="l2"><code>${line2(ev)}</code><i>${esc(when)}</i></div>`)
+    .map(([when, ev]) => `<div class="l2"><code>${line2(ev)}</code><b>${sound(ev)}</b><i>${esc(when)}</i></div>`)
     .join('');
   return `<tr><td><code>${t.tag}</code><br><small>${esc(t.what)}</small></td>` +
          `<td>${rows}</td><td><code>${esc(t.who)}</code></td></tr>`;
