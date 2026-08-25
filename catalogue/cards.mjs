@@ -66,22 +66,25 @@ export const CARDS = [
     live: ['live', 'работает'],
     sender: 'scripts/analytics-cron.sh → notify-digest.ts',
     expectTag: '#report #analytics_daily #news',
+    // Real numbers, from playhub's own analytics file for 2026-08-23 against
+    // 2026-08-22. Invented ones had grown their own labels (`Humans`, which no
+    // sender prints) and their own arithmetic.
     event: {
-      type: 'report', project: 'game-publisher', key: 'analytics-daily',
-      title: 'Analytics for 2026-08-22',
-      aside: 'compared with 2026-08-21',
+      type: 'report', project: 'playhub', key: 'analytics-daily',
+      title: 'Analytics',
+      aside: '2026-08-23, was 2026-08-22',
       lines: [
-        ['Humans', '485 ▲207', 'Server log'],
-        ['Game plays', '0 =', 'GA4'],
-        ['Users', '0 ▼1', 'GA4'],
+        ['Pageviews', '1438 ▼249', 'Server log'],
+        ['Game plays', '26 =', 'GA4'],
+        ['Visitors', '51 ▲5', 'Metrica'],
+        ['Users', '51 ▲13', 'GA4'],
         ['Clicks', '0 =', 'Google Search'],
-        ['Impressions', '0 =', 'Google Search'],
-        ['Visible', '0.0% ▼0.4 — the rest of the visitors gave no consent', 'Coverage']
+        ['Impressions', '0 ▼1', 'Google Search'],
+        ['Visible', '3.5% ▲1.2 of server pageviews — the rest are blocked or have no JS', 'Coverage']
       ],
-      groups: [{ name: 'Top search queries', items: [{ label: 'игры для мальчиков', text: '4 clicks, pos. 12' }] }],
-      url: 'https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md'
+      url: 'https://github.com/sazanwork/playhub/blob/master/docs/analytics/2026-08-23.md'
     },
-    note: "Стрелка сравнения у каждого числа, а день, против которого они посчитаны, стоит в скобках у названия отчёта — не отдельной строкой среди цифр."
+    note: "Имя отчёта не носит даты — день и день сравнения стоят в скобках, как у всех остальных. Стрелка есть у каждого числа: сравнивать было с чем."
   },
   {
     id: 'report-weekly', title: 'Недельный отчёт аналитики',
@@ -90,24 +93,32 @@ export const CARDS = [
     live: ['live', 'работает'],
     sender: 'scripts/analytics-cron.sh → notify-digest.ts --weekly',
     expectTag: '#report #analytics_weekly #news',
+    // The real weekly card playhub sent for 2026-08-17 – 2026-08-23. The week
+    // before it was not read, so there is nothing to compare against and not a
+    // single arrow is drawn — which is the rule, not a gap in the example.
     event: {
       type: 'report', project: 'playhub', key: 'analytics-weekly',
-      title: 'Weekly analytics 2026-08-18 – 2026-08-24',
-      aside: 'compared with 2026-08-11 – 2026-08-17',
+      title: 'Analytics, week',
+      aside: '2026-08-17 – 2026-08-23',
       lines: [
-        ['Pageviews', '7882 ▲799', 'Server log'],
-        ['Game plays', '156 ▼17', 'GA4'],
-        ['Users (sum of days)', '345 ▼134', 'GA4'],
-        ['Visitors (sum of days)', '331 ▼114', 'Metrica'],
-        ['Clicks', '0 ▼1', 'Google Search'],
-        ['Impressions', '6 ▼2', 'Google Search'],
-        ['Visible', '4.4% ▼2.4 of server pageviews (sum of days)', 'Coverage']],
-      groups: [{ name: 'Top search queries', items: [{ label: 'online games ru', text: '0 clicks, pos. 55' }] }]
+        ['Pageviews', 7639, 'Server log'],
+        ['Game plays', 164, 'GA4'],
+        ['Users (sum of days)', 342, 'GA4'],
+        ['Visitors (sum of days)', 317, 'Metrica'],
+        ['Clicks', 0, 'Google Search'],
+        ['Impressions', 7, 'Google Search'],
+        ['Visible', '4.5% of server pageviews (sum of days)', 'Coverage']],
+      groups: [{ name: 'Top search queries', items: [
+        { label: 'online games ru', text: '0 clicks, pos. 55' },
+        { label: 'online games russian', text: '0 clicks, pos. 59' }
+      ] }]
     },
-    note: "То же, что у дневной: неделя, с которой сравниваем, названа в скобках у названия. Ссылка ведёт на недельный файл в docs."
+    note: "Сравнивать было не с чем — предыдущую неделю не читали, и поэтому ни одной стрелки. Это правило, а не пробел в примере."
   },
   {
     id: 'report-free', title: 'Утренний отчёт сервера',
+    // The card's own arithmetic, checked at build time.
+    sums: [['Games', ['iOS', 'Android']]],
     forum: 'PlayHub · Game Publisher',
     when: 'каждое утро с сервера',
     live: ['new', 'после выпуска 1.4.2'],
@@ -117,7 +128,7 @@ export const CARDS = [
       type: 'report', project: 'playhub', key: 'daily-report',
       title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', aside: '2026-08-25',
       lines: [
-        ['Games', 412, 'Catalogue'], ['iOS', '210 ▲3', 'Catalogue'], ['Android', '202 ▲5', 'Catalogue'],
+        ['Games', '412 ▲8', 'Catalogue'], ['iOS', '210 ▲3', 'Catalogue'], ['Android', '202 ▲5', 'Catalogue'],
         ['Added this week', 12, 'Catalogue'],
         ['Plays', 37, 'Today'], ['Added', 6, 'Today'], ['Through sync', 6, 'Today'],
       ],
@@ -129,7 +140,6 @@ export const CARDS = [
         { name: 'Categories', items: [
           { label: 'Action', text: '120' }, { label: 'Puzzle', text: '96' }
         ] },
-        { name: 'Recommendations', items: [{ text: 'all good' }] },
         // Здоровье машины — САМЫМ НИЗОМ, ниже всех списков про сайт. Владелец:
         // «какое отношение статистика имеет к здоровью сервера? здоровье
         // вообще, наверное, в самом конце». Поэтому оно не строка с именем
@@ -139,10 +149,16 @@ export const CARDS = [
           { label: 'Server', text: '200 in 118ms' },
           { label: 'Tests', text: 'ok' },
           { label: 'Disk free', text: '34 GB' }
+        ] },
+        // Совет — последним, под всем, из чего он сделан, и только когда совет
+        // есть. Группа стояла ВЫШЕ здоровья машины и печатала «all good», когда
+        // сказать было нечего: это состояние, а не рекомендация.
+        { name: 'Recommendations', items: [
+          { text: 'Внутренний поиск используется 3 раза в день — посмотри запросы в Метрике' }
         ] }
       ]
     },
-    note: "Числа тут пишутся ровно так же, как в отчётах аналитики: есть с чем сравнить — стрелка, не с чем — просто число. Плюсов, которые сравнением не были, больше нет."
+    note: "Итог не стоит на месте, когда его части сдвинулись: 210 ▲3 плюс 202 ▲5 — это 412 ▲8. Рекомендации внизу, под всем, из чего они сделаны, и их нет, когда советовать нечего."
   },
   {
     id: 'session', title: 'Сессия жжёт лимит',

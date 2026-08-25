@@ -3,6 +3,7 @@
 // catalogue is exactly the lie this page exists to prevent.
 import { render, eventKey, OUTCOME_TAG } from '../dist/render.js';
 import { ICON, LOUD, severity } from '../dist/events.js';
+import { lintCard } from '../dist/lint.js';
 import { CARDS } from './cards.mjs';
 import { writeFileSync, statSync, readdirSync } from 'node:fs';
 
@@ -223,6 +224,79 @@ const articles = CARDS.map((c) => {
         `Call trend(now, was) for an arrow, or pass the number bare.`
       );
     }
+  }
+
+  // A total cannot stand still while its parts move. `Games 412` sat above
+  // `iOS 210 ▲3` and `Android 202 ▲5`, and the owner asked how the count had
+  // not grown. A card declares its own arithmetic with `sums`, and the numbers
+  // AND the arrows are checked against it.
+  const num = (v) => {
+    const m = String(v).match(/^(-?[\d.]+)/);
+
+    return m ? Number(m[1]) : null;
+  };
+  const move = (v) => {
+    const m = String(v).match(/([▲▼])([\d.]+)/);
+
+    if (String(v).includes('=')) return 0;
+
+    return m ? (m[1] === '▲' ? Number(m[2]) : -Number(m[2])) : null;
+  };
+
+  for (const [total, parts] of c.sums ?? []) {
+    const row = (label) => (c.event?.lines ?? []).find(([l]) => l === label);
+    const totalRow = row(total);
+
+    if (!totalRow) throw new Error(`card ${c.id}: sums names "${total}", which is not a row`);
+
+    const partRows = parts.map((label) => {
+      const r = row(label);
+
+      if (!r) throw new Error(`card ${c.id}: sums names "${label}", which is not a row`);
+
+      return r;
+    });
+    const sum = partRows.reduce((a, [, v]) => a + (num(v) ?? 0), 0);
+
+    if (num(totalRow[1]) !== sum) {
+      throw new Error(
+        `card ${c.id}: "${total}" is ${num(totalRow[1])} but ${parts.join(' + ')} is ${sum}`
+      );
+    }
+    const moved = partRows.reduce((a, [, v]) => a + (move(v) ?? 0), 0);
+
+    if ((move(totalRow[1]) ?? 0) !== moved) {
+      throw new Error(
+        `card ${c.id}: "${total}" moved ${move(totalRow[1]) ?? 0} but its parts moved ${moved} — ` +
+        `a total cannot stand still while what it is made of moves`
+      );
+    }
+  }
+
+  // Advice is the last thing on a card and it exists only when there is
+  // advice. `Recommendations: all good` printed a STATUS in the place of a
+  // recommendation, and it stood above the machine's health.
+  const groupNames = (c.event?.groups ?? []).map((g) => g.name);
+  const recAt = groupNames.indexOf('Recommendations');
+
+  if (recAt !== -1) {
+    if (recAt !== groupNames.length - 1) {
+      throw new Error(`card ${c.id}: Recommendations is not the last group — advice goes under what it is drawn from`);
+    }
+    for (const item of c.event.groups[recAt].items ?? []) {
+      if (/^(all good|ok|fine|nothing)$/i.test((item.text ?? '').trim())) {
+        throw new Error(`card ${c.id}: "${item.text}" is a status, not a recommendation — where there are none, print none`);
+      }
+    }
+  }
+
+  // The same check the package runs on every live card before it is sent. The
+  // page and the wire cannot drift apart: one list of rules, two places that
+  // read it.
+  const faults = lintCard(html);
+
+  if (faults.length > 0) {
+    throw new Error(`card ${c.id}: ${faults.join('; ')}`);
   }
 
   // Line 2 holds the NAME of the thing. Not the outcome — the icon and the

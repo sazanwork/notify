@@ -321,8 +321,26 @@ const renderGroup = (g: { name: string; items: Item[] }): string[] => [
  * The title is cut to its first line: a multi-line commit subject must not
  * drag its own body into the field.
  */
-const titleField = (title: string | undefined): string | null =>
-  field('Title', title);
+/**
+ * The commit is one row, the way a task and a pull request are one row: the
+ * hash carries the link, the subject stands next to it. It used to take two —
+ * `Commit: a1b2c3d` and `Title: feat: new landing` underneath — and `Title:`
+ * was the same row the issue card had already lost for the same reason: you
+ * could not read what the card was about without reading two lines.
+ */
+const commitRow = (
+  hash: string | undefined,
+  url: string | undefined,
+  title: string | undefined
+): string | null => {
+  const linked = fieldLink('Commit', url, hash);
+
+  if (linked === null || !title) {
+    return linked ?? field('Commit', title);
+  }
+
+  return `${linked} ${esc(firstLine(title))}`;
+};
 
 const bodyQuote = (body: string | undefined): string | null =>
   body ? note(body) : null;
@@ -509,7 +527,7 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via, runUrl), runUrl),
     ...twoBlocks(
       [field('Target', e.target), field('Reason', e.note)],
-      [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
+      [commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
     )
   ]);
 };
@@ -612,7 +630,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
     typeLine(icon, 'CI', mechanism(e.workflowName, undefined, runUrl), runUrl),
     ...twoBlocks(
       [field('Actor', e.actor), field('Reason', e.note)],
-      [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
+      [commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
     )
   ]);
 };

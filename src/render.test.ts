@@ -1,10 +1,11 @@
 /**
- * Один тест на весь пакет: для каждого типа события проверяет, что
- * экранирование сработало и длина не превышает лимит Telegram, плюс
- * инварианты нового формата (утверждён владельцем 20.08.2026): теги первой
- * строкой, машинный ключ = тег экземпляра, поле жирный ярлык + обычное
- * значение, значок из общего словаря. Встроенный раннер Node (`node --test`),
- * без vitest/jest — ловит ровно то, что может сломаться незаметно.
+ * One test for the whole package: for every event type it checks that
+ * escaping worked and the length does not go over the Telegram limit, plus
+ * the invariants of the new format (approved by the owner on 20.08.2026): the
+ * tags on the first line, the machine key equal to the instance tag, a field
+ * as a bold label plus a plain value, an icon from the shared vocabulary.
+ * Node's built-in runner (`node --test`), no vitest or jest — it catches
+ * exactly what can break without anyone noticing.
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -26,42 +27,42 @@ const SAMPLES: NotifyEvent[] = [
 ];
 
 for (const sample of SAMPLES) {
-  test(`${sample.type}: экранирует и укладывается в лимит`, () => {
+  test(`${sample.type}: escapes and fits under the limit`, () => {
     const text = render(sample);
 
-    assert.ok(!text.includes('<script>'), 'сырой <script> не должен пройти в вывод');
-    assert.ok(text.includes('&lt;script&gt;'), 'экранированный вариант должен присутствовать');
-    assert.ok(text.length <= 4096, `длина ${text.length} превышает лимит Telegram`);
+    assert.ok(!text.includes('<script>'), 'a raw <script> must not pass into the output');
+    assert.ok(text.includes('&lt;script&gt;'), 'the escaped form must be present');
+    assert.ok(text.length <= 4096, `length ${text.length} goes over the Telegram limit`);
   });
 }
 
-test('теги — первая строка, ДО текста, не после', () => {
+test('the tags are the first line, BEFORE the text, not after', () => {
   const text = render({ type: 'ci', project: 'arvent', status: 'ok', branch: 'master' });
 
-  assert.match(text, /^#ci #master #ok\n/, `теги не на первой строке: ${text.slice(0, 40)}`);
+  assert.match(text, /^#ci #master #ok\n/, `the tags are not on the first line: ${text.slice(0, 40)}`);
 });
 
-test('тег-экземпляр = машинный ключ разборщика — одно и то же значение, не два', () => {
+test('the instance tag equals the parser\'s machine key — one value, not two', () => {
   const e: NotifyEvent = { type: 'job', project: 'playhub', job: 'Импорт игр', status: 'fail' };
   const text = render(e);
 
-  assert.ok(text.startsWith(`#job #${eventKey(e)} #fail\n`), 'тег наверху не совпал с eventKey()');
+  assert.ok(text.startsWith(`#job #${eventKey(e)} #fail\n`), 'the tag on top does not match eventKey()');
 });
 
-test('slug: разделитель — подчёркивание, не дефис (дефис рвёт Telegram-хэштег)', () => {
+test('slug: the separator is an underscore, not a dash (a dash breaks a Telegram hashtag)', () => {
   const text = render({ type: 'job', project: 'playhub', job: 'GitHub board sync', status: 'fail' });
 
   assert.ok(text.includes('#job #github_board_sync'));
-  assert.ok(!text.includes('-'), `дефис просочился в тег: ${text.slice(0, 60)}`);
+  assert.ok(!text.includes('-'), `a dash leaked into the tag: ${text.slice(0, 60)}`);
 });
 
-test('явный --key побеждает выведенный, тоже через подчёркивание', () => {
+test('an explicit --key beats the derived one, also through an underscore', () => {
   const text = render({ type: 'job', project: 'playhub', job: 'x', status: 'fail', key: 'vps backups' });
 
   assert.ok(text.startsWith('#job #vps_backups #fail\n'));
 });
 
-test('один и тот же ключ у 🔴 и у последующего успеха — иначе разборщику не с чем сверять', () => {
+test('the red 🔴 and the later success share the same key — otherwise the parser has nothing to match against', () => {
   const red: NotifyEvent = { type: 'heartbeat_miss', project: 'vault', job: 'Дайджест задач' };
   const green: NotifyEvent = { type: 'heartbeat_miss', project: 'vault', job: 'Дайджест задач', recovered: true };
 
@@ -147,11 +148,11 @@ test('type line: the icon stays outside the bold, and no name is invented', () =
   assert.equal(secondLine, '✅ <b>CI</b>');
 });
 
-test('поле: жирный ярлык с большой буквы, значение обычным текстом', () => {
+test('field: a bold label with a capital letter, the value as plain text', () => {
   const text = render({ type: 'job', project: 'arvent', job: 'x', status: 'fail', note: 'причина' });
 
   assert.ok(text.includes('<b>Reason:</b> причина'));
-  assert.ok(!text.includes('<b>Reason:</b> <b>причина</b>'), 'значение не должно быть жирным');
+  assert.ok(!text.includes('<b>Reason:</b> <b>причина</b>'), 'the value must not be bold');
 });
 
 test('commit/pr/issue: one form — identifier, then the body as a quote, no doubles', () => {
@@ -164,8 +165,14 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
     commitTitle: 'Онбординг: заготовки вопросов (#294)'
   });
 
-  assert.ok(ci.includes('<b>Title:</b> Онбординг: заготовки вопросов (#294)'));
-  assert.ok(ci.includes('<b>Commit:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">9b1fc68</a>'));
+  // One row, like a task and a pull request: the hash carries the link, the
+  // subject stands beside it. `Title:` under it was the same second row the
+  // issue card had already lost.
+  assert.ok(ci.includes(
+    '<b>Commit:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">9b1fc68</a>'
+    + ' Онбординг: заготовки вопросов (#294)'
+  ));
+  assert.ok(!ci.includes('<b>Title:</b>'), 'the Title row came back on the commit');
   // A commit title is a field, not a quote: the quote holds ONLY the body. With
   // no body there is no quote.
   assert.ok(!ci.includes('<blockquote>'), 'no body means no quote');
@@ -189,7 +196,7 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
   assert.ok(issue.includes('<blockquote>разбор 150 коммитов</blockquote>'));
 });
 
-test('группы отчёта: заголовок курсив+подчёркивание, без жирности и без двоеточия', () => {
+test('report groups: the heading is italic+underline, not bold, and has no colon', () => {
   const text = render({
     type: 'report',
     project: 'arvent',
@@ -204,11 +211,11 @@ test('группы отчёта: заголовок курсив+подчёрк�
 
   assert.ok(text.includes('<i><u>Ready</u></i>'));
   assert.ok(text.includes('<i><u>In Progress</u></i>'));
-  assert.ok(!text.includes('<b><u>'), 'заголовок группы не должен быть жирным');
+  assert.ok(!text.includes('<b><u>'), 'the group heading must not be bold');
   assert.ok(text.includes('<b>#243 (overdue):</b> <a href="https://x/243">Развернуть продукт</a>'));
 });
 
-test('job disabled: список выключенных — нумерованный, без ярлыка на каждой позиции', () => {
+test('job disabled: the list of disabled items is numbered, with no label on each row', () => {
   const text = render({
     type: 'job',
     project: 'playhub',
@@ -235,7 +242,7 @@ test('incident: the log is a monospaced local path, not a link — and one label
   assert.ok(!text.includes('<b>Logs:</b>'), 'the second label for one thing came back');
 });
 
-test('report: items рендерятся ссылками, текст экранируется (плоский вид без групп)', () => {
+test('report: items render as links, text is escaped (flat view with no groups)', () => {
   const text = render({
     type: 'report',
     project: 'arvent',
@@ -247,22 +254,22 @@ test('report: items рендерятся ссылками, текст экран
     ]
   });
 
-  assert.ok(text.includes('<a href="https://github.com/x/y/issues/38">'), 'ссылка должна остаться кликабельной');
-  assert.ok(text.includes('&lt;script&gt;'), 'текст позиции должен быть экранирован');
-  assert.ok(!text.includes('<script>'), 'сырой тег не должен пройти');
-  assert.ok(text.includes('• без ссылки'), 'позиция без url — просто строка');
+  assert.ok(text.includes('<a href="https://github.com/x/y/issues/38">'), 'the link must stay clickable');
+  assert.ok(text.includes('&lt;script&gt;'), 'the item text must be escaped');
+  assert.ok(!text.includes('<script>'), 'the raw tag must not pass through');
+  assert.ok(text.includes('• без ссылки'), 'an item with no url is just a plain line');
 });
 
-test('clampMessage режет длинный текст, теги остаются ПЕРВОЙ строкой не тронутыми', () => {
+test('clampMessage cuts long text, the tags stay untouched on the FIRST line', () => {
   const long = Array.from({ length: 500 }, (_, i) => `строка ${i}`).join('\n');
   const clamped = render({ type: 'incident', project: 'playhub', title: 'x', detail: long });
 
-  assert.ok(clamped.length <= 4096, `длина ${clamped.length} превышает лимит Telegram`);
-  assert.ok(clamped.startsWith('#incident #x #fail\n'), `теги не сохранились первой строкой: ${clamped.slice(0, 40)}`);
-  assert.ok(clamped.includes('…'), 'обрезка потеряла многоточие');
+  assert.ok(clamped.length <= 4096, `length ${clamped.length} goes over the Telegram limit`);
+  assert.ok(clamped.startsWith('#incident #x #fail\n'), `the tags did not stay on the first line: ${clamped.slice(0, 40)}`);
+  assert.ok(clamped.includes('…'), 'the cut lost the ellipsis');
 });
 
-test('гигантский заголовок файла без --key не выносит caption за 1024', () => {
+test('a giant file title with no --key does not push the caption over 1024', () => {
   const caption = render({
     type: 'report',
     project: 'arvent',
@@ -270,10 +277,10 @@ test('гигантский заголовок файла без --key не вы�
     path: '/tmp/x.txt'
   });
 
-  assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
+  assert.ok(caption.length <= 1024, `caption is longer than the limit: ${caption.length}`);
 });
 
-test('подпись файла укладывается в лимит caption 1024 и несёт тег', () => {
+test('the file caption fits under the 1024 caption limit and still carries the tag', () => {
   const caption = render({
     type: 'report',
     project: 'arvent',
@@ -282,11 +289,11 @@ test('подпись файла укладывается в лимит caption 1
     aside: 'Ы'.repeat(3000)
   });
 
-  assert.ok(caption.length <= 1024, `caption длиннее лимита: ${caption.length}`);
+  assert.ok(caption.length <= 1024, `caption is longer than the limit: ${caption.length}`);
   assert.ok(caption.startsWith('#report #полные_диалоги #news\n'));
 });
 
-test('длинный текст ОДНОЙ строкой не выбрасывается целиком', () => {
+test('a long text on ONE line is not thrown away whole', () => {
   const clamped = render({
     type: 'incident',
     project: 'playhub',
@@ -294,17 +301,18 @@ test('длинный текст ОДНОЙ строкой не выбрасыв�
     detail: 'A'.repeat(6000)
   });
 
-  assert.ok(clamped.length > 3000, `содержимое потеряно, длина всего ${clamped.length}`);
+  assert.ok(clamped.length > 3000, `content was lost, length is only ${clamped.length}`);
   assert.ok(clamped.includes('AAAA'));
 });
 
-// Считаем КАЖДЫЙ тег, какой пакет умеет ставить, и на нескольких формах —
-// прошлая версия смотрела только на <b> и только на карточку job. Из-за этого
-// две настоящие поломки прошли мимо: длинный detail режется внутри blockquote,
-// а длинное имя группы — внутри <u>, и Telegram отвечает на такое 400, то есть
-// теряет ВСЁ сообщение. Второй ассерт прошлой версии (`!/<[a-z]*$/`) не мог
-// упасть никогда: клампер всегда дописывает `\n…`, и конец строки по построению
-// не бывает внутри тега.
+// This counts EVERY tag the package can draw, and on several forms — the
+// previous version looked only at <b>, and only on the job card. Because of
+// that, two real breakages slipped through: a long detail gets cut inside a
+// blockquote, and a long group name gets cut inside <u>, and Telegram
+// answers 400 to that, meaning it loses the WHOLE message. The second assert
+// of the previous version (`!/<[a-z]*$/`) could never fail: the clamper
+// always appends `\n…`, and the end of the string can never fall inside a
+// tag by construction.
 const TAGS = ['b', 'i', 'u', 'a', 'code', 'blockquote'];
 
 const unbalanced = (html: string): string[] =>
@@ -315,7 +323,7 @@ const unbalanced = (html: string): string[] =>
     return opened !== closed;
   });
 
-test('кламп не оставляет незакрытых тегов ни на одной форме', () => {
+test('the clamp does not leave an unclosed tag on any form', () => {
   const long = 'Ж'.repeat(5000);
 
   const cases: Array<[string, NotifyEvent]> = [
@@ -329,27 +337,27 @@ test('кламп не оставляет незакрытых тегов ни н
   for (const [name, event] of cases) {
     const out = render(event);
 
-    assert.deepEqual(unbalanced(out), [], `${name}: незакрытый тег — Telegram отвергнет всё сообщение`);
+    assert.deepEqual(unbalanced(out), [], `${name}: an unclosed tag — Telegram will reject the whole message`);
   }
 });
 
-test('проверка баланса тегов умеет упасть', () => {
-  // Сторож над сторожем: ассерт выше стоит ровно столько, сколько стоит
-  // `unbalanced`. Если она перестанет замечать незакрытый тег, тест наверху
-  // позеленеет на сломанном рендере и никто этого не увидит.
+test('the tag-balance check is able to fail', () => {
+  // A guard over the guard: the assert above is only as good as
+  // `unbalanced`. If it stops noticing an unclosed tag, the test above it
+  // will pass on a broken render and nobody will see it.
   assert.deepEqual(unbalanced('<b>x</b><u>y'), ['u']);
   assert.deepEqual(unbalanced('<blockquote>x'), ['blockquote']);
   assert.deepEqual(unbalanced('<b>x</b>'), []);
 });
 
-test('неизвестный тип события даёт понятную ошибку, а не падение рендерера', () => {
+test('an unknown event type gives a clear error, not a crash of the renderer', () => {
   assert.throws(
     () => render({ type: 'bogus', project: 'playhub' } as unknown as NotifyEvent),
     /unknown event type/
   );
 });
 
-test('задача: исполнитель попадает в сообщение', () => {
+test('issue: the assignee ends up in the message', () => {
   const out = render({
     type: 'issue',
     project: 'arvent',
@@ -363,7 +371,7 @@ test('задача: исполнитель попадает в сообщени�
   assert.match(out, /Ilja/);
 });
 
-test('deploy: commit со ссылкой кликабелен, ярлык жирный, значение обычным', () => {
+test('deploy: a commit with a link is clickable, the label is bold, the value is plain', () => {
   const out = render({
     type: 'deploy',
     project: 'game-publisher',
@@ -375,7 +383,7 @@ test('deploy: commit со ссылкой кликабелен, ярлык жир
   assert.ok(out.includes('<b>Commit:</b> <a href="https://github.com/sazanwork/game-publisher/commit/abc123">abc123</a>'));
 });
 
-test('deploy: reason поясняет отмену/пропуск — тем же полем, без цитаты', () => {
+test('deploy: reason explains a cancel/skip — as the same field, not a quote', () => {
   const out = render({
     type: 'deploy',
     project: 'playhub',
@@ -384,7 +392,7 @@ test('deploy: reason поясняет отмену/пропуск — тем ж�
   });
 
   assert.ok(out.includes('<b>Reason:</b> отменён: секреты не нашли'));
-  assert.ok(!out.includes('<blockquote>отменён'), 'reason — поле, не цитата');
+  assert.ok(!out.includes('<blockquote>отменён'), 'reason is a field, not a quote');
 });
 
 test('incident: detail is quoted in full, never cut to its first line', () => {
@@ -410,22 +418,22 @@ test('incident: detail equal to title is not printed twice', () => {
   assert.ok(!out.includes('<blockquote>'), 'the quote repeats the title');
 });
 
-test('multiline commit title режется до первой строки (защита от полного тела в поле)', () => {
+test('a multiline commit title is cut to its first line (protects against the full body in a field)', () => {
   const messy = 'Онбординг: заготовки вопросов (#294)\n\n* feat(onboarding): длинное тело\n\nещё абзац';
   const ci = render({ type: 'ci', project: 'arvent', status: 'ok', commit: '9b1fc68', commitTitle: messy });
 
-  assert.ok(ci.includes('Онбординг: заготовки вопросов (#294)…'), 'заголовок коммита не обрезан до первой строки');
-  assert.ok(!ci.includes('feat(onboarding)'), 'многострочный commitTitle просочился в цитату целиком');
+  assert.ok(ci.includes('Онбординг: заготовки вопросов (#294)…'), 'the commit title is not cut to its first line');
+  assert.ok(!ci.includes('feat(onboarding)'), 'the multiline commitTitle leaked into the quote in full');
 });
 
-test('job stats: значение не жирное, поле — ярлык+значение', () => {
+test('job stats: the value is not bold, a field is label+value', () => {
   const out = render({ type: 'job', project: 'vault', job: 'x', status: 'ok', stats: [['вердикт', 'ok']] });
 
   assert.ok(out.includes('<b>Вердикт:</b> ok'));
   assert.ok(!out.includes('<b>ok</b>'));
 });
 
-test('field/fieldLink принимают null как отсутствие значения (JSON со stdin шлёт null, не пропуск ключа)', () => {
+test('field/fieldLink accept null as an absent value (JSON over stdin sends null, not a missing key)', () => {
   const out = render({
     type: 'job',
     project: 'arvent',
@@ -439,11 +447,11 @@ test('field/fieldLink принимают null как отсутствие зна
   assert.ok(!out.includes('null'));
 });
 
-test('workflow без url — строки нет вообще, не "Check: run" без ссылки', () => {
+test('workflow with no url — there is no row at all, not "Check: run" without a link', () => {
   const out = render({ type: 'ci', project: 'arvent', status: 'ok' });
 
-  assert.ok(!out.includes('Check'), 'нечего открывать — строки быть не должно');
-  assert.ok(!out.includes('Workflow'), 'старая хвостовая строка не должна вернуться');
+  assert.ok(!out.includes('Check'), 'there is nothing to open — there must be no row');
+  assert.ok(!out.includes('Workflow'), 'the old trailing row must not come back');
 });
 
 // What ran IS the identifier of the card, so it stands ON the type line and
@@ -478,8 +486,8 @@ test('run: what ran is the type line itself and carries the link', () => {
   assert.ok(!ci.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go from CI too');
 });
 
-// `GitHub Actions` одинаково на каждой карточке в каждом репозитории — как имя
-// ссылки оно не называет ничего. Имя самого workflow называет.
+// `GitHub Actions` is the same on every card in every repository — as the
+// link's name it names nothing. The workflow's own name does name something.
 test('run: the workflow name beats the platform as the link text', () => {
   const out = render({
     type: 'deploy', project: 'playhub', status: 'ok',
@@ -487,8 +495,8 @@ test('run: the workflow name beats the platform as the link text', () => {
     via: 'GitHub Actions', workflowName: 'Deploy to Beget', workflowUrl: 'https://x/run'
   });
 
-  assert.ok(out.includes('>Deploy to Beget</a>'), 'ссылка должна называться именем workflow');
-  assert.ok(!out.includes('>GitHub Actions</a>'), 'платформа не имя прогона');
+  assert.ok(out.includes('>Deploy to Beget</a>'), 'the link must be named after the workflow');
+  assert.ok(!out.includes('>GitHub Actions</a>'), 'the platform is not the name of the run');
 });
 
 // A hand deploy has no run to open: the type line still says by what means it
@@ -531,9 +539,10 @@ test('blocks: run facts touch the name, the commit keeps its heading', () => {
   assert.ok(!one.includes('<i><u>Run</u></i>'), 'a heading appeared over nothing');
 });
 
-// Группу называет отправитель, и названная группа печатается всегда — порога
-// «две и больше» нет: у карточки копий все цифры в одной группе, а порог гасил
-// ровно тот шов, ради которого владелец просил группы.
+// The sender names the group, and a named group always prints — there is no
+// "two or more" threshold: the backup-copies card has every number in one
+// group, and a threshold would silence exactly the seam the owner asked for
+// groups to show.
 test('groups: a named group always prints its heading, even alone', () => {
   const out = render({
     type: 'job', project: 'mac-config', job: 'Server backups', status: 'fail',
@@ -541,32 +550,33 @@ test('groups: a named group always prints its heading, even alone', () => {
     stats: [['Fresh', 10, 'Copies on the Mac'], ['Broken', 1, 'Copies on the Mac']]
   });
 
-  assert.ok(out.includes('<i><u>Copies on the Mac</u></i>'), 'заголовок одинокой группы потерялся');
-  assert.ok(out.indexOf('<b>Reason:</b>') < out.indexOf('<i><u>Copies'), 'рассказ о прогоне идёт до цифр');
+  assert.ok(out.includes('<i><u>Copies on the Mac</u></i>'), 'the heading of a lone group was lost');
+  assert.ok(out.indexOf('<b>Reason:</b>') < out.indexOf('<i><u>Copies'), 'the story of the run must come before the numbers');
 });
 
-// Строки без имени группы ведут себя как раньше — 20 с лишним отправителей
-// шлют плоские пары и не должны меняться.
+// Rows with no group name behave as before — over 20 senders send flat
+// pairs and must not change.
 test('groups: untagged pairs still render flat', () => {
   const out = render({
     type: 'job', project: 'playhub', job: 'Import', status: 'ok',
     stats: [['Published', 9], ['Stuck', 2]]
   });
 
-  assert.ok(!out.includes('<i><u>'), 'у неназванных строк заголовков быть не должно');
+  assert.ok(!out.includes('<i><u>'), 'unnamed rows must have no heading');
   assert.ok(out.includes('<b>Published:</b> 9'));
 });
 
-// Пустая строка означает смену блока. Две подряд означали бы пустой блок,
-// ведущая — блок, которого нет; обе появлялись, когда часть полей не пришла.
+// A blank line means a change of block. Two in a row would mean an empty
+// block, and a leading one a block that does not exist; both used to appear
+// when some fields did not arrive.
 test('seams: never two blank lines in a row, never one at the top', () => {
   const out = render({
     type: 'job', project: 'playhub', job: 'Import', status: 'ok',
     stats: [['Published', 9, 'Result']]
   });
 
-  assert.ok(!out.includes('\n\n\n'), 'двойная пустая строка');
-  assert.ok(!/^#[^\n]*\n\n\n/.test(out), 'пустой блок сразу под тегами');
+  assert.ok(!out.includes('\n\n\n'), 'a double blank line');
+  assert.ok(!/^#[^\n]*\n\n\n/.test(out), 'an empty block right under the tags');
 });
 
 test('run: a nameless run keeps its link rather than losing it', () => {
@@ -584,7 +594,7 @@ test('run: a nameless run keeps its link rather than losing it', () => {
   );
 });
 
-test('severity: job disabled звонит как fail, heartbeat recovered — молчит как success', () => {
+test('severity: job disabled rings like fail, heartbeat recovered stays quiet like success', () => {
   assert.equal(severity({ type: 'job', project: 'arvent', job: 'x', status: 'disabled' }), 'error');
   assert.equal(severity({ type: 'heartbeat_miss', project: 'arvent', job: 'x', recovered: true }), 'info');
   assert.equal(severity({ type: 'heartbeat_miss', project: 'arvent', job: 'x' }), 'error');
@@ -668,8 +678,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
     '<b>Actor:</b> @chelsnebes',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
-    '<b>Title:</b> Онбординг: заготовки вопросов (#294)',
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>'
   ].join('\n'));
 });
@@ -703,8 +712,7 @@ test('card/deploy', () => {
     '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a>',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a>',
-    '<b>Title:</b> feat: new landing'
+    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing'
   ].join('\n'));
 });
 
@@ -1218,8 +1226,8 @@ test('action: the line he must run is marked, copyable, and last', () => {
   assert.ok(lines.at(-1)?.startsWith('<code>'), `the action is not the last line: ${lines.at(-1)}`);
   assert.ok(out.includes('<b>To do:</b> rerun the suite and read the log'),
     'a command must never travel without saying what it does');
-  // Никакого значка у команды нет и быть не должно: моноширинная строка под
-  // `To do:` — это и есть команда, Telegram делает её копируемой по нажатию.
+  // The command has no marker of its own, and must not have one: the
+  // monospaced line under `To do:` IS the command — Telegram makes it copyable on tap.
   assert.ok(!out.includes('▶'), 'the command grew a marker back');
   assert.equal(lines.at(-1), '<code>bash ~/bin/update-all --tests-only</code>',
     'the last line must be the command itself and nothing else');
@@ -1227,9 +1235,9 @@ test('action: the line he must run is marked, copyable, and last', () => {
 });
 
 /**
- * Владелец на голую команду в карточке: «я сейчас введу её и сделаю хуй пойми
- * что, я ж не знаю, что делаю». Команду, которую нельзя прочитать, нельзя и
- * выполнить — поэтому она никогда не едет одна.
+ * The owner, about a bare command in a card: "I will type it in right now
+ * and do who-knows-what, I don't even know what I'm doing." A command that
+ * cannot be read also cannot be run — so it never travels alone.
  */
 test('action: a command never travels without saying what it does', () => {
   const bare = render({
@@ -1270,7 +1278,7 @@ test('sound: nothing a pull request does ever rings', () => {
   }
 });
 
-test('позиции списка: именованная группа всегда печатает заголовок, безымянные идут выше', () => {
+test('list items: a named group always prints its heading, unnamed ones go above', () => {
   const out = render({
     type: 'job',
     project: 'playhub',
@@ -1286,14 +1294,14 @@ test('позиции списка: именованная группа всег�
 
   const at = (s: string): number => out.indexOf(s);
 
-  assert.ok(at('без группы') < at('New today'), 'безымянная позиция должна стоять выше первой группы');
-  assert.ok(at('New today') < at('Cut the Rope'), 'заголовок группы стоит перед её позициями');
-  assert.ok(at('Cut the Rope') < at('Vex 7'), 'позиции одной группы собраны вместе');
-  assert.ok(at('Vex 7') < at('Out of the backlog'), 'вторая группа идёт после первой целиком');
-  assert.equal(out.split('New today').length - 1, 1, 'заголовок группы напечатан ровно один раз');
+  assert.ok(at('без группы') < at('New today'), 'an unnamed item must stand above the first group');
+  assert.ok(at('New today') < at('Cut the Rope'), 'the group heading stands before its items');
+  assert.ok(at('Cut the Rope') < at('Vex 7'), 'items of one group are gathered together');
+  assert.ok(at('Vex 7') < at('Out of the backlog'), 'the second group comes fully after the first');
+  assert.equal(out.split('New today').length - 1, 1, 'the group heading is printed exactly once');
 });
 
-test('позиции списка: без единой группы список остаётся плоским, как у прежних отправителей', () => {
+test('list items: with no group at all the list stays flat, as it did for earlier senders', () => {
   const out = render({
     type: 'job',
     project: 'playhub',
@@ -1304,7 +1312,7 @@ test('позиции списка: без единой группы список
 
   assert.ok(out.includes('• один'));
   assert.ok(out.includes('• два'));
-  assert.ok(!out.includes('<i><u>'), 'без групп заголовков быть не должно');
+  assert.ok(!out.includes('<i><u>'), 'with no groups there must be no headings');
 });
 
 // ── One number, one shape ───────────────────────────────────────────────────

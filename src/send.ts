@@ -1,29 +1,32 @@
 /**
- * Транспорт. Переносит проверенный на проде код из
- * game-publisher/scripts/lib/telegram.ts (fetch → curl-фолбэк через stdin,
- * `.trim()` токена) и добавляет то, чего там не было: несколько целей за
- * вызов, `message_thread_id`, повтор на HTTP 429 с уважением `retry_after`,
- * повтор на 5xx, отказ без повтора на прочих 4xx.
+ * Transport. Carries over the code proven in production from
+ * game-publisher/scripts/lib/telegram.ts (fetch, with a curl fallback
+ * through stdin, and `.trim()` on the token) and adds what that code did not
+ * have: several targets per call, `message_thread_id`, a retry on HTTP 429
+ * that respects `retry_after`, a retry on 5xx, and a refusal with no retry
+ * on any other 4xx.
  *
- * Токен — ТОЛЬКО из `process.env.OPS_BOT_TOKEN`, с `.trim()`: перевод
- * строки в токене (частая находка при копипасте) заставляет curl разобрать
- * конфиг как две директивы и утащить хвост токена в stderr прогона.
+ * The token comes ONLY from `process.env.OPS_BOT_TOKEN`, with `.trim()`: a
+ * newline in the token (a common find after copy-paste) makes curl read the
+ * config as two directives and leak the tail of the token into the run's
+ * stderr.
  *
- * Нет токена → 'skipped', не исключение: уведомление не имеет права уронить
- * деплой или регулярную задачу, которая его вызвала.
+ * No token means 'skipped', not an exception: a notification must never be
+ * allowed to bring down the deploy or the scheduled task that called it.
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { NotifyEvent, Project } from './events.ts';
 import { clampMessage, render } from './render.ts';
+import { lintCard } from './lint.ts';
 import type { Target } from './routes.ts';
 import { ROUTES, targets } from './routes.ts';
 
 export type SendResult = 'sent' | 'skipped' | 'failed';
 
 const log = (msg: string): void => {
-  // stderr, не stdout — stdout зарезервирован под возможный машинный вывод CLI.
+  // stderr, not stdout — stdout is reserved for possible machine output of the CLI.
   console.error(`[notify] ${msg}`);
 };
 
@@ -40,11 +43,12 @@ const buildBody = (target: Target, text: string): string =>
   });
 
 /**
- * Запасной путь: curl — другой стек TLS/DNS, выручает там, где fetch/undici
- * не маршрутизирует. URL с токеном уходит файлом конфига через stdin, а не
- * аргументом: в argv его видно любому пользователю сервера через `ps aux`.
- * stderr — в 'pipe', а не наследуется: сообщение об ошибке curl может
- * содержать кусок URL с токеном, в лог прогона он попадать не должен.
+ * Fallback path: curl uses a different TLS/DNS stack, and helps in places
+ * where fetch/undici cannot route the request. The URL with the token goes
+ * out as a config file through stdin, not as an argument: in argv it would
+ * be visible to any user on the server through `ps aux`. stderr is set to
+ * 'pipe', not inherited: a curl error message can contain a piece of the URL
+ * with the token, and it must not end up in the run's log.
  */
 const sendViaCurl = (token: string, target: Target, text: string): 'ok' | 'fail' | 'retry' => {
   const config = [
@@ -65,10 +69,10 @@ const sendViaCurl = (token: string, target: Target, text: string): 'ok' | 'fail'
 
     return 'ok';
   } catch (err) {
-    // 28 — собственный таймаут curl (`max-time` выше). Как и таймаут fetch, он
-    // означает «ответа нет», а не «не доставлено»: повтор положил бы в чат
-    // вторую копию. Всё остальное (отказ соединения, 4xx с `fail`) повторить
-    // безопасно.
+    // 28 is curl's own timeout (the `max-time` set above). Like a fetch
+    // timeout, it means "no answer came back", not "not delivered": a retry
+    // would put a second copy in the chat. Everything else (connection
+    // refused, 4xx with `fail`) is safe to retry.
     return (err as { status?: number }).status === 28 ? 'fail' : 'retry';
   }
 };
@@ -99,37 +103,41 @@ const attempt = async (token: string, target: Target, text: string): Promise<Att
       return { outcome: 'retry', waitMs: 1000 };
     }
 
-    // 4xx кроме 429 — постоянная ошибка (не тот thread, бот не админ,
-    // неверный chat_id). Повтор её не исправит.
+    // A 4xx other than 429 is a permanent error (wrong thread, the bot is
+    // not an admin, wrong chat_id). A retry will not fix it.
     //
-    // Причину обязательно вытаскиваем: Telegram кладёт её в `description`
-    // («message thread not found», «can't parse entities»), и без неё понять,
-    // почему уведомления пропали, невозможно — а разбираться будет не
-    // разработчик, а владелец.
+    // We always pull out the reason: Telegram puts it in `description`
+    // ("message thread not found", "can't parse entities"), and without it
+    // there is no way to understand why notifications went missing — and the
+    // one working it out will not be a developer, it will be the owner.
     const detail = (await res.json().catch(() => null)) as { description?: string } | null;
 
     log(`HTTP ${res.status}: ${detail?.description ?? 'no description'} — permanent error, not retried`);
 
     return { outcome: 'fail' };
   } catch (err) {
-    // Таймаут — НЕ то же самое, что «не доставлено»: запрос мог дойти, а ответ
-    // не успеть вернуться. Повтор (хоть curl-ом, хоть следующей попыткой) кладёт
-    // в чат второй экземпляр того же сообщения — дедупа у Bot API нет. Поэтому
-    // на таймауте останавливаемся и честно пишем 'failed': лишняя копия аварии
-    // хуже, чем пропущенная строка в логе, а сообщение, скорее всего, ушло.
+    // A timeout is NOT the same thing as "not delivered": the request may
+    // have gone through, and only the answer failed to come back in time. A
+    // retry (whether by curl or by the next attempt) puts a second copy of
+    // the same message in the chat — the Bot API has no deduplication. So on
+    // a timeout we stop and honestly write 'failed': an extra copy of an
+    // alarm is worse than a missing line in the log, and the message most
+    // likely went out anyway.
     if (err instanceof Error && err.name === 'TimeoutError') {
       log('answer timed out — not retried: the message may already be out');
 
       return { outcome: 'fail' };
     }
 
-    // Сюда попадают отказы соединения (DNS, TLS, сеть недоступна) — запрос
-    // почти наверняка не ушёл, и curl-фолбэк безопасен. НЕ абсолютно: обрыв
-    // (reset/truncation) ПОСЛЕ того, как Telegram принял POST, тоже кидает
-    // исключение — тогда повтор даст дубль. Это редкий случай; полное
-    // отсутствие дублей невозможно без idempotency-key у Bot API (его нет).
-    // Логика прежняя: дубль на редком reset — меньшее зло, чем потеря
-    // сообщения на частом сетевом сбое.
+    // This branch catches connection failures (DNS, TLS, network
+    // unreachable) — the request almost certainly did not go out, so the
+    // curl fallback is safe. NOT absolutely safe: a break (reset or
+    // truncation) AFTER Telegram already accepted the POST also throws an
+    // exception here — then a retry produces a duplicate. This is a rare
+    // case; a full guarantee against duplicates is not possible without an
+    // idempotency key on the Bot API (it does not have one). The logic
+    // stays the same: a duplicate on a rare reset is a smaller problem than
+    // a lost message on a common network failure.
     log('fetch did not go through, trying curl…');
 
     const curl = sendViaCurl(token, target, text);
@@ -176,10 +184,11 @@ const deliver = async (where: Target[], text: string): Promise<SendResult> => {
     return 'skipped';
   }
 
-  // Токен interpolируется в URL и в curl-конфиг (`url = "...bot${token}..."`).
-  // Валидный токен Telegram — это `\d+:[\w-]+`; что-либо с кавычкой/переводом
-  // строки/`?` сломало бы разбор (инъекция директивы curl или query-хвост).
-  // Это требует покорёженного секрета, но проверка копеечная.
+  // The token is interpolated into the URL and into the curl config
+  // (`url = "...bot${token}..."`). A valid Telegram token matches
+  // `\d+:[\w-]+`; anything with a quote, a newline, or a `?` would break the
+  // parsing (a curl directive injection or a query tail). This needs a
+  // corrupted secret to happen, but the check is cheap.
   if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
     log('failed: OPS_BOT_TOKEN does not look like a Telegram token, send cancelled');
 
@@ -192,8 +201,8 @@ const deliver = async (where: Target[], text: string): Promise<SendResult> => {
 
   const results: Array<'sent' | 'failed'> = [];
 
-  // Последовательно, не Promise.all: провал одной цели не должен гонять
-  // ретраи параллельно с остальными и колотить API по нескольким чатам разом.
+  // One after another, not Promise.all: a failure on one target must not run
+  // its retries in parallel with the rest and hammer the API on several chats at once.
   for (const target of where) {
     results.push(await sendOne(token, target, text));
   }
@@ -202,11 +211,12 @@ const deliver = async (where: Target[], text: string): Promise<SendResult> => {
 };
 
 /**
- * Файл (sendDocument) — multipart, поэтому не через `buildBody`. Политика
- * повторов та же, что у сообщений: 429 с уважением retry_after, 5xx —
- * повтор, прочие 4xx и таймаут — нет (дубль файла хуже пропуска).
- * Отдельного curl-фолбэка нет: файл шлётся с этой же машины, а не из CI,
- * и другой TLS-стек здесь ни разу не понадобился.
+ * A file (sendDocument) is multipart, so it does not go through `buildBody`.
+ * The retry policy is the same as for messages: 429 respects retry_after,
+ * 5xx retries, any other 4xx or a timeout does not (a duplicate file is
+ * worse than a missing one). There is no separate curl fallback here: the
+ * file is sent from this same machine, not from CI, and a different TLS
+ * stack has never been needed here.
  */
 const sendFileOnce = async (
   token: string,
@@ -223,8 +233,8 @@ const sendFileOnce = async (
     form.append('caption', caption);
     form.append('parse_mode', 'HTML');
     form.append('disable_notification', String(target.silent));
-    // readFileSync + Blob, не openAsBlob: тот появился в Node 19.8, а пакет
-    // бегает и на сервере. Файлы здесь — текстовые отчёты, память не вопрос.
+    // readFileSync + Blob, not openAsBlob: that appeared in Node 19.8, and
+    // this package also runs on the server. The files here are text reports, so memory is not a concern.
     form.append('document', new Blob([readFileSync(e.path)]), e.filename ?? basename(e.path));
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
@@ -256,7 +266,7 @@ const sendFileOnce = async (
 
       return { outcome: 'fail' };
     }
-    // Файл не читается (нет на диске, нет прав) — постоянная ошибка.
+    // The file cannot be read (not on disk, no permission) — a permanent error.
     if (err instanceof Error && 'code' in err) {
       log(`failed to send the file: ${err.message}`);
 
@@ -286,7 +296,7 @@ const sendFile = async (e: NotifyEvent & { path: string }): Promise<SendResult> 
   const caption = render(e);
   const results: Array<'sent' | 'failed'> = [];
 
-  // Контракт тот же, что у deliver: провал одной цели не отменяет остальные.
+  // The same contract as deliver: a failure on one target does not cancel the rest.
   for (const target of where) {
     let waitMs = 0;
     let got: 'sent' | 'failed' = 'failed';
@@ -313,19 +323,22 @@ const sendFile = async (e: NotifyEvent & { path: string }): Promise<SendResult> 
 };
 
 /**
- * Отправляет событие во все его цели (тема проекта + при необходимости
- * `incidents` + чат команды). Цели идут последовательно; провал одной не
- * отменяет остальные. `'sent'`, если хотя бы одна цель получила сообщение.
+ * Sends the event to all of its targets (the project topic, plus
+ * `incidents` if needed, plus the team chat). Targets are handled one after
+ * another; a failure on one does not cancel the rest. Returns `'sent'` if at
+ * least one target got the message.
  *
- * Неизвестный проект по-прежнему НЕ роняет вызвавший крон (код возврата не
- * меняется) — но и не исчезает молча: в mac-config Ops уходит красная
- * карточка. Дважды этот класс провала жил незамеченным неделями: «vault» и
- * «mac-config» до 04.08, отчёты Alitools — до 18.08. Рекурсия невозможна:
- * карточка-ошибка адресована mac-config, который в ROUTES есть всегда.
+ * An unknown project still does NOT bring down the scheduled task that
+ * called it (the exit code does not change) — but it no longer disappears
+ * silently either: a red card goes out to mac-config Ops. This kind of
+ * failure lived unnoticed for weeks, twice: "vault" and "mac-config" until
+ * 04.08, and the Alitools reports until 18.08. Recursion is not possible
+ * here: the error card is addressed to mac-config, which is always present
+ * in ROUTES.
  */
 const reportLostProject = async (project: unknown, kind: string): Promise<void> => {
-  // Локальный лог называет и допустимые написания — это единственная
-  // диагностика, доступная на машине, где случилась опечатка.
+  // The local log also names the valid spellings — this is the only
+  // diagnostic available on the machine where the typo happened.
   log(`unknown project "${String(project)}" — known: ${Object.keys(ROUTES).join(', ')}`);
   const lost: NotifyEvent = {
     type: 'job',
@@ -339,9 +352,32 @@ const reportLostProject = async (project: unknown, kind: string): Promise<void> 
   await deliver(targets(lost), render(lost)).catch(() => undefined);
 };
 
+/**
+ * The card broke the standard. It still goes out — a notification is never
+ * worth losing over its own formatting — and the breach is raised as its own
+ * red card, the way a lost project is.
+ *
+ * `key` carries the type, so a renderer that starts producing broken deploy
+ * cards raises one running complaint rather than a new one every hour.
+ * Recursion is not possible: this card is not linted.
+ */
+const reportBrokenCard = async (e: NotifyEvent, faults: string[]): Promise<void> => {
+  log(`card does not match the standard: ${faults.join('; ')}`);
+  const broken: NotifyEvent = {
+    type: 'job',
+    project: 'mac-config',
+    job: 'notify: a card broke the standard',
+    status: 'fail',
+    note: `${String(e.type)} card for ${String(e.project)}: ${faults.join('; ')}`,
+    key: `notify-broken-${String(e.type)}`
+  };
+
+  await deliver(targets(broken), render(broken)).catch(() => undefined);
+};
+
 export const notify = async (e: NotifyEvent): Promise<SendResult> => {
-  // Object.hasOwn, не `in`: `in` ходит по цепочке прототипов, и --project
-  // toString/constructor проходил бы гвард, терял событие И карточку о потере.
+  // Object.hasOwn, not `in`: `in` walks the prototype chain, and
+  // --project toString/constructor would pass the guard, losing the event AND the card about the loss.
   if (!Object.hasOwn(ROUTES, e.project)) {
     await reportLostProject(e.project, String(e.type));
 
@@ -353,6 +389,16 @@ export const notify = async (e: NotifyEvent): Promise<SendResult> => {
     return sendFile(e as NotifyEvent & { path: string });
   }
 
-  return deliver(targets(e), render(e));
+  const html = render(e);
+  // Send first, complain second: the delivery of the real card must not wait
+  // on, or be lost to, a check about how it looks.
+  const result = await deliver(targets(e), html);
+  const faults = lintCard(html);
+
+  if (faults.length > 0) {
+    await reportBrokenCard(e, faults);
+  }
+
+  return result;
 };
 
