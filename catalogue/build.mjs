@@ -147,6 +147,11 @@ const articles = CARDS.map((c) => {
       }
     }
   }
+  // Команда без объяснения в карточку не попадает вовсе — значит отправитель
+  // молча потерял бы строку. Ловим здесь, а не тишиной в чате.
+  if (c.event?.command && !c.event.commandNote) {
+    throw new Error(`card ${c.id}: a command with no commandNote — it would be dropped, not shown`);
+  }
   if (!c.expectTag) {
     throw new Error(`card ${c.id}: no expectTag — every rendered card must declare its tag line`);
   }

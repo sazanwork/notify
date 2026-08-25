@@ -819,10 +819,11 @@ test('link/job: a command he must run is monospaced, so Telegram makes it copyab
     type: 'job', project: 'mac-config', job: 'Session is burning the limit', status: 'fail',
     note: 'context 871k against a compact line of 500k',
     stats: [['Session', 'Пройди на Хекслете следующие темы']],
-    command: 'claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835'
+    command: 'claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835',
+    commandNote: 'reopen this session to look at it'
   });
 
-  assert.ok(out.includes('▶ <b>Run:</b> <code>claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835</code>'),
+  assert.ok(out.includes('▶ <code>claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835</code>'),
     'the command is not monospaced');
   assert.ok(out.includes('<b>Session:</b> Пройди на Хекслете следующие темы'), 'the session name was dropped');
 });
@@ -838,7 +839,8 @@ test('card/session: identifier first, his own words quoted, command copyable', (
     workdir: 'mac-config',
     reason: 'context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     opened: 'Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»',
-    command: 'rm /var/folders/x/claude-ctxguard/8f03d18c.latch'
+    command: 'rm /var/folders/x/claude-ctxguard/8f03d18c.latch',
+    commandNote: 'stop the alarm for this session'
   });
 
   assert.equal(out, [
@@ -854,7 +856,8 @@ test('card/session: identifier first, his own words quoted, command copyable', (
     '<b>Opened with</b>',
     '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
     '',
-    '▶ <b>Run:</b> <code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
+    '<b>To do:</b> stop the alarm for this session',
+    '▶ <code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
   ].join('\n'));
 });
 
@@ -1021,13 +1024,39 @@ test('action: the line he must run is marked, copyable, and last', () => {
   const out = render({
     type: 'job', project: 'mac-config', job: 'Config checks', status: 'fail',
     note: 'red: test-update-all', logs: '/Users/x/Library/Logs/update-all.log',
-    command: 'bash ~/bin/update-all --tests-only'
+    command: 'bash ~/bin/update-all --tests-only',
+    commandNote: 'rerun the suite and read the log'
   });
   const lines = out.split('\n').filter(Boolean);
 
-  assert.ok(lines.at(-1)?.startsWith('▶ <b>Run:</b>'), `the action is not the last line: ${lines.at(-1)}`);
+  assert.ok(lines.at(-1)?.startsWith('▶ <code>'), `the action is not the last line: ${lines.at(-1)}`);
+  assert.ok(out.includes('<b>To do:</b> rerun the suite and read the log'),
+    'a command must never travel without saying what it does');
   assert.equal(out.match(/▶/g)?.length, 1, 'the marker must be unique in the card, or it stops marking anything');
   assert.ok(out.includes('<code>bash ~/bin/update-all --tests-only</code>'), 'the command lost its copyable box');
+});
+
+/**
+ * Владелец на голую команду в карточке: «я сейчас введу её и сделаю хуй пойми
+ * что, я ж не знаю, что делаю». Команду, которую нельзя прочитать, нельзя и
+ * выполнить — поэтому она никогда не едет одна.
+ */
+test('action: a command never travels without saying what it does', () => {
+  const bare = render({
+    type: 'job', project: 'mac-config', job: 'x', status: 'fail',
+    command: 'rm /tmp/x.latch'
+  });
+
+  assert.ok(!bare.includes('▶'), 'a command with no note must not be shown at all');
+
+  const explained = render({
+    type: 'job', project: 'mac-config', job: 'x', status: 'fail',
+    command: 'rm /tmp/x.latch', commandNote: 'stop the alarm for this session'
+  });
+  const lines = explained.split('\n').filter(Boolean);
+
+  assert.equal(lines.at(-2), '<b>To do:</b> stop the alarm for this session');
+  assert.equal(lines.at(-1), '▶ <code>rm /tmp/x.latch</code>');
 });
 
 test('action: a card with nothing to run carries no marker', () => {

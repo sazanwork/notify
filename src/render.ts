@@ -179,8 +179,17 @@ const fieldCode = (label: string, value: string | undefined): string | null =>
  * здесь был бы третьей строкой разметки на карточку из шести (25.08.2026, два
  * ревью против группировки), а маркер не тратит ни одной.
  */
-const fieldRun = (value: string | undefined): string | null =>
-  value ? `▶ <b>Run:</b> <code>${esc(value)}</code>` : null;
+/**
+ * Действие: что сделать и чем. Без объяснения команда НЕ печатается вовсе —
+ * владелец на голую `rm` в карточке: «я ж не знаю, что делаю». Молча уронить
+ * строку лучше, чем показать ему команду, которую он не может прочитать;
+ * отправителя при этом ловит тест каталога, а не тишина в чате.
+ */
+const fieldRun = (value: string | undefined, why: string | undefined): string[] => {
+  const explain = field('To do', why);
+
+  return value && explain !== null ? [explain, `▶ <code>${esc(value)}</code>`] : [];
+};
 
 /** Заголовок группы: курсив + подчёркивание, без жирности, без двоеточия. */
 const group = (name: string): string => `<i><u>${esc(cap(name))}</u></i>`;
@@ -328,7 +337,7 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     ...(hasItems ? bullets(e.items, disabledList) : []),
     e.command || e.logs ? '' : null,
     fieldCode('Log', e.logs),
-    fieldRun(e.command),
+    ...fieldRun(e.command, e.commandNote),
     // Kept only when the caller actually names the workflow — a named row is a
     // second, different destination; an unnamed one repeats the Task link.
     e.workflowName && (e.workflowUrl ?? e.url) ? '' : null,
@@ -449,7 +458,7 @@ const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =
     e.opened ? '' : null,
     quoted('Opened with', e.opened),
     e.command ? '' : null,
-    fieldRun(e.command)
+    ...fieldRun(e.command, e.commandNote)
   ]);
 
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {

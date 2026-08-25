@@ -281,6 +281,7 @@ if (flags.has('json')) {
         items: items(),
         note: one('note'),
         command: one('command'),
+        commandNote: one('command-note'),
         logs: one('logs'),
         workflowUrl: one('workflow-url'),
         workflowName: one('workflow-name'),
@@ -351,6 +352,7 @@ if (flags.has('json')) {
         reason: one('reason'),
         opened: one('opened'),
         command: one('command'),
+        commandNote: one('command-note'),
         // Only two states here, so `disabled` must not leak in from jobStatus.
         status: jobStatus() === 'ok' ? 'ok' : 'fail'
       };

@@ -120,9 +120,10 @@ export const CARDS = [
       workdir: 'mac-config',
       reason: 'context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
       opened: 'Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы» (в этом порядке): 1. Python: Разработка на Django, 2. Основы вёрстки',
-      command: 'rm /var/folders/f1/vkkb__f93dv44kmfstl9pgf40000gn/T/claude-ctxguard/8f03d18c.latch'
+      command: 'rm /var/folders/f1/vkkb__f93dv44kmfstl9pgf40000gn/T/claude-ctxguard/8f03d18c.latch',
+      commandNote: 'let this session keep working — it stays stopped until you do'
     },
-    note: 'Раньше это уходило под тегом #job — а сессия не задача по расписанию. Теперь свой тип, а имя сессии — та строка, которой ты её открыл, целиком в цитате: полем оно обрезалось.'
+    note: 'Раньше это уходило под тегом #job — а сессия не задача по расписанию. Теперь свой тип, а имя сессии — та строка, которой ты её открыл, целиком в цитате: полем оно обрезалось. Команда внизу больше не голая: над ней стоит строка «To do», которая говорит, что именно она сделает. Пакет ОТКАЗЫВАЕТСЯ печатать команду без такого объяснения — команду, которую нельзя прочитать, нельзя и выполнить.'
   },
   {
     id: 'job-import', title: 'Импорт игр — дневной итог',

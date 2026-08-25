@@ -120,6 +120,12 @@ export type NotifyEvent = Keyed &
        */
       command?: string;
       /**
+       * WHAT that command does. The owner, on a bare `rm` in a card: "я сейчас
+       * введу её и сделаю хуй пойми что, я ж не знаю, что делаю". A command he
+       * cannot read is one he cannot run, so it never travels alone.
+       */
+      commandNote?: string;
+      /**
        * A local log path — monospaced, not a link, same as on an incident.
        * It used to be glued onto the end of the reason sentence behind a
        * colon, which is what made a red card read as one long run-on line.
@@ -258,6 +264,8 @@ export type NotifyEvent = Keyed &
       opened?: string;
       /** A command for him to run, monospaced so Telegram makes it copyable. */
       command?: string;
+      /** WHAT that command does — see the note on `job.commandNote`. */
+      commandNote?: string;
       /** `fail` red, `ok` green — a session that recovered is not an alarm. */
       status?: 'fail' | 'ok';
     }
