@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ICON, severity, type NotifyEvent } from './events.ts';
 import { render, eventKey, clampMessage, reportTags } from './render.ts';
+import { trend } from './trend.ts';
 
 const XSS = '<script>alert(1)</script>';
 
@@ -1282,4 +1283,23 @@ test('позиции списка: без единой группы список
   assert.ok(out.includes('• один'));
   assert.ok(out.includes('• два'));
   assert.ok(!out.includes('<i><u>'), 'без групп заголовков быть не должно');
+});
+
+// ── One number, one shape ───────────────────────────────────────────────────
+
+test('trend: an arrow only where there is something to compare against', () => {
+  assert.equal(trend(210, 207), '210 ▲3');
+  assert.equal(trend(202, 207), '202 ▼5');
+  assert.equal(trend(0, 0), '0 =');
+  // Nothing to compare to: a plain number, never a `+37` that looks like one.
+  assert.equal(trend(37), '37');
+  assert.equal(trend(37, undefined), '37');
+  // A unit belongs to the number, so the arrow stands right of it.
+  assert.equal(trend(4.4, 3.6, '%'), '4.4% ▲0.8');
+  // Noise in the second decimal is not movement.
+  assert.equal(trend(4.42, 4.44, '%'), '4.4% =');
+  // No sender may print the other dialect: a signed count is not a comparison.
+  for (const out of [trend(210, 207), trend(37), trend(0, 0)]) {
+    assert.ok(!/[+]/.test(out), `a plus sign came back: ${out}`);
+  }
 });

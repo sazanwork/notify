@@ -117,9 +117,9 @@ export const CARDS = [
       type: 'report', project: 'playhub', key: 'daily-report',
       title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', period: '2026-08-25',
       lines: [
-        ['Games', 412, 'Catalogue'], ['iOS', '210 +3', 'Catalogue'], ['Android', '202 +5', 'Catalogue'],
-        ['Plays', '+37', 'Today'], ['Added this week', '+12', 'Today'], ['Added', '+6', 'Today'],
-        ['Through sync', '+6', 'Today'],
+        ['Games', 412, 'Catalogue'], ['iOS', '210 ▲3', 'Catalogue'], ['Android', '202 ▲5', 'Catalogue'],
+        ['Added this week', 12, 'Catalogue'],
+        ['Plays', 37, 'Today'], ['Added', 6, 'Today'], ['Through sync', 6, 'Today'],
       ],
       groups: [
         { name: 'Top 3 games', items: [
@@ -142,7 +142,7 @@ export const CARDS = [
         ] }
       ]
     },
-    note: "День, за который отчёт, стоит в скобках у названия — как у остальных отчётов; строки «Period» и «Number» ушли. Здоровье машины — последней группой."
+    note: "Числа тут пишутся ровно так же, как в отчётах аналитики: есть с чем сравнить — стрелка, не с чем — просто число. Плюсов, которые сравнением не были, больше нет."
   },
   {
     id: 'session', title: 'Сессия жжёт лимит',

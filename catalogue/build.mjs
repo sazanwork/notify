@@ -168,7 +168,21 @@ const articles = CARDS.map((c) => {
   // есть, а имени у него нет ни одного, и такая карточка означает отправителя,
   // забывшего имя, — пусть страница краснеет на нём.
   {
-    // Пояснение под карточкой — две фразы, не журнал изменений. Оно росло тем,
+    // One number, one shape. A comparison is an arrow — ▲ ▼ = — and a number
+  // with nothing behind it is printed bare. A signed number is neither: the
+  // morning server report printed `210 +3` for a real comparison and `+37`
+  // for a plain count of today, next to analytics printing `485 ▲207`. The
+  // owner read the page and asked what the plus signs were.
+  for (const [label, value] of c.event?.lines ?? []) {
+    if (typeof value === 'string' && /(^|\s)[+\-]\d/.test(value)) {
+      throw new Error(
+        `card ${c.id}, row "${label}": "${value}" — a signed number is not a comparison. ` +
+        `Call trend(now, was) for an arrow, or pass the number bare.`
+      );
+    }
+  }
+
+  // Пояснение под карточкой — две фразы, не журнал изменений. Оно росло тем,
   // что я дописывал к нему новую правку вместо того, чтобы переписать: одно
   // выросло до 2400 знаков, и владелец справедливо отказался это читать.
   if (c.note && c.note.length > 320) {
