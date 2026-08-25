@@ -80,7 +80,7 @@ export const CARDS = [
         ['People', '51 / 38 ▲13', 'GA4'],
         ['Clicks', '0 / 0 =', 'Google Search'],
         ['Impressions', '0 / 1 ▼1', 'Google Search'],
-        ['Visible', '3.5% / 2.2% ▲1.3 of the pages the server counted — the rest are blocked or have no JS', 'Coverage']
+        ['Visible', '3.5% / 2.3% ▲1.3 of the pages the server counted — the rest are blocked or have no JS', 'Coverage']
       ],
       url: 'https://github.com/sazanwork/playhub/blob/master/docs/analytics/2026-08-23.md'
     },
