@@ -10,8 +10,8 @@ import { writeFileSync } from 'node:fs';
 // sound does. Anything that rings gets a warm stripe; the rest are quiet.
 const STRIPE = {
   '🚨': 'alarm', '🔴': 'red', '🚫': 'wait', '❓': 'wait',
-  '✅': 'ok', '👍': 'ok', '🔀': 'ok',
-  '🆕': 'info', '🙋': 'info', '🗑️': 'info', 'ℹ️': 'info'
+  '✅': 'ok', '👍': 'ok', '🎉': 'ok',
+  '🆕': 'info', '🙋': 'info', '🗑️': 'info', '📝': 'info', 'ℹ️': 'info'
 };
 const ICON_CLASS = (html) => {
   const line = html.split('\n')[1] ?? '';
@@ -189,9 +189,10 @@ const MEANING = {
   unknown: 'не отчиталось: живо оно или нет — неизвестно',
   fresh: 'появилось новое',
   taken: 'кто-то взял на себя',
-  merged: 'влито',
+  landed: 'влито — работа приехала',
   discarded: 'закрыто, не доведя до результата',
   approved: 'человек одобрил',
+  changes: 'человек просит правки — это не поломка',
   info: 'сводка, к сведению'
 };
 const missing = Object.keys(ICON).filter((k) => !MEANING[k]);

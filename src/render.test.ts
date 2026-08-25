@@ -85,8 +85,8 @@ const VOCABULARY: Array<[NotifyEvent, string]> = [
   [{ type: 'job', project: 'arvent', job: 'x', status: 'silent' }, ICON.unknown],
   [{ type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
   [{ type: 'pr', project: 'arvent', action: 'approved', number: 1, title: 't' }, ICON.approved],
-  [{ type: 'pr', project: 'arvent', action: 'changes_requested', number: 1, title: 't' }, ICON.red],
-  [{ type: 'pr', project: 'arvent', action: 'merged', number: 1, title: 't' }, ICON.merged],
+  [{ type: 'pr', project: 'arvent', action: 'changes_requested', number: 1, title: 't' }, ICON.changes],
+  [{ type: 'pr', project: 'arvent', action: 'merged', number: 1, title: 't' }, ICON.landed],
   [{ type: 'pr', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.discarded],
   [{ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
   [{ type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 't' }, ICON.taken],
@@ -986,10 +986,28 @@ test('sound: every red or alarm card rings, and only those', () => {
   }
 });
 
-test('sound: a pull request needing changes is not delivered quietly', () => {
+/**
+ * This used to assert the opposite. The bug it was written for was real — the
+ * icon said red and the sound said quiet, two lists disagreeing — but the fix
+ * went the wrong way. The owner settled it on 25.08.2026: a reviewer asking for
+ * edits is not a failure and has no business waking him at night. It is the
+ * ICON that was wrong, not the silence.
+ */
+test('sound: a review asking for edits does not ring', () => {
   const e: NotifyEvent = {
     type: 'pr', project: 'playhub', action: 'changes_requested', number: 1, title: 'T'
   };
-  assert.ok(render(e).split('\n')[1].startsWith('🔴'), 'changes_requested stopped being red');
-  assert.equal(severity(e), 'error', 'the only red card that did not ring is back');
+  assert.ok(render(e).split('\n')[1].startsWith('📝'), 'changes_requested is not a breakage');
+  assert.equal(severity(e), 'info', 'a request for edits started ringing again');
+});
+
+test('sound: nothing a pull request does ever rings', () => {
+  const actions = ['opened', 'approved', 'changes_requested', 'merged', 'closed'] as const;
+
+  for (const action of actions) {
+    assert.equal(
+      severity({ type: 'pr', project: 'playhub', action, number: 1, title: 'T' }), 'info',
+      `pr ${action} rings — a pull request is never an emergency`
+    );
+  }
 });

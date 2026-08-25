@@ -306,9 +306,10 @@ export const ICON = {
   unknown: '❓',   // did not report: alive or dead is unknown
   fresh: '🆕',     // something new appeared
   taken: '🙋',     // someone took it
-  merged: '🔀',    // merged
+  landed: '🎉',    // merged — the work is in
   discarded: '🗑️', // closed without reaching the result
   approved: '👍',  // a human approved it
+  changes: '📝',   // a human wants edits — not a failure, and not loud
   info: 'ℹ️'       // a summary, for information
 } as const;
 
@@ -318,8 +319,8 @@ export const LOUD: ReadonlySet<string> = new Set([ICON.red, ICON.alarm, ICON.off
 export const PR_ICON: Record<Extract<NotifyEvent, { type: 'pr' }>['action'], string> = {
   opened: ICON.fresh,
   approved: ICON.approved,
-  changes_requested: ICON.red,
-  merged: ICON.merged,
+  changes_requested: ICON.changes,
+  merged: ICON.landed,
   closed: ICON.discarded
 };
 
