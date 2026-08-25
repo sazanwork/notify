@@ -188,7 +188,11 @@ const fieldCode = (label: string, value: string | undefined): string | null =>
 const fieldRun = (value: string | undefined, why: string | undefined): string[] => {
   const explain = field('To do', why);
 
-  return value && explain !== null ? [explain, `▶ <code>${esc(value)}</code>`] : [];
+  // Без значка. `▶` был единственным символом такого рода на все двадцать
+  // видов карточек, и владелец справедливо спросил, что он значит: ничего,
+  // чего не сказала бы строка `To do:` над ним и моноширинный шрифт под ним —
+  // Telegram делает такую строку копируемой по нажатию сам.
+  return value && explain !== null ? [explain, `<code>${esc(value)}</code>`] : [];
 };
 
 /** Заголовок группы: курсив + подчёркивание, без жирности, без двоеточия. */
@@ -458,18 +462,25 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   const hasItems = (e.items ?? []).length > 0;
   const disabledList = hasItems && e.status === 'disabled';
 
+  // The NAME goes on the type line, the way `Report:` and `Issue:` carry
+  // theirs. It used to sit a line below under a second label, `Task:`, and
+  // the owner asked what a task is doing on a card headed Job — nothing: they
+  // were two words for one thing, and the outcome that took the first line is
+  // already the icon, and now the third tag too.
+  //
+  // `disabled` and `silent` keep a word of their own. A red mark reads as
+  // "it broke", and neither of those is that: one was switched off on purpose
+  // and the other has not been heard from at all.
+  const state =
+    e.status === 'disabled'
+      ? 'switched off, not broken'
+      : e.status === 'silent'
+        ? 'no word from it at all'
+        : undefined;
+
   return join([
-    typeLine(icon, 'Job', e.status),
-    '',
-    // The name is NOT the type line: line 2 is `Job: fail` by the format's own
-    // rule, so the name is its own field. Called `Task:` and not `Job:` because
-    // repeating the label of the line right above it reads as a mistake.
-    // Until now the name was dropped entirely — every caller passed it and the
-    // owner only ever saw it as the small grey instance tag.
-    // The run link rides on the task's own name. It used to sit at the bottom
-    // as `Workflow: open` — every job caller passes a URL and none passes a
-    // workflow name, so that row was the bare verb the owner objected to.
-    fieldLink('Task', e.workflowUrl ?? e.url, e.job),
+    typeLine(icon, 'Job', e.job, e.workflowUrl ?? e.url),
+    field('State', state),
     field('Reason', e.note),
     field('Expected', e.expected),
     // `Last run` when the task is alive, `Last seen` when it is not: the same
@@ -508,7 +519,11 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
       // уточняет вторую строку, живёт рядом с ней, а не в блоке фактов.
       // Владелец: «период пошёл не туда, он же должен быть рядом с датой».
       field('Period', e.period),
-      '',
+      // Строки БЕЗ группы идут вплотную к шапке, а не отдельным куском под
+      // пустой строкой: это факты про сам отчёт — период, номер, — а не про
+      // то, о чём он. Владелец: «number отдельно и период отдельно, непонятно,
+      // куда их относить». `labelled` сам ставит пустую строку перед первой
+      // группой, поэтому её здесь больше нет.
       ...numbers,
       body.length > 0 ? '' : null,
       ...body
@@ -523,7 +538,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     typeLine(iconFor(e), 'Report', e.title, e.url),
     // Вплотную к названию — см. соседнюю ветку.
     field('Period', e.period),
-    '',
+    // Вплотную к шапке — см. соседнюю ветку.
     ...labelled(e.lines),
     items.length > 0 ? '' : null,
     ...items

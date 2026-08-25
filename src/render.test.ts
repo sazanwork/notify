@@ -584,9 +584,7 @@ test('card/job fail: task name is on the card, not only in the tag', () => {
 
   assert.equal(out, [
     '#job #vps_backups #fail',
-    '🔴 <b>Job:</b> fail',
-    '',
-    '<b>Task:</b> Backups from the server',
+    '🔴 <b>Job:</b> Backups from the server',
     '<b>Reason:</b> no fresh copy arrived from the server'
   ].join('\n'));
 });
@@ -601,9 +599,7 @@ test('card/job with items: no "Disabled workflows" heading unless disabled', () 
 
   assert.equal(out, [
     '#job #daily_import #ok',
-    '✅ <b>Job:</b> ok',
-    '',
-    '<b>Task:</b> Game import',
+    '✅ <b>Job:</b> Game import',
     '<b>Published:</b> 9',
     '',
     '• <a href="https://x/1">Cut the Rope</a>'
@@ -620,9 +616,8 @@ test('card/job disabled: heading present, list numbered', () => {
 
   assert.equal(out, [
     '#job #actions_minutes_guard #fail',
-    '🚫 <b>Job:</b> disabled',
-    '',
-    '<b>Task:</b> GitHub Actions minutes watchdog',
+    '🚫 <b>Job:</b> GitHub Actions minutes watchdog',
+    '<b>State:</b> switched off, not broken',
     '<b>Reason:</b> free minutes almost gone',
     '',
     '<i><u>Disabled workflows</u></i>',
@@ -784,7 +779,7 @@ test('card with a file: the caption is clamped at 1024, not 4000', () => {
   });
 
   assert.ok(out.length <= 1024, `caption ${out.length} chars — Telegram cuts at 1024`);
-  assert.ok(out.startsWith('#job #arvent_eval #ok\n✅ <b>Job:</b> ok'),
+  assert.ok(out.startsWith('#job #arvent_eval #ok\n✅ <b>Job:</b> Eval: bot answer quality'),
     'a card carrying a file is still the card of its own type');
 });
 
@@ -807,8 +802,8 @@ test('card/report', () => {
   assert.equal(out, [
     '#report #analytics #news',
     'ℹ️ <b>Report:</b> Analytics',
+    // Строки без группы стоят вплотную к шапке: это факты про сам отчёт.
     '<b>Period:</b> compared to 23.08',
-    '',
     '<b>Pageviews (server):</b> 1284',
     '<b>Game launches:</b> 412',
     '',
@@ -922,7 +917,7 @@ test('link/job: the task name is the link, not a trailing Workflow: open', () =>
   });
 
   assert.ok(
-    out.includes('<b>Task:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">Yandex game import</a>'),
+    out.includes('<b>Job:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">Yandex game import</a>'),
     'the task name is not the link'
   );
   assert.ok(!out.includes('>open</a>'), 'the bare Workflow: open row came back');
@@ -934,7 +929,7 @@ test('link/job: a NAMED workflow still gets its own row — a second destination
     url: 'https://x/run', workflowName: 'validate-games.yml', workflowUrl: 'https://x/wf'
   });
 
-  assert.ok(out.includes('<b>Task:</b> <a href="https://x/wf">Game validator</a>'), 'task lost its link');
+  assert.ok(out.includes('<b>Job:</b> <a href="https://x/wf">Game validator</a>'), 'task lost its link');
   assert.ok(out.includes('<b>Workflow:</b> <a href="https://x/wf">validate-games.yml</a>'), 'named workflow row was dropped');
 });
 
@@ -963,7 +958,7 @@ test('link/job: a command he must run is monospaced, so Telegram makes it copyab
     commandNote: 'reopen this session to look at it'
   });
 
-  assert.ok(out.includes('▶ <code>claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835</code>'),
+  assert.ok(out.includes('<code>claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835</code>'),
     'the command is not monospaced');
   assert.ok(out.includes('<b>Session:</b> Пройди на Хекслете следующие темы'), 'the session name was dropped');
 });
@@ -997,7 +992,7 @@ test('card/session: identifier first, his own words quoted, command copyable', (
     '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
     '',
     '<b>To do:</b> stop the alarm for this session',
-    '▶ <code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
+    '<code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
   ].join('\n'));
 });
 
@@ -1031,9 +1026,7 @@ test('card/job: facts get their own lines instead of one run-on Reason', () => {
 
   assert.equal(out, [
     '#job #server_backups #fail',
-    '🔴 <b>Job:</b> fail',
-    '',
-    '<b>Task:</b> Server backups',
+    '🔴 <b>Job:</b> Server backups',
     '<b>Reason:</b> re-downloading from the server did not help, there is nothing to roll back to',
     '<b>Fresh copies:</b> 10',
     '<b>Broken:</b> 1',
@@ -1083,7 +1076,11 @@ test('card/job silent: one task, one tag, and the pair closes', () => {
   );
   assert.equal(gone.split('\n')[0].split(' ')[2], '#fail');
   assert.equal(back.split('\n')[0].split(' ')[2], '#ok');
-  assert.ok(gone.includes('❓ <b>Job:</b> silent'), 'silence has lost its own icon');
+  assert.ok(gone.includes('❓ <b>Job:</b> Yandex game import'), 'silence has lost its own icon');
+  // Значок ❓ читается как «не знаю», а не как «молчит», поэтому у молчания
+  // остаётся своё слово — как и у выключенной задачи.
+  assert.ok(gone.includes('<b>State:</b> no word from it at all'), 'silence lost its word');
+  assert.ok(!back.includes('<b>State:</b>'), 'a live task must not spell out a state the icon already gives');
   assert.ok(gone.includes('<b>Last seen:</b> 23.08 04:12'), 'a silent task must say when it was last seen');
   assert.ok(back.includes('<b>Last run:</b> 25.08 04:10'), 'a live task says last RUN, not last seen');
   assert.equal(severity({ type: 'job', project: 'playhub', job: 'x', status: 'silent' }), 'error');
@@ -1178,10 +1175,14 @@ test('action: the line he must run is marked, copyable, and last', () => {
   });
   const lines = out.split('\n').filter(Boolean);
 
-  assert.ok(lines.at(-1)?.startsWith('▶ <code>'), `the action is not the last line: ${lines.at(-1)}`);
+  assert.ok(lines.at(-1)?.startsWith('<code>'), `the action is not the last line: ${lines.at(-1)}`);
   assert.ok(out.includes('<b>To do:</b> rerun the suite and read the log'),
     'a command must never travel without saying what it does');
-  assert.equal(out.match(/▶/g)?.length, 1, 'the marker must be unique in the card, or it stops marking anything');
+  // Никакого значка у команды нет и быть не должно: моноширинная строка под
+  // `To do:` — это и есть команда, Telegram делает её копируемой по нажатию.
+  assert.ok(!out.includes('▶'), 'the command grew a marker back');
+  assert.equal(lines.at(-1), '<code>bash ~/bin/update-all --tests-only</code>',
+    'the last line must be the command itself and nothing else');
   assert.ok(out.includes('<code>bash ~/bin/update-all --tests-only</code>'), 'the command lost its copyable box');
 });
 
@@ -1196,7 +1197,7 @@ test('action: a command never travels without saying what it does', () => {
     command: 'rm /tmp/x.latch'
   });
 
-  assert.ok(!bare.includes('▶'), 'a command with no note must not be shown at all');
+  assert.ok(!bare.includes('<code>'), 'a command with no note must not be shown at all');
 
   const explained = render({
     type: 'job', project: 'mac-config', job: 'x', status: 'fail',
@@ -1205,7 +1206,7 @@ test('action: a command never travels without saying what it does', () => {
   const lines = explained.split('\n').filter(Boolean);
 
   assert.equal(lines.at(-2), '<b>To do:</b> stop the alarm for this session');
-  assert.equal(lines.at(-1), '▶ <code>rm /tmp/x.latch</code>');
+  assert.equal(lines.at(-1), '<code>rm /tmp/x.latch</code>');
 });
 
 test('action: a card with nothing to run carries no marker', () => {
@@ -1214,7 +1215,7 @@ test('action: a card with nothing to run carries no marker', () => {
     note: 'fresh copies: 10, broken: 1'
   });
 
-  assert.ok(!out.includes('▶'), 'a card with no action must not show the action marker');
+  assert.ok(!out.includes('<code>'), 'a card with no action must not show a command');
 });
 
 /**

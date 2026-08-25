@@ -128,13 +128,25 @@ const num = (key: string): number => {
   return n;
 };
 
-// --item "текст" или --item "текст|https://ссылка"
-const items = (): Array<{ text: string; url?: string }> =>
-  (flags.get('item') ?? []).map((raw) => {
-    const idx = raw.lastIndexOf('|');
+/**
+ * `--item "текст"` или `--item "текст|https://ссылка"`.
+ *
+ * Имя группы у позиции нельзя передать так же, как у `--stat`: черта здесь
+ * уже занята ссылкой. Поэтому `--item-group "Red checks"` — одно имя на все
+ * позиции этого вызова. Списки у отправителей однородные (красные проверки,
+ * выключенные процессы), а разнородный список — это `--json`.
+ */
+const items = (): Array<{ text: string; url?: string; group?: string }> => {
+  const name = flags.get('item-group')?.[0];
 
-    return idx === -1 ? { text: raw } : { text: raw.slice(0, idx), url: raw.slice(idx + 1) };
+  return (flags.get('item') ?? []).map((raw) => {
+    const idx = raw.lastIndexOf('|');
+    const base =
+      idx === -1 ? { text: raw } : { text: raw.slice(0, idx), url: raw.slice(idx + 1) };
+
+    return name ? { ...base, group: name } : base;
   });
+};
 /**
  * `--stat "label=value"`, и с 25.08.2026 — `--stat "Group | label=value"`:
  * имя группы, вертикальная черта, ярлык. Черта выбрана потому, что её нет ни

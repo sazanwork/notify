@@ -86,8 +86,7 @@ test('--dry-run печатает карточку в stdout и ничего не
     '--status=fail', '--note=sops missing', '--dry-run');
 
   assert.equal(code, 0);
-  assert.ok(stdout.startsWith('#job #self_check #fail\n🔴 <b>Job:</b> fail'), stdout);
-  assert.ok(stdout.includes('<b>Task:</b> Self-check'));
+  assert.ok(stdout.startsWith('#job #self_check #fail\n🔴 <b>Job:</b> Self-check'), stdout);
   assert.doesNotMatch(stderr, /sent|skipped|failed/, 'сухой прогон не должен выдавать вердикт');
 });
 
