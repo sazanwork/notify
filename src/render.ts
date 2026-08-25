@@ -177,6 +177,29 @@ const fieldCode = (label: string, value: string | undefined): string | null =>
   value ? `<b>${esc(cap(label))}:</b> <code>${esc(value)}</code>` : null;
 
 /**
+ * A person field — Author, Assignee, Reviewer. Every one of them is a
+ * GitHub login (`github-cards.py` reads it off `.user.login`/`.assignee.login`
+ * on the GitHub API object), and every GitHub login is a profile at one fixed
+ * address: `github.com/<login>`. The owner: "автор должен вести на страницу
+ * автора" — a name is an identifier like a commit hash or a PR number, and
+ * every other identifier on the card is a link.
+ */
+const fieldPerson = (label: string, login: string | undefined): string | null =>
+  login ? `<b>${esc(cap(label))}:</b> <a href="https://github.com/${esc(login)}">${esc(login)}</a>` : null;
+
+/**
+ * `Actor` on a CI card is a Telegram handle, not a GitHub login
+ * (`nightly.yml`, step "Кто чинит" — "по «@chelsnebes» приходит уведомление
+ * тому, кто чинит, по «mikitasazan» — нет"), so it links to Telegram, not
+ * GitHub: `github.com/@chelsnebes` would open a page that does not exist.
+ * Telegram DOES auto-link a bare `@handle` on its own, but the owner asked
+ * for an explicit link like every other identifier on the card, not an
+ * implicit one riding on a client behavior he cannot see from here.
+ */
+const fieldTelegram = (label: string, handle: string | undefined): string | null =>
+  handle ? `<b>${esc(cap(label))}:</b> <a href="https://t.me/${esc(handle.replace(/^@/, ''))}">${esc(handle)}</a>` : null;
+
+/**
  * A row that asks something FROM THE OWNER, rather than reports a fact. It
  * already stood last, set off by a blank line, and still read as an
  * ordinary field among five others. The `▶` marker is the only difference:
@@ -634,7 +657,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
     // actor, workflow — I don't know, it's all a jumble."
     ...twoBlocks(
       [field('Reason', e.note)],
-      [field('Actor', e.actor), commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
+      [fieldTelegram('Actor', e.actor), commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
     )
   ]);
 };
@@ -669,8 +692,8 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
     typeLine(iconFor(e), 'PR', named(e.number, e.title), e.url),
     opening(e.action, e.body),
     e.action === 'opened' && e.body ? '' : null,
-    field('Author', e.author),
-    field('Reviewer', e.reviewer)
+    fieldPerson('Author', e.author),
+    fieldPerson('Reviewer', e.reviewer)
   ]);
 
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
@@ -678,8 +701,8 @@ const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
     typeLine(iconFor(e), 'Issue', named(e.number, e.title), e.url),
     opening(e.action, e.body),
     e.action === 'opened' && e.body ? '' : null,
-    field('Author', e.author),
-    field('Assignee', e.assignee)
+    fieldPerson('Author', e.author),
+    fieldPerson('Assignee', e.assignee)
   ]);
 
 // The incident's own title IS line 2, exactly as an issue's is. It used to say

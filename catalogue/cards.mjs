@@ -295,7 +295,7 @@ export const CARDS = [
       url: 'https://github.com/sazanwork/arvent/issues/322',
       title: 'Онбординг: мастер не подсказывает вопросы',
       body: 'Первый экран мастера — пустое поле ввода. Человек не понимает,\nчто туда писать, и уходит.\n\nНужно 5–6 готовых вопросов под полем, кликом подставляются в поле.',
-      author: 'chelsnebes'
+      author: 'mikitasazan'
     },
     note: "Номер и заголовок — одна строка, как их пишет сам GitHub, и она же ссылка. Что именно случилось, говорит значок: 🆕 завели, 🙋 назначили, ✅ закрыли. Тело задачи идёт сразу под заголовком, ничего не стоит между ними — автор и остальные люди спустились ниже, отдельным блоком."
   },
@@ -311,7 +311,7 @@ export const CARDS = [
       url: 'https://github.com/sazanwork/arvent/issues/312',
       title: 'Запись клиента в вебе: страница, не зависящая от Telegram',
       body: 'Длинное описание задачи, которое было новостью один раз — когда задачу завели.',
-      author: 'chelsnebes', assignee: 'Ilja-Prihach'
+      author: 'mikitasazan', assignee: 'Ilja-Prihach'
     },
     note: "Люди стоят сразу под второй строкой, а описание задачи приходит ровно один раз — когда задачу завели. На «взяли» новость одна: кто взял, и она вторая строка снизу, а не последняя под простынёй текста."
   },
@@ -327,7 +327,7 @@ export const CARDS = [
       url: 'https://github.com/sazanwork/arvent/pull/118',
       title: 'Онбординг: заготовки вопросов',
       body: 'Закрывает #322. Шесть вопросов приходят из конфига, а не из кода —\nменять список можно без выкатки.',
-      author: 'chelsnebes'
+      author: 'mikitasazan'
     },
     note: "Та же форма, что у задачи с доски: номер с заголовком одной строкой, тело цитатой сразу под ним, автор — ниже, отдельно."
   },
@@ -396,7 +396,7 @@ export const CARDS = [
     expectTag: '#job #arvent_eval #ok',
     event: {
       type: 'job', project: 'arvent', key: 'arvent-eval',
-      job: 'Eval: bot answer quality', status: 'ok',
+      job: 'Bot answer quality', status: 'ok',
       stats: [['verdict', '12 of 12 answers passed']],
       path: '/tmp/arvent-eval-24-08.txt',
       filename: 'arvent-eval-24-08.txt'

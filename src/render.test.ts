@@ -528,7 +528,7 @@ test('blocks: run facts touch the name, the commit keeps its heading', () => {
   assert.equal(rows[2], '<b>Reason:</b> 3 tests failed');
   assert.equal(rows[3], '');
   assert.equal(rows[4], '<i><u>Change</u></i>');
-  assert.equal(rows[5], '<b>Actor:</b> @chelsnebes');
+  assert.equal(rows[5], '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>');
 
   // A green deploy: no reason to give, so the card is only name plus commit.
   const one = render({
@@ -678,7 +678,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
     '✅ <a href="https://x/run"><b>CI</b></a>',
     '',
     '<i><u>Change</u></i>',
-    '<b>Actor:</b> @chelsnebes',
+    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>'
   ].join('\n'));
@@ -730,7 +730,7 @@ test('card/issue: body arrives — it never did before', () => {
     '🆕 <b>Issue:</b> <a href="https://x/i/322">#322 Commit convention for all repos</a>',
     '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '',
-    '<b>Author:</b> mikitasazan'
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'
   ].join('\n'));
 });
 
@@ -747,8 +747,8 @@ test('card/issue: the assignee is the second row, and the old body is gone', () 
   assert.equal(out, [
     '#issue #i312 #info',
     '🙋 <b>Issue:</b> <a href="https://x/i/312">#312 Web booking page</a>',
-    '<b>Author:</b> mikitasazan',
-    '<b>Assignee:</b> Ilja-Prihach'
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
+    '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 });
 
@@ -765,7 +765,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     '🆕 <b>PR:</b> <a href="https://x/p/294">#294 Onboarding: question drafts</a>',
     '<blockquote>PR description here.</blockquote>',
     '',
-    '<b>Author:</b> Ilja-Prihach'
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 
   // One title is one line, the same for every type. It is the identifier now,
