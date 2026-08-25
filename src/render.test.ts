@@ -3,12 +3,12 @@
  * экранирование сработало и длина не превышает лимит Telegram, плюс
  * инварианты нового формата (утверждён владельцем 20.08.2026): теги первой
  * строкой, машинный ключ = тег экземпляра, поле жирный ярлык + обычное
- * значение, ровно четыре значка. Встроенный раннер Node (`node --test`),
+ * значение, значок из общего словаря. Встроенный раннер Node (`node --test`),
  * без vitest/jest — ловит ровно то, что может сломаться незаметно.
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { severity, type NotifyEvent } from './events.ts';
+import { ICON, severity, type NotifyEvent } from './events.ts';
 import { render, eventKey, clampMessage } from './render.ts';
 
 const XSS = '<script>alert(1)</script>';
@@ -67,31 +67,73 @@ test('один и тот же ключ у 🔴 и у последующего у
   assert.equal(eventKey(red), eventKey(green));
 });
 
-test('ровно четыре значка на весь пакет, не больше', () => {
-  const ALLOWED = ['🔴', '🚨', '✅', 'ℹ️'];
-  const events: NotifyEvent[] = [
-    { type: 'ci', project: 'arvent', status: 'ok' },
-    { type: 'ci', project: 'arvent', status: 'fail' },
-    { type: 'deploy', project: 'arvent', status: 'ok' },
-    { type: 'job', project: 'arvent', job: 'x', status: 'disabled' },
-    { type: 'heartbeat_miss', project: 'arvent', job: 'x' },
-    { type: 'heartbeat_miss', project: 'arvent', job: 'x', recovered: true },
-    { type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 't' },
-    { type: 'pr', project: 'arvent', action: 'merged', number: 1, title: 't' },
-    { type: 'pr', project: 'arvent', action: 'changes_requested', number: 1, title: 't' },
-    { type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't' },
-    { type: 'issue', project: 'arvent', action: 'closed', number: 1, title: 't' },
-    { type: 'report', project: 'arvent', title: 't', lines: [] },
-    { type: 'incident', project: 'arvent', title: 't' },
-    { type: 'file', project: 'arvent', title: 't', path: '/tmp/x' }
-  ];
+/**
+ * The icon vocabulary, as the owner set it on 25.08.2026: inside ONE tag every
+ * word wears its own icon, and one meaning wears one icon across all tags — a
+ * failure looks the same whether it is a deploy, a check or a task. This table
+ * is the law; the catalogue page renders from the same renderer, so nothing can
+ * promise him an icon the code does not draw.
+ */
+const VOCABULARY: Array<[NotifyEvent, string]> = [
+  [{ type: 'deploy', project: 'arvent', status: 'ok' }, ICON.ok],
+  [{ type: 'deploy', project: 'arvent', status: 'fail' }, ICON.red],
+  [{ type: 'ci', project: 'arvent', status: 'ok' }, ICON.ok],
+  [{ type: 'ci', project: 'arvent', status: 'fail' }, ICON.red],
+  [{ type: 'job', project: 'arvent', job: 'x', status: 'ok' }, ICON.ok],
+  [{ type: 'job', project: 'arvent', job: 'x', status: 'fail' }, ICON.red],
+  [{ type: 'job', project: 'arvent', job: 'x', status: 'disabled' }, ICON.paused],
+  [{ type: 'job', project: 'arvent', job: 'x', status: 'silent' }, ICON.unknown],
+  [{ type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
+  [{ type: 'pr', project: 'arvent', action: 'approved', number: 1, title: 't' }, ICON.approved],
+  [{ type: 'pr', project: 'arvent', action: 'changes_requested', number: 1, title: 't' }, ICON.red],
+  [{ type: 'pr', project: 'arvent', action: 'merged', number: 1, title: 't' }, ICON.merged],
+  [{ type: 'pr', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.rejected],
+  [{ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
+  [{ type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 't' }, ICON.taken],
+  [{ type: 'issue', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.ok],
+  [{ type: 'session', project: 'mac-config', action: 'burning the limit' }, ICON.alarm],
+  [{ type: 'session', project: 'mac-config', action: 'back to normal', status: 'ok' }, ICON.ok],
+  [{ type: 'incident', project: 'arvent', title: 't' }, ICON.alarm],
+  [{ type: 'report', project: 'arvent', title: 't', lines: [] }, ICON.info],
+  [{ type: 'file', project: 'arvent', title: 't', path: '/tmp/x' }, ICON.fresh],
+  [{ type: 'heartbeat_miss', project: 'arvent', job: 'x' }, ICON.unknown],
+  [{ type: 'heartbeat_miss', project: 'arvent', job: 'x', recovered: true }, ICON.ok]
+];
 
-  for (const e of events) {
-    const text = render(e);
-    const secondLine = text.split('\n')[1];
-    const icon = ALLOWED.find((i) => secondLine.startsWith(i));
+const wordOf = (e: NotifyEvent): string => {
+  const line = render(e).split('\n')[1];
+  return line.replace(/<[^>]+>/g, '').split(': ').slice(1).join(': ') || line;
+};
 
-    assert.ok(icon, `строка типа не начинается с одного из четырёх значков: ${secondLine}`);
+test('vocabulary: every word gets the icon the table promises', () => {
+  for (const [e, icon] of VOCABULARY) {
+    const line = render(e).split('\n')[1];
+    assert.ok(line.startsWith(`${icon} `), `${e.type}: expected ${icon}, got ${line}`);
+  }
+});
+
+test('vocabulary: inside one tag, two words never share an icon', () => {
+  const owner = new Map<string, string>();
+
+  for (const [e, icon] of VOCABULARY) {
+    const at = `${e.type}:${icon}`;
+    const word = wordOf(e);
+    const taken = owner.get(at);
+
+    assert.ok(
+      taken === undefined || taken === word,
+      `#${e.type}: "${taken}" and "${word}" both wear ${icon} — he cannot tell them apart`
+    );
+    owner.set(at, word);
+  }
+});
+
+test('vocabulary: no card draws an icon that is not in the list', () => {
+  const known = new Set<string>(Object.values(ICON));
+
+  for (const e of [...SAMPLES, ...VOCABULARY.map(([x]) => x)]) {
+    const icon = render(e).split('\n')[1].split(' ')[0];
+    assert.ok(known.has(icon), `${e.type}: ${icon} is not in the vocabulary`);
   }
 });
 
@@ -299,24 +341,6 @@ test('неизвестный тип события даёт понятную о�
   );
 });
 
-/**
- * Легенда значков закреплена в теме Ops и обещает: значок = статус (четыре
- * варианта), не тип. Успех/провал/внимание не должны путаться между собой.
- */
-test('PR/Issue: успех и требующее внимания не делят один значок', () => {
-  const changesRequested = render({
-    type: 'pr',
-    project: 'arvent',
-    action: 'changes_requested',
-    number: 1,
-    title: 'т'
-  });
-  const merged = render({ type: 'pr', project: 'arvent', action: 'merged', number: 1, title: 'т' });
-
-  assert.ok(changesRequested.split('\n')[1].startsWith('🔴'));
-  assert.ok(merged.split('\n')[1].startsWith('✅'));
-});
-
 test('задача: исполнитель попадает в сообщение', () => {
   const out = render({
     type: 'issue',
@@ -475,7 +499,7 @@ test('card/job disabled: heading present, list numbered', () => {
 
   assert.equal(out, [
     '#job #actions_minutes_guard',
-    '🔴 <b>Job:</b> disabled',
+    '⏸️ <b>Job:</b> disabled',
     '',
     '<b>Task:</b> GitHub Actions minutes watchdog',
     '<b>Reason:</b> free minutes almost gone',
@@ -555,7 +579,7 @@ test('card/issue: body arrives — it never did before', () => {
 
   assert.equal(out, [
     '#issue #i322',
-    'ℹ️ <b>Issue:</b> opened',
+    '🆕 <b>Issue:</b> opened',
     '',
     '<b>Number:</b> <a href="https://x/i/322">#322</a>',
     '<b>Title:</b> Commit convention for all repos',
@@ -574,7 +598,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
 
   assert.equal(out, [
     '#pr #p294',
-    'ℹ️ <b>PR:</b> opened',
+    '🆕 <b>PR:</b> opened',
     '',
     '<b>Number:</b> <a href="https://x/p/294">#294</a>',
     '<b>Title:</b> Onboarding: question drafts',
@@ -621,7 +645,7 @@ test('card/heartbeat miss', () => {
 
   assert.equal(out, [
     '#heartbeat #yandex_game_import',
-    '🔴 <b>Heartbeat:</b> miss',
+    '❓ <b>Heartbeat:</b> miss',
     '',
     '<b>Task:</b> Yandex game import',
     '<b>Expected:</b> at least once every 26h',
@@ -636,7 +660,7 @@ test('card/file: caption is clamped at 1024, not 4000', () => {
   });
 
   assert.ok(out.length <= 1024, `caption ${out.length} chars — Telegram cuts at 1024`);
-  assert.ok(out.startsWith('#file #eval_dialogues\nℹ️ <b>File:</b> new'));
+  assert.ok(out.startsWith('#file #eval_dialogues\n🆕 <b>File:</b> new'));
 });
 
 test('card/report', () => {
@@ -888,7 +912,7 @@ test('card/job silent: one task, one tag, and the pair closes', () => {
 
   assert.equal(gone.split('\n')[0], '#job #daily_import');
   assert.equal(gone.split('\n')[0], back.split('\n')[0], 'the pair does not share a tag line');
-  assert.ok(gone.includes('🔴 <b>Job:</b> silent'), 'silent is not red');
+  assert.ok(gone.includes('❓ <b>Job:</b> silent'), 'silence has lost its own icon');
   assert.ok(gone.includes('<b>Last seen:</b> 23.08 04:12'), 'a silent task must say when it was last seen');
   assert.ok(back.includes('<b>Last run:</b> 25.08 04:10'), 'a live task says last RUN, not last seen');
   assert.equal(severity({ type: 'job', project: 'playhub', job: 'x', status: 'silent' }), 'error');
@@ -938,11 +962,16 @@ test('sound: every red or alarm card rings, and only those', () => {
     { type: 'heartbeat_miss', ...P, job: 'x', recovered: true }
   ];
 
+  // The sound belongs to the ICON, so the expectation is written as the icon
+  // list — not as a second opinion about which events are bad.
+  const LOUD = ['🔴', '🚨', '⏸️', '❓'];
+
   for (const e of all) {
     const line = render(e).split('\n')[1];
-    const loud = line.startsWith('🔴') || line.startsWith('🚨');
+    const icon = Object.values(ICON).find((i) => line.startsWith(i));
+    assert.ok(icon, `${e.type}: line 2 starts with an icon that is not in the vocabulary — ${line}`);
     assert.equal(
-      severity(e), loud ? 'error' : 'info',
+      severity(e), LOUD.includes(icon as string) ? 'error' : 'info',
       `${e.type} "${line.replace(/<[^>]+>/g, '')}" — icon and sound disagree`
     );
   }

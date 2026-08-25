@@ -160,8 +160,10 @@ type IssueAction = Extract<NotifyEvent, { type: 'issue' }>['action'];
 const PR_ALIASES: Record<string, PrAction> = {
   opened: 'opened',
   reopened: 'opened',
-  ready_for_review: 'ready_for_review',
-  review_requested: 'review_requested',
+  // A PR that is already announced is not announced again: both of these mean
+  // "this PR now wants eyes", which is what `opened` already says.
+  ready_for_review: 'opened',
+  review_requested: 'opened',
   approved: 'approved',
   changes_requested: 'changes_requested',
   merged: 'merged',

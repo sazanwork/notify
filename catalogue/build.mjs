@@ -2,12 +2,22 @@
 // Refuses to write the file if a card came out empty — a silently empty
 // catalogue is exactly the lie this page exists to prevent.
 import { render, eventKey } from '../dist/render.js';
-import { severity } from '../dist/events.js';
+import { ICON, LOUD, severity } from '../dist/events.js';
 import { CARDS } from './cards.mjs';
 import { writeFileSync } from 'node:fs';
 
-const ICON_CLASS = (html) =>
-  html.includes('🚨') ? 'alarm' : html.includes('🔴') ? 'red' : html.includes('✅') ? 'ok' : 'info';
+// The stripe down the left of a bubble follows the ICON, the same way the
+// sound does. Anything that rings gets a warm stripe; the rest are quiet.
+const STRIPE = {
+  '🚨': 'alarm', '🔴': 'red', '⏸️': 'wait', '❓': 'wait',
+  '✅': 'ok', '👍': 'ok', '🔀': 'ok',
+  '🆕': 'info', '🙋': 'info', '🚫': 'info', 'ℹ️': 'info'
+};
+const ICON_CLASS = (html) => {
+  const line = html.split('\n')[1] ?? '';
+  const hit = Object.keys(STRIPE).find((i) => line.startsWith(i));
+  return STRIPE[hit] ?? 'info';
+};
 
 // The package emits Telegram HTML with real newlines and <blockquote>. The page
 // shows it inside a bubble, so newlines become <br> and the quote becomes the
@@ -74,7 +84,7 @@ const TYPES = [
   {
     tag: '#session', what: 'Рабочая сессия на маке в беде: жжёт лимит, остановлена',
     who: 'context-runaway-guard.sh',
-    lines: [['на месте действия — что именно случилось с сессией',
+    lines: [['на месте действия — что именно случилось с сессией; зелёной пары у этого тега нет — сессия не выздоравливает, она заканчивается',
              { type: 'session', ...P, action: 'burning the limit', status: 'fail' }]]
   },
   {
@@ -83,7 +93,7 @@ const TYPES = [
     lines: [
       ['завели', { type: 'issue', ...P, action: 'opened', number: 1, title: 'x' }],
       ['назначили исполнителя', { type: 'issue', ...P, action: 'assigned', number: 1, title: 'x' }],
-      ['закрыли — единственная зелёная', { type: 'issue', ...P, action: 'closed', number: 1, title: 'x' }]
+      ['закрыли', { type: 'issue', ...P, action: 'closed', number: 1, title: 'x' }]
     ]
   },
   {
@@ -94,7 +104,7 @@ const TYPES = [
       ['влили', { type: 'pr', ...P, action: 'merged', number: 1, title: 'x' }],
       ['закрыли, не влив', { type: 'pr', ...P, action: 'closed', number: 1, title: 'x' }],
       ['ревьюер одобрил', { type: 'pr', ...P, action: 'approved', number: 1, title: 'x' }],
-      ['ревьюер запросил правки — единственная красная у PR',
+      ['ревьюер запросил правки',
        { type: 'pr', ...P, action: 'changes_requested', number: 1, title: 'x' }]
     ]
   },
@@ -167,13 +177,37 @@ const line2 = (event) => {
 // that it does, and so the page goes red the day it stops being true.
 const sound = (event) => {
   const loud = severity(event) === 'error';
-  const icon = render(event).split('\n')[1].slice(0, 2);
-  const red = icon.startsWith('🔴') || icon.startsWith('🚨');
-  if (loud !== red) {
+  const icon = [...LOUD].find((i) => render(event).split('\n')[1].startsWith(i));
+  if (loud !== Boolean(icon)) {
     throw new Error(`type table: ${event.type} — icon and sound disagree`);
   }
   return loud ? 'со звуком' : 'беззвучно';
 };
+
+// The legend is generated from ICON, and the sound column from LOUD, so the
+// page cannot promise him a meaning or a sound the package does not honour.
+const MEANING = {
+  ok: 'прошло, закрыто, готово',
+  red: 'сломалось',
+  alarm: 'горит прямо сейчас',
+  paused: 'выключено намеренно — само не чинится, но и не падало',
+  unknown: 'не отчиталось: живо оно или нет — неизвестно',
+  fresh: 'появилось новое',
+  taken: 'кто-то взял на себя',
+  merged: 'влито',
+  rejected: 'закрыто, не доведя до результата',
+  approved: 'человек одобрил',
+  info: 'сводка, к сведению'
+};
+const missing = Object.keys(ICON).filter((k) => !MEANING[k]);
+if (missing.length) {
+  throw new Error(`legend: no meaning written for ${missing.join(', ')}`);
+}
+const iconRows = Object.entries(ICON)
+  .map(([name, icon]) =>
+    `<tr><td class="ic">${icon}</td><td>${esc(MEANING[name])}</td>` +
+    `<td>${LOUD.has(icon) ? 'со звуком' : 'беззвучно'}</td></tr>`)
+  .join('\n');
 
 const typeRows = TYPES.map((t) => {
   const rows = t.lines
@@ -183,6 +217,7 @@ const typeRows = TYPES.map((t) => {
          `<td>${rows}</td><td><code>${esc(t.who)}</code></td></tr>`;
 }).join('\n');
 
+writeFileSync(new URL('./icons.html', import.meta.url), iconRows);
 writeFileSync(new URL('./nav.html', import.meta.url), nav);
 writeFileSync(new URL('./articles.html', import.meta.url), articles);
 writeFileSync(new URL('./types.html', import.meta.url), typeRows);

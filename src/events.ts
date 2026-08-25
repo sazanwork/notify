@@ -181,8 +181,6 @@ export type NotifyEvent = Keyed &
       project: Project;
       action:
         | 'opened'
-        | 'ready_for_review'
-        | 'review_requested'
         | 'approved'
         | 'changes_requested'
         | 'merged'
@@ -292,32 +290,56 @@ export type EventType = NotifyEvent['type'];
 
 /** Красное = со звуком. Всё остальное — тихо. (Отдельной темы «инциденты» больше нет — авария видна в ленте проекта.) */
 /**
- * Значок = СОСТОЯНИЕ, не вид события. Ровно четыре на весь пакет — закреплённая
- * легенда в форумах обещает это владельцу как факт, не как приближение.
- * 🔴 сломалось, 🚨 горит прямо сейчас, ✅ прошло, ℹ️ к сведению.
+ * Словарь значков. Два закона, и оба поставлены владельцем 25.08.2026:
  *
- * Живёт здесь, а не в render.ts, потому что от значка зависит и звук: одно
- * слово всегда носит один значок, а значок всегда решает, звонить или нет.
+ * 1. ВНУТРИ одного тега у каждого слова свой значок. Раньше значков было
+ *    ровно четыре на весь пакет, и `Issue: opened` с `Issue: assigned`
+ *    выглядели одинаково, а у задачи три разных беды — fail, disabled,
+ *    silent — были одним и тем же красным кругом.
+ * 2. МЕЖДУ тегами одинаковый смысл выглядит одинаково. `fail` — это 🔴 и в
+ *    выкатке, и в CI, и в задаче; «появилось новое» — 🆕 и у задачи на доске,
+ *    и у PR, и у файла.
+ *
+ * И третий, который держит первые два честными: у значка фиксированный звук.
+ * Не у события, не у статуса — у значка. Пока звук выводился отдельным
+ * правилом, `🔴 PR: changes_requested` приходила беззвучно.
  */
-export const ICON = { red: '🔴', alarm: '🚨', ok: '✅', info: 'ℹ️' } as const;
+export const ICON = {
+  ok: '✅',        // passed, closed, done
+  red: '🔴',       // broken
+  alarm: '🚨',     // burning right now
+  paused: '⏸️',    // switched off on purpose, comes back by itself
+  unknown: '❓',   // did not report: alive or dead is unknown
+  fresh: '🆕',     // something new appeared
+  taken: '🙋',     // someone took it
+  merged: '🔀',    // merged
+  rejected: '🚫',  // closed without reaching the result
+  approved: '👍',  // a human approved it
+  info: 'ℹ️'       // a summary, for information
+} as const;
 
-// PR/Issue: значок по состоянию, не по действию — `merged`/`approved` = успех,
-// `changes_requested` = требует внимания, остальное = к сведению. Слово
-// действия само по себе уже говорит, что произошло, значок дублировать не должен.
+/** The sound is a property of the icon, and of nothing else. */
+export const LOUD: ReadonlySet<string> = new Set([ICON.red, ICON.alarm, ICON.paused, ICON.unknown]);
+
 export const PR_ICON: Record<Extract<NotifyEvent, { type: 'pr' }>['action'], string> = {
-  opened: ICON.info,
-  ready_for_review: ICON.info,
-  review_requested: ICON.info,
-  approved: ICON.ok,
+  opened: ICON.fresh,
+  approved: ICON.approved,
   changes_requested: ICON.red,
-  merged: ICON.ok,
-  closed: ICON.info
+  merged: ICON.merged,
+  closed: ICON.rejected
 };
 
 export const ISSUE_ICON: Record<Extract<NotifyEvent, { type: 'issue' }>['action'], string> = {
-  opened: ICON.info,
-  assigned: ICON.info,
+  opened: ICON.fresh,
+  assigned: ICON.taken,
   closed: ICON.ok
+};
+
+const JOB_ICON: Record<Extract<NotifyEvent, { type: 'job' }>['status'], string> = {
+  ok: ICON.ok,
+  fail: ICON.red,
+  disabled: ICON.paused,
+  silent: ICON.unknown
 };
 
 /** Одно место, где решается значок карточки, — и рендер, и звук берут его отсюда. */
@@ -325,21 +347,23 @@ export const iconFor = (e: NotifyEvent): string => {
   switch (e.type) {
     case 'deploy':
     case 'ci':
-    case 'job':
       return e.status === 'ok' ? ICON.ok : ICON.red;
+    case 'job':
+      return JOB_ICON[e.status];
     case 'session':
       return e.status === 'ok' ? ICON.ok : ICON.alarm;
     case 'incident':
       return ICON.alarm;
     case 'heartbeat_miss':
-      return e.recovered ? ICON.ok : ICON.red;
+      return e.recovered ? ICON.ok : ICON.unknown;
     case 'pr':
       return PR_ICON[e.action];
     case 'issue':
       return ISSUE_ICON[e.action];
     case 'report':
-    case 'file':
       return ICON.info;
+    case 'file':
+      return ICON.fresh;
   }
 };
 
@@ -349,7 +373,5 @@ export const severity = (e: NotifyEvent): 'info' | 'error' => {
   // `🔴 PR: changes_requested` ended up arriving MUTED, the only red card in
   // the package that did not ring, because severity() looked at `status` and a
   // pull request has an `action`.
-  const icon = iconFor(e);
-
-  return icon === ICON.red || icon === ICON.alarm ? 'error' : 'info';
+  return LOUD.has(iconFor(e)) ? 'error' : 'info';
 };
