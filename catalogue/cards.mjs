@@ -172,7 +172,6 @@ export const CARDS = [
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
       job: 'Yandex game import', status: 'ok',
-      stats: [['Went live', 3]],
       items: [
         { text: 'Cut the Rope', url: 'https://russkie-igry.ru/ru/game/cut-the-rope/', group: 'New today' },
         { text: 'Vex 7', url: 'https://russkie-igry.ru/ru/game/vex-7/', group: 'New today' },
@@ -182,7 +181,7 @@ export const CARDS = [
       ],
       url: 'https://russkie-igry.ru'
     },
-    note: "Три разные вещи лежали одним списком и различались значком в начале строки. Теперь у каждой свой заголовок, а значки не нужны."
+    note: "Три разные вещи лежали одним списком и различались значком в начале строки — теперь у каждой свой заголовок. Итоговое число убрано: оно было длиной двух списков, которые и так видно."
   },
   {
     id: 'job-fail', title: 'Задача конфига упала',
