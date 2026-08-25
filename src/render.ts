@@ -443,10 +443,22 @@ const typeLine = (
   // template prints the word "null". That is how line 2 of a card became
   // `ℹ️ null` — reachable through `--json` and through a direct call from JS,
   // where there are no types.
-  // `action || 'open'` in the linked case: an empty title must not swallow the
-  // link, which would be the one thing the card cannot afford to lose.
-  const line = url ? fieldLink(type, url, action || 'open') : field(type, action);
   const tail = aside ? ` (${esc(aside)})` : '';
+  const name = action?.trim();
+
+  // No name: the card must not invent one. It used to write the word `open`
+  // into the identifier slot, so a report with a link and no title arrived as
+  // `Report: open` — and a deploy with neither fell back to its own status
+  // word, `Deploy: fail`, saying the outcome a third time after the icon and
+  // the tag. Both are the same mistake: a slot that must hold a name holding
+  // something else instead. The type word itself takes the link, so nothing
+  // clickable is lost and nothing false is said.
+  if (!name) {
+    const bare = `<b>${esc(cap(type))}</b>`;
+    return `${icon} ${url ? `<a href="${esc(url)}">${bare}</a>` : bare}${tail}`;
+  }
+
+  const line = url ? fieldLink(type, url, name) : field(type, name);
 
   return line === null ? `${icon} <b>${esc(cap(type))}</b>${tail}` : `${icon} ${line}${tail}`;
 };
@@ -471,7 +483,7 @@ const mechanism = (
   workflowName: string | undefined,
   via: string | undefined,
   runUrl: string | undefined
-): string | undefined => workflowName ?? via ?? (runUrl ? 'the run' : undefined);
+): string | undefined => workflowName ?? via;
 
 // The name of what ran sits WITH the type line, not eight lines below it.
 // `Deploy: fail` and `by what means it ran` answer one question, and the owner
@@ -494,7 +506,7 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     // is already said by the icon and the third tag; there is nothing to
     // repeat in words, and it is the same law a job and a report follow. The
     // `Via` row is gone: it used to carry this same name one floor below.
-    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via, runUrl) ?? e.status, runUrl),
+    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via, runUrl), runUrl),
     ...twoBlocks(
       [field('Target', e.target), field('Reason', e.note)],
       [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
@@ -547,11 +559,11 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     ...(hasItems ? bullets(e.items, disabledList) : []),
     e.command || e.logs ? '' : null,
     fieldCode('Log', e.logs),
-    ...fieldRun(e.command, e.commandNote),
-    // Kept only when the caller actually names the workflow — a named row is a
-    // second, different destination; an unnamed one repeats the Task link.
-    e.workflowName && (e.workflowUrl ?? e.url) ? '' : null,
-    e.workflowName ? fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName) : null
+    ...fieldRun(e.command, e.commandNote)
+    // No trailing `Workflow:` row. It pointed at `workflowUrl ?? url` — the
+    // exact address line 2 already carries — so it was one destination
+    // written twice, and it stood BELOW the `To do:` command, which is the
+    // last thing the card is supposed to say.
   ]);
 };
 
@@ -597,7 +609,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   const runUrl = e.workflowUrl ?? e.url;
 
   return join([
-    typeLine(icon, 'CI', mechanism(e.workflowName, undefined, runUrl) ?? e.status, runUrl),
+    typeLine(icon, 'CI', mechanism(e.workflowName, undefined, runUrl), runUrl),
     ...twoBlocks(
       [field('Actor', e.actor), field('Reason', e.note)],
       [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
@@ -656,7 +668,7 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
     typeLine(iconFor(e), 'Incident', e.title, e.url),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
     e.logs ? '' : null,
-    fieldCode('Logs', e.logs)
+    fieldCode('Log', e.logs)
   ]);
 
 // A session in trouble. Same law as every other card: identifier first, then
@@ -683,7 +695,6 @@ const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =
 
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {
   const icon = iconFor(e);
-  const action = e.recovered ? 'ok' : 'miss';
 
   return join([
     // The task's name on the type line, exactly as a job card carries it. The
@@ -691,7 +702,10 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
     // repository builds this event any more — the silence watchdog sends an
     // ordinary job with `--status silent` — but a machine still running the old
     // copy of that watchdog can, and the card it gets must obey the template.
-    typeLine(icon, 'Heartbeat', e.job, undefined, action),
+    // No bracket saying `ok` or `miss`: the icon says it, the third tag says
+    // it, and `miss` is not one of the five words the outcome is allowed to
+    // be. The bracket is for what finishes the NAME, never for a verdict.
+    typeLine(icon, 'Heartbeat', e.job),
     field('Reason', e.note),
     ...schedule(e.expected, e.lastSeen, e.recovered ? 'Last run' : 'Last seen')
   ]);
@@ -772,7 +786,11 @@ export const eventKey = (e: NotifyEvent): string => {
     }
   };
 
-  return e.key ? slug(e.key) : fallback();
+  // An empty instance tag (`#session # #fail`) is not a tag: it groups
+  // nothing and the parser cannot pair a red card with its green one. An
+  // untyped `--json` payload can leave every field it is derived from blank,
+  // so the project name is the last resort.
+  return (e.key ? slug(e.key) : fallback()) || slug(e.project) || 'event';
 };
 
 /**
@@ -792,31 +810,41 @@ export const eventKey = (e: NotifyEvent): string => {
  * `#fail` under a 🚫 and said so. Nor is a task that has simply gone quiet —
  * nobody knows yet whether it broke, and `#unknown` is the honest word for it.
  */
-export const OUTCOME_TAG: Readonly<Record<string, string>> = {
+/** Every icon the package can print — the key space of the outcome table. */
+type Icon = (typeof ICON)[keyof typeof ICON];
+
+/** The five words the third tag is allowed to be, and there is no sixth. */
+type OutcomeTag = 'ok' | 'fail' | 'off' | 'unknown' | 'news';
+
+/**
+ * The type is `Record` over EVERY icon, not over `string`. A new icon added to
+ * `ICON` without a word here now fails to compile. Under the old loose type it
+ * fell through a `?? 'news'` default instead: a card whose outcome nobody had
+ * decided was indistinguishable from a card that is genuinely just news, and
+ * nothing anywhere went red. `news` is therefore written out for each icon
+ * that means it, never left to a fallback.
+ */
+export const OUTCOME_TAG: Readonly<Record<Icon, OutcomeTag>> = {
   [ICON.red]: 'fail',
   [ICON.alarm]: 'fail',
   [ICON.off]: 'off',
   [ICON.unknown]: 'unknown',
   [ICON.ok]: 'ok',
   [ICON.landed]: 'ok',
-  [ICON.approved]: 'ok'
+  [ICON.approved]: 'ok',
+  // Something happened; no verdict was passed on it.
+  [ICON.fresh]: 'news',
+  [ICON.taken]: 'news',
+  [ICON.discarded]: 'news',
+  [ICON.changes]: 'news',
+  [ICON.info]: 'news'
 };
 
-// Everything left over — a task was opened, a PR opened, edits asked for, a
-// digest — is news: something happened, no verdict was passed.
-export const outcomeTag = (e: NotifyEvent): string => OUTCOME_TAG[iconFor(e)] ?? 'news';
+export const outcomeTag = (e: NotifyEvent): OutcomeTag => OUTCOME_TAG[iconFor(e) as Icon];
 
 const tagsLine = (e: NotifyEvent): string =>
   `#${TYPE_TAG[e.type]} #${esc(eventKey(e))} #${outcomeTag(e)}`;
 
-/**
- * The tag line for free-form HTML (`sendReport`). The tag is the owner's
- * FILTER, and it has nothing to do with the body's format: a daily report
- * stays free-form text, but stops being the one card with no tags. The key
- * used to hang off the tail as `<i><code>#key</code></i>` — that is the old
- * format, from before tags moved to the first line.
- */
-export const reportTags = (key: string): string => `#report #${esc(slug(key))}`;
 
 /**
  * Renders an event into finished HTML text, cut to Telegram's limit.

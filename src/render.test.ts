@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ICON, severity, type NotifyEvent } from './events.ts';
-import { render, eventKey, clampMessage, reportTags, OUTCOME_TAG } from './render.ts';
+import { render, eventKey, clampMessage, OUTCOME_TAG } from './render.ts';
 import { trend } from './trend.ts';
 
 const XSS = '<script>alert(1)</script>';
@@ -137,11 +137,14 @@ test('vocabulary: no card draws an icon that is not in the list', () => {
   }
 });
 
-test('строка типа: значок вне жирного, "Тип: действие" жирным целиком', () => {
+test('type line: the icon stays outside the bold, and no name is invented', () => {
   const text = render({ type: 'ci', project: 'arvent', status: 'ok' });
   const secondLine = text.split('\n')[1];
 
-  assert.equal(secondLine, '✅ <b>CI:</b> ok');
+  // Nothing named this run, so line 2 is the type and nothing else. It used to
+  // print the status word here — the outcome said a third time, after the icon
+  // and the tag, in the slot reserved for a name.
+  assert.equal(secondLine, '✅ <b>CI</b>');
 });
 
 test('поле: жирный ярлык с большой буквы, значение обычным текстом', () => {
@@ -223,10 +226,13 @@ test('job disabled: список выключенных — нумерованн
   assert.ok(text.includes('2. <a href="https://x/2">Mobile Compat Check</a>'));
 });
 
-test('incident: logs — моноширинный локальный путь, не ссылка', () => {
+test('incident: the log is a monospaced local path, not a link — and one label', () => {
   const text = render({ type: 'incident', project: 'arvent', title: 'x', detail: 'reason', logs: '~/.claude/logs/' });
 
-  assert.ok(text.includes('<b>Logs:</b> <code>~/.claude/logs/</code>'));
+  // `Log:`, the same word a job card uses. It said `Logs:` here — one concept
+  // under two labels, decided by which type happened to be rendering.
+  assert.ok(text.includes('<b>Log:</b> <code>~/.claude/logs/</code>'));
+  assert.ok(!text.includes('<b>Logs:</b>'), 'the second label for one thing came back');
 });
 
 test('report: items рендерятся ссылками, текст экранируется (плоский вид без групп)', () => {
@@ -569,9 +575,11 @@ test('run: a nameless run keeps its link rather than losing it', () => {
     commit: 'a1b2c3d', commitUrl: 'https://x/c', url: 'https://x/run'
   });
 
+  // The link survives on the type word itself. It used to be given the made-up
+  // name `the run`, which named nothing and read like a real workflow.
   assert.equal(
     out.split('\n')[1],
-    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">the run</a>',
+    '\u{1F534} <a href="https://x/run"><b>Deploy</b></a>',
     'the link to the logs was lost'
   );
 });
@@ -656,7 +664,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <b>CI:</b> <a href="https://x/run">the run</a>',
+    '✅ <a href="https://x/run"><b>CI</b></a>',
     '<b>Actor:</b> @chelsnebes',
     '',
     '<i><u>Change</u></i>',
@@ -675,7 +683,7 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <b>CI:</b> <a href="https://x/run">the run</a>',
+    '✅ <a href="https://x/run"><b>CI</b></a>',
     '<b>Reason:</b> nightly check of master',
     '',
     '<i><u>Change</u></i>',
@@ -775,7 +783,7 @@ test('card/incident: every line of the diagnosis survives', () => {
     'ключ не найден',
     'лог: ~/Library/Logs/vault.log</blockquote>',
     '',
-    '<b>Logs:</b> <code>~/Library/Logs/vault.log</code>'
+    '<b>Log:</b> <code>~/Library/Logs/vault.log</code>'
   ].join('\n'));
 });
 
@@ -787,7 +795,7 @@ test('card/heartbeat miss', () => {
 
   assert.equal(out, [
     '#heartbeat #yandex_game_import #unknown',
-    '❓ <b>Heartbeat:</b> Yandex game import (miss)',
+    '❓ <b>Heartbeat:</b> Yandex game import',
     '',
     '<i><u>Schedule</u></i>',
     '<b>Expected:</b> at least once every 26h',
@@ -948,14 +956,17 @@ test('link/job: the task name is the link, not a trailing Workflow: open', () =>
   assert.ok(!out.includes('>open</a>'), 'the bare Workflow: open row came back');
 });
 
-test('link/job: a NAMED workflow still gets its own row — a second destination', () => {
+test('link/job: the workflow row is gone — it was line 2 written twice', () => {
   const out = render({
     type: 'job', project: 'playhub', job: 'Game validator', status: 'ok',
     url: 'https://x/run', workflowName: 'validate-games.yml', workflowUrl: 'https://x/wf'
   });
 
   assert.ok(out.includes('<b>Job:</b> <a href="https://x/wf">Game validator</a>'), 'task lost its link');
-  assert.ok(out.includes('<b>Workflow:</b> <a href="https://x/wf">validate-games.yml</a>'), 'named workflow row was dropped');
+  // The row pointed at `workflowUrl ?? url` — the address line 2 already
+  // carries — and it stood below the `To do:` command, past the end of what
+  // the card is meant to say.
+  assert.ok(!out.includes('<b>Workflow:</b>'), 'the duplicate destination came back');
 });
 
 test('link/incident: the title is the link', () => {
@@ -1247,18 +1258,6 @@ test('action: a card with nothing to run carries no marker', () => {
   assert.ok(!out.includes('<code>'), 'a card with no action must not show a command');
 });
 
-/**
- * The free-text daily report was the ONE card with no tag line — it wore the
- * old shape, a single `#key` hanging in italics at the bottom. The owner:
- * "если это репорт, почему у него нет тега репорт". The body stays free text;
- * the tag line is a filter and has nothing to do with the format of the body.
- */
-test('free report: the tag line is first, and it is a report like any other', () => {
-  const line = reportTags('daily-report');
-
-  assert.equal(line, '#report #daily_report');
-  assert.ok(!line.includes('<i>') && !line.includes('<code>'), 'the old trailing tag shape came back');
-});
 
 test('sound: nothing a pull request does ever rings', () => {
   const actions = ['opened', 'approved', 'changes_requested', 'merged', 'closed'] as const;

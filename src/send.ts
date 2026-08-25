@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { NotifyEvent, Project } from './events.ts';
-import { clampMessage, render, reportTags } from './render.ts';
+import { clampMessage, render } from './render.ts';
 import type { Target } from './routes.ts';
 import { ROUTES, targets } from './routes.ts';
 
@@ -166,7 +166,7 @@ const sendOne = async (token: string, target: Target, text: string): Promise<'se
   return 'failed';
 };
 
-/** Общий хвост для `notify` и `sendReport`: токен, цели, последовательная отправка. */
+/** The shared tail of `notify()`: token, targets, delivery one after another. */
 const deliver = async (where: Target[], text: string): Promise<SendResult> => {
   const token = process.env.OPS_BOT_TOKEN?.trim();
 
@@ -356,40 +356,3 @@ export const notify = async (e: NotifyEvent): Promise<SendResult> => {
   return deliver(targets(e), render(e));
 };
 
-/**
- * Готовый HTML во вкладку «Ops» проекта — ТОЛЬКО для дневных отчётов.
- *
- * Зачем исключение из правила «свободного текста в API нет». Отчёт — это не
- * событие: в нём плотная строка вроде
- * `🎮 1284 игр (🍎 412 iOS +3 · 🤖 890 Android +5) | 📈 +240 запусков`,
- * и разложить её в `label=value` можно только испортив. Но транспорт у отчёта
- * ТОТ ЖЕ: ретраи, 429, таймауты, curl-фолбэк, номер вкладки. Пока его копировали
- * в каждый скрипт, один и тот же баг с дублями на таймауте пришлось чинить
- * дважды — в пакете и в game-publisher (27.07.2026).
- *
- * Граница: формат событий по-прежнему задаёт только пакет, «своё» уведомление
- * о деплое или упавшей задаче написать нельзя. Здесь стандартизирован транспорт,
- * а не формат — и в этом весь смысл.
- *
- * Всегда беззвучно: отчёт читают утром, а не по звонку.
- */
-export const sendReport = async (project: Project, html: string, key?: string): Promise<SendResult> => {
-  if (!Object.hasOwn(ROUTES, project)) {
-    // Та же красная карточка, что у notify(): дверь свободного HTML — не
-    // лазейка для молчаливой потери (этот класс уже жил неделями дважды).
-    await reportLostProject(project, 'report');
-
-    return 'skipped';
-  }
-  const forum = ROUTES[project];
-
-  // Без проекта — как и render.ts: карточка уже лежит в форуме своего
-  // проекта, дублировать его в теге незачем. Строка тегов ПЕРВАЯ и до обрезки,
-  // как у любой другой карточки.
-  const tags = reportTags(key ?? 'daily');
-
-  return deliver(
-    [{ chat: forum.chat, thread: forum.ops, silent: true }],
-    `${tags}\n${clampMessage(html, Math.max(64, 4000 - tags.length - 1))}`
-  );
-};

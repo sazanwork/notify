@@ -69,7 +69,7 @@ export const CARDS = [
     event: {
       type: 'report', project: 'game-publisher', key: 'analytics-daily',
       title: 'Analytics for 2026-08-22',
-      period: 'compared with 2026-08-21',
+      aside: 'compared with 2026-08-21',
       lines: [
         ['Humans', '485 ▲207', 'Server log'],
         ['Game plays', '0 =', 'GA4'],
@@ -93,7 +93,7 @@ export const CARDS = [
     event: {
       type: 'report', project: 'playhub', key: 'analytics-weekly',
       title: 'Weekly analytics 2026-08-18 – 2026-08-24',
-      period: 'compared with 2026-08-11 – 2026-08-17',
+      aside: 'compared with 2026-08-11 – 2026-08-17',
       lines: [
         ['Pageviews', '7882 ▲799', 'Server log'],
         ['Game plays', '156 ▼17', 'GA4'],
@@ -115,7 +115,7 @@ export const CARDS = [
     expectTag: '#report #daily_report #news',
     event: {
       type: 'report', project: 'playhub', key: 'daily-report',
-      title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', period: '2026-08-25',
+      title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', aside: '2026-08-25',
       lines: [
         ['Games', 412, 'Catalogue'], ['iOS', '210 ▲3', 'Catalogue'], ['Android', '202 ▲5', 'Catalogue'],
         ['Added this week', 12, 'Catalogue'],

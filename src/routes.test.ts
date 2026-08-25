@@ -10,7 +10,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { severity } from './events.ts';
 import { ROUTES, targets } from './routes.ts';
-import { notify, sendReport } from './send.ts';
+import { notify } from './send.ts';
 
 test('событие уходит во вкладку Ops своего проекта, и только туда', () => {
   const where = targets({ type: 'deploy', project: 'playhub', status: 'ok' });
@@ -119,25 +119,6 @@ test('--status success не должен рисовать красное: опе
   assert.doesNotMatch(stderr, /без значения/);
 });
 
-test('sendReport без токена — skipped, а не исключение: отчёт не должен ронять прогон', async () => {
-  const { sendReport } = await import('./send.ts');
-  const saved = process.env.OPS_BOT_TOKEN;
-  process.env.OPS_BOT_TOKEN = '';
-
-  try {
-    assert.equal(await sendReport('playhub', '<b>тест</b>'), 'skipped');
-    // @ts-expect-error — проверяем нетипизированный вызов: так приходит опечатка из bash.
-    assert.equal(await sendReport('плейхаб', '<b>тест</b>'), 'skipped');
-  } finally {
-    if (saved === undefined) {
-      delete process.env.OPS_BOT_TOKEN;
-    } else {
-      process.env.OPS_BOT_TOKEN = saved;
-    }
-  }
-});
-
-
 test('служебные имена прототипа не проходят гвард проекта', async () => {
   // `in` ходил по цепочке прототипов: --project toString терял событие И карточку.
   const res = await notify({ type: 'job', project: 'toString', job: 'x', status: 'ok' } as never);
@@ -145,12 +126,6 @@ test('служебные имена прототипа не проходят г�
   assert.equal(res, 'skipped');
 });
 
-test('sendReport с ключом дописывает строку ключа, без токена — skipped', async () => {
-  delete process.env.OPS_BOT_TOKEN;
-  const res = await sendReport('playhub', '<b>отчёт</b>', 'daily-analytics');
-
-  assert.equal(res, 'skipped');
-});
 
 // Три пути, на которых CLI раньше выходил нулём и НЕ говорил ни слова из
 // контракта `sent|failed|skipped`. Каждый означал одно и то же для владельца:

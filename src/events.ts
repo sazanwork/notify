@@ -395,7 +395,11 @@ export const iconFor = (e: NotifyEvent): string => {
     case 'ci':
       return e.status === 'ok' ? ICON.ok : ICON.red;
     case 'job':
-      return JOB_ICON[e.status];
+      // `?? ICON.unknown`: an untyped `--json` payload can carry a status
+      // outside the map, and an undefined icon printed the literal word
+      // `undefined` at the head of line 2. Not knowing is itself a state the
+      // package already has a word and a sound for.
+      return JOB_ICON[e.status] ?? ICON.unknown;
     case 'session':
       return e.status === 'ok' ? ICON.ok : ICON.alarm;
     case 'incident':
@@ -403,9 +407,9 @@ export const iconFor = (e: NotifyEvent): string => {
     case 'heartbeat_miss':
       return e.recovered ? ICON.ok : ICON.unknown;
     case 'pr':
-      return PR_ICON[e.action];
+      return PR_ICON[e.action] ?? ICON.unknown;
     case 'issue':
-      return ISSUE_ICON[e.action];
+      return ISSUE_ICON[e.action] ?? ICON.unknown;
     case 'report':
       return ICON.info;
   }

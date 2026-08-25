@@ -129,12 +129,9 @@ const TYPES = [
 CARDS.forEach((c, i) => { c.no = String(i + 1).padStart(2, '0'); });
 
 const articles = CARDS.map((c) => {
-  // A card may be raw HTML the sender builds itself — the free-text report
-  // goes through sendReport, which standardises delivery and nothing else,
-  // so there is no event and no tag line to render.
-  // Свободного текста в уведомлениях больше нет: последний отчёт стал
-  // типизированным событием 25.08.2026. Ветка `raw` снята — если она
-  // понадобится снова, это будет означать, что дверь открыли обратно.
+  // Every card on this page is a rendered event. The free-text door is gone
+  // from the package itself since 25.08.2026, so there is no second branch
+  // here and no way for the page to show something the type system cannot.
   const html = render(c.event);
   if (!html || html.split('\n').length < 2) {
     throw new Error(`card ${c.id} rendered empty — refusing to build`);
@@ -204,13 +201,49 @@ const articles = CARDS.map((c) => {
   // morning server report printed `210 +3` for a real comparison and `+37`
   // for a plain count of today, next to analytics printing `485 ▲207`. The
   // owner read the page and asked what the plus signs were.
-  for (const [label, value] of c.event?.lines ?? []) {
+  //
+  // The guard used to read `lines` only — one field of four. A job's `stats`,
+  // a flat `items` list and a grouped report's items all carry values too, and
+  // `stats: [['Added', '+6']]` sailed past it. Every value the card can print
+  // is collected here, so the next field cannot quietly opt out.
+  const values = [
+    ...(c.event?.lines ?? []),
+    ...(c.event?.stats ?? []),
+    ...(c.event?.items ?? []).map((i) => [i.text ?? '', i.text ?? '']),
+    ...(c.event?.groups ?? []).flatMap((g) => [
+      ...(g.lines ?? []),
+      ...(g.items ?? []).map((i) => [i.text ?? '', i.text ?? ''])
+    ])
+  ];
+
+  for (const [label, value] of values) {
     if (typeof value === 'string' && /(^|\s)[+\-]\d/.test(value)) {
       throw new Error(
         `card ${c.id}, row "${label}": "${value}" — a signed number is not a comparison. ` +
         `Call trend(now, was) for an arrow, or pass the number bare.`
       );
     }
+  }
+
+  // Line 2 holds the NAME of the thing. Not the outcome — the icon and the
+  // third tag already say that twice — and not a word invented to fill the
+  // slot. `Deploy: fail`, `Report: open` and `CI: the run` all shipped at some
+  // point, and each of them read as a name until you looked twice.
+  const NOT_A_NAME = new Set([
+    'ok', 'fail', 'failed', 'error', 'success', 'disabled', 'silent', 'unknown',
+    'open', 'the run', 'run', 'done', 'undefined', 'null'
+  ]);
+  // `[1]`, not `[0]`: `html` carries the tag line first, and a guard reading
+  // the tag line can never see line 2 at all — it would pass every card
+  // forever and prove nothing.
+  const second = html.split('\n')[1] ?? '';
+  const named = second.match(/<b>[^<]+:<\/b>\s*(?:<a href="[^"]*">)?([^<]*)/);
+
+  if (named && NOT_A_NAME.has(named[1].trim().toLowerCase())) {
+    throw new Error(
+      `card ${c.id}: line 2 says "${named[1].trim()}" where the name of the thing belongs. ` +
+      `The outcome is already the icon and the third tag.`
+    );
   }
 
   // Пояснение под карточкой — две фразы, не журнал изменений. Оно росло тем,
