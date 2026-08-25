@@ -497,19 +497,13 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   // were two words for one thing, and the outcome that took the first line is
   // already the icon, and now the third tag too.
   //
-  // `disabled` and `silent` keep a word of their own. A red mark reads as
-  // "it broke", and neither of those is that: one was switched off on purpose
-  // and the other has not been heard from at all.
-  const state =
-    e.status === 'disabled'
-      ? 'switched off, not broken'
-      : e.status === 'silent'
-        ? 'no word from it at all'
-        : undefined;
+  // There is no `State:` row. It said "switched off, not broken" under a 🚫
+  // and "no word from it at all" under a ❓ — the third way of saying what the
+  // icon says and what the third tag now says too. The icon table on the
+  // catalogue page defines both marks.
 
   return join([
     typeLine(icon, 'Job', e.job, e.workflowUrl ?? e.url),
-    field('State', state),
     field('Reason', e.note),
     field('Expected', e.expected),
     // `Last run` when the task is alive, `Last seen` when it is not: the same
@@ -744,23 +738,29 @@ export const eventKey = (e: NotifyEvent): string => {
  * Одно нажатие в Telegram собирает все падения проекта разом, каким бы типом
  * они ни пришли — выкатка, проверка, задача по расписанию, авария.
  *
- * Значение берётся у ЗНАЧКА, а не у слова статуса, и это не мелочь: значок уже
- * единственный источник правды про звук, и второй список «что считать
- * падением» разошёлся бы с первым — так уже было, когда красная карточка
- * приходила беззвучной. Громкий значок — `#fail`, зелёный — `#ok`, всё
- * остальное (завели задачу, открыли PR, попросили правки, отчёт) — `#news`:
- * это новость, а не приговор робота.
+ * The value comes from the ICON, never from the status word. The icon is
+ * already the single source of truth for the sound, and a second list of "what
+ * counts as broken" would drift from the first — it already did once, when a
+ * red card arrived silent.
+ *
+ * One icon meaning, one tag. A watchdog that SWITCHED SOMETHING OFF is not a
+ * failure and must not be filed under the same word as one: the owner read
+ * `#fail` under a 🚫 and said so. Nor is a task that has simply gone quiet —
+ * nobody knows yet whether it broke, and `#unknown` is the honest word for it.
  */
-const OK_ICONS: ReadonlySet<string> = new Set([ICON.ok, ICON.landed, ICON.approved]);
-
-const outcomeTag = (e: NotifyEvent): string => {
-  const icon = iconFor(e);
-  if (LOUD.has(icon)) {
-    return 'fail';
-  }
-
-  return OK_ICONS.has(icon) ? 'ok' : 'news';
+export const OUTCOME_TAG: Readonly<Record<string, string>> = {
+  [ICON.red]: 'fail',
+  [ICON.alarm]: 'fail',
+  [ICON.off]: 'off',
+  [ICON.unknown]: 'unknown',
+  [ICON.ok]: 'ok',
+  [ICON.landed]: 'ok',
+  [ICON.approved]: 'ok'
 };
+
+// Everything left over — a task was opened, a PR opened, edits asked for, a
+// digest — is news: something happened, no verdict was passed.
+export const outcomeTag = (e: NotifyEvent): string => OUTCOME_TAG[iconFor(e)] ?? 'news';
 
 const tagsLine = (e: NotifyEvent): string =>
   `#${TYPE_TAG[e.type]} #${esc(eventKey(e))} #${outcomeTag(e)}`;

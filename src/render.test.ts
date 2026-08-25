@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ICON, severity, type NotifyEvent } from './events.ts';
-import { render, eventKey, clampMessage, reportTags } from './render.ts';
+import { render, eventKey, clampMessage, reportTags, OUTCOME_TAG } from './render.ts';
 import { trend } from './trend.ts';
 
 const XSS = '<script>alert(1)</script>';
@@ -633,9 +633,10 @@ test('card/job disabled: heading present, list numbered', () => {
   });
 
   assert.equal(out, [
-    '#job #actions_minutes_guard #fail',
+    // `#off`, not `#fail`: a watchdog that switched something off on purpose
+    // is not a broken job, and the owner must be able to filter the two apart.
+    '#job #actions_minutes_guard #off',
     '🚫 <b>Job:</b> GitHub Actions minutes watchdog',
-    '<b>State:</b> switched off, not broken',
     '<b>Reason:</b> free minutes almost gone',
     '',
     '<i><u>Disabled workflows</u></i>',
@@ -765,7 +766,7 @@ test('card/heartbeat miss', () => {
   });
 
   assert.equal(out, [
-    '#heartbeat #yandex_game_import #fail',
+    '#heartbeat #yandex_game_import #unknown',
     '❓ <b>Heartbeat:</b> Yandex game import (miss)',
     '<b>Expected:</b> at least once every 26h',
     '<b>Last seen:</b> never'
@@ -1069,22 +1070,24 @@ test('card/job silent: one task, one tag, and the pair closes', () => {
     status: 'ok', expected: 'at least once every 26h', lastSeen: '25.08 04:10'
   });
 
-  assert.equal(gone.split('\n')[0], '#job #daily_import #fail');
-  // Совпадает ТЕГ-ЭКЗЕМПЛЯР, а не вся строка: третий тег — исход, и он у пары
-  // разный по определению (упало → починилось). Пара находится по нажатию на
-  // `#daily_import`, и это единственное, что должно совпадать.
+  // `#unknown`, not `#fail`: nobody knows yet whether it broke or simply did
+  // not run. That is exactly what the ❓ says, and the tag says it too.
+  assert.equal(gone.split('\n')[0], '#job #daily_import #unknown');
+  // The INSTANCE tag is what matches, not the whole line: the third tag is the
+  // outcome and differs by definition between a red card and the green one
+  // that closes it. The pair is found by tapping `#daily_import`.
   assert.equal(
     gone.split('\n')[0].split(' ')[1],
     back.split('\n')[0].split(' ')[1],
     'the pair does not share an instance tag'
   );
-  assert.equal(gone.split('\n')[0].split(' ')[2], '#fail');
+  assert.equal(gone.split('\n')[0].split(' ')[2], '#unknown');
   assert.equal(back.split('\n')[0].split(' ')[2], '#ok');
   assert.ok(gone.includes('❓ <b>Job:</b> Yandex game import'), 'silence has lost its own icon');
-  // Значок ❓ читается как «не знаю», а не как «молчит», поэтому у молчания
-  // остаётся своё слово — как и у выключенной задачи.
-  assert.ok(gone.includes('<b>State:</b> no word from it at all'), 'silence lost its word');
-  assert.ok(!back.includes('<b>State:</b>'), 'a live task must not spell out a state the icon already gives');
+  // No `State:` row anywhere. It repeated in words what the icon and the third
+  // tag both already say.
+  assert.ok(!gone.includes('<b>State:</b>'), 'the State row came back');
+  assert.ok(!back.includes('<b>State:</b>'), 'the State row came back on the green card');
   assert.ok(gone.includes('<b>Last seen:</b> 23.08 04:12'), 'a silent task must say when it was last seen');
   assert.ok(back.includes('<b>Last run:</b> 25.08 04:10'), 'a live task says last RUN, not last seen');
   assert.equal(severity({ type: 'job', project: 'playhub', job: 'x', status: 'silent' }), 'error');
@@ -1300,4 +1303,33 @@ test('trend: an arrow only where there is something to compare against', () => {
   for (const out of [trend(210, 207), trend(37), trend(0, 0)]) {
     assert.ok(!/[+]/.test(out), `a plus sign came back: ${out}`);
   }
+});
+
+// ── One icon meaning, one tag ───────────────────────────────────────────────
+
+test('tags: the third tag follows the icon, and off is not fail', () => {
+  const tagOf = (e: NotifyEvent): string => render(e).split('\n')[0].split(' ')[2];
+  const job = (status: 'ok' | 'fail' | 'disabled' | 'silent'): NotifyEvent => ({
+    type: 'job', project: 'playhub', job: 'x', status
+  });
+
+  assert.equal(tagOf(job('ok')), '#ok');
+  assert.equal(tagOf(job('fail')), '#fail');
+  // The two the owner asked for by name: a watchdog that switched something
+  // off did not break, and a task that has gone quiet may be perfectly fine.
+  assert.equal(tagOf(job('disabled')), '#off');
+  assert.equal(tagOf(job('silent')), '#unknown');
+
+  // All four still ring. The sound is the icon's, and splitting the tags did
+  // not quietly take one of them off the alarm list.
+  for (const status of ['fail', 'disabled', 'silent'] as const) {
+    assert.equal(severity(job(status)), 'error', `${status} stopped ringing`);
+  }
+
+  // The whole vocabulary is five words and no more: a sixth would be a filter
+  // he never asked for, and a missing one would file two meanings together.
+  const words = new Set(Object.values(ICON).map((i) => OUTCOME_TAG[i] ?? 'news'));
+  assert.deepEqual([...words].sort(), ['fail', 'news', 'off', 'ok', 'unknown']);
+  assert.notEqual(OUTCOME_TAG[ICON.off], OUTCOME_TAG[ICON.red], 'off is filed as a failure again');
+  assert.notEqual(OUTCOME_TAG[ICON.unknown], OUTCOME_TAG[ICON.red], 'silence is filed as a failure again');
 });

@@ -1,7 +1,7 @@
 // Renders every card with the package's OWN renderer and builds the page.
 // Refuses to write the file if a card came out empty — a silently empty
 // catalogue is exactly the lie this page exists to prevent.
-import { render, eventKey } from '../dist/render.js';
+import { render, eventKey, OUTCOME_TAG } from '../dist/render.js';
 import { ICON, LOUD, severity } from '../dist/events.js';
 import { CARDS } from './cards.mjs';
 import { writeFileSync, statSync, readdirSync } from 'node:fs';
@@ -291,10 +291,14 @@ const missing = Object.keys(ICON).filter((k) => !MEANING[k]);
 if (missing.length) {
   throw new Error(`legend: no meaning written for ${missing.join(', ')}`);
 }
+// The tag column comes from the package's own table, so the page cannot show a
+// tag the renderer would not print. One icon meaning, one tag: `#off` is not
+// `#fail`, and a task that has gone quiet is `#unknown`, not either of them.
 const iconRows = Object.entries(ICON)
   .map(([name, icon]) =>
     `<tr><td class="ic">${icon}</td><td>${esc(MEANING[name])}</td>` +
-    `<td>${LOUD.has(icon) ? 'со звуком' : 'беззвучно'}</td></tr>`)
+    `<td>${LOUD.has(icon) ? 'со звуком' : 'беззвучно'}</td>` +
+    `<td><code>#${OUTCOME_TAG[icon] ?? 'news'}</code></td></tr>`)
   .join('\n');
 
 const typeRows = TYPES.map((t) => {

@@ -237,7 +237,7 @@ export const CARDS = [
     when: 'бесплатные минуты GitHub Actions на исходе',
     live: ['live', 'работает — сработал 23 августа'],
     sender: 'actions-minutes-guard.sh',
-    expectTag: '#job #actions_minutes_guard #fail',
+    expectTag: '#job #actions_minutes_guard #off',
     event: {
       type: 'job', project: 'mac-config', key: 'actions-minutes-guard',
       job: 'GitHub Actions minutes watchdog', status: 'disabled',
@@ -246,7 +246,8 @@ export const CARDS = [
         { text: 'arvent/nightly.yml', url: 'https://github.com/sazanwork/arvent/actions/workflows/nightly.yml' },
         { text: 'one-q/quality.yml', url: 'https://github.com/sazanwork/one-q/actions/workflows/quality.yml' }
       ]
-    }
+    },
+    note: "Тег #off, а не #fail: сторож выключил прогоны нарочно, это не поломка. Слово «выключено» говорит значок 🚫, поэтому строки State на карточке нет."
   },
   {
     id: 'ci', title: 'Ночная проверка кода',
@@ -331,13 +332,13 @@ export const CARDS = [
     when: 'сторож на сервере не увидел отметки в срок',
     live: ['new', 'новая форма — доедет после выкатки сервера PlayHub'],
     sender: 'scripts/heartbeat-check.sh',
-    expectTag: '#job #daily_import #fail',
+    expectTag: '#job #daily_import #unknown',
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
       job: 'Yandex game import', status: 'silent', note: 'no report in time',
       expected: 'at least once every 26h', lastSeen: '23.08 04:12'
     },
-    note: "Молчание — состояние задачи, а не отдельный вид события. Раньше оно уходило под своим тегом, и одна задача жила под двумя."
+    note: "Тег #unknown, а не #fail: задача не отчиталась, и сломалась она или просто не запускалась — пока неизвестно. Молчание — состояние задачи, а не отдельный вид события."
   },
   {
     id: 'job-silent-ok', title: 'Задача снова отчитывается',
