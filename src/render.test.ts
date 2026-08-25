@@ -681,8 +681,9 @@ test('card/report', () => {
 
   assert.equal(out, [
     '#report #analytics',
-    'ℹ️ <b>Report:</b> Analytics · compared to 23.08',
+    'ℹ️ <b>Report:</b> Analytics',
     '',
+    '<b>Period:</b> compared to 23.08',
     '<b>Pageviews (server):</b> 1284',
     '<b>Game launches:</b> 412',
     '',
@@ -750,9 +751,14 @@ test('link/report: the report name is the link, and there is no Details row', ()
   });
 
   assert.ok(
-    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22 · compared with 2026-08-21</a>'),
+    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22</a>'),
     'the report name is not the link'
   );
+  assert.ok(
+    out.includes('<b>Period:</b> compared with 2026-08-21'),
+    'the period must be its own line, not a tail on the clickable name'
+  );
+  assert.ok(!out.includes('2026-08-22 · '), 'the middot pair on the type line came back');
   assert.ok(!out.includes('Details'), 'the Details row came back');
   assert.ok(!out.includes('>open</a>'), 'a bare "open" link came back');
 });

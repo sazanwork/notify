@@ -130,6 +130,20 @@ const articles = CARDS.map((c) => {
       `card ${c.id}: tag line is "${html.split('\n')[0].trim()}", the sender produces "${c.expectTag}"`
     );
   }
+  // A field is `<b>Label:</b> value`, and that colon is the ONE separator the
+  // format has. A value carrying a second one — `0 / 0`, `name · scope` — is a
+  // pair of facts smuggled onto one line, which is what the owner keeps
+  // catching by eye. An em dash is left alone: inside a value it is prose.
+  if (!c.raw) {
+    for (const line of html.split('\n')) {
+      const m = /<b>[^<]+:<\/b>(.*)$/.exec(line);
+      if (m && / \/ | · /.test(m[1].replace(/<[^>]+>/g, ''))) {
+        throw new Error(
+          `card ${c.id}: a field value carries a second separator — split it into two lines: ${line.replace(/<[^>]+>/g, '')}`
+        );
+      }
+    }
+  }
   if (!c.raw && !c.expectTag) {
     throw new Error(`card ${c.id}: no expectTag — every rendered card must declare its tag line`);
   }

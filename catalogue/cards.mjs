@@ -53,7 +53,8 @@ export const CARDS = [
         ['Humans in the server log', '262 ▲23'],
         ['Game plays', 0],
         ['GA4 users', 1],
-        ['Google clicks / impressions', '0 / 0'],
+        ['Google clicks', 0],
+        ['Google impressions', 0],
         ['Visible', '0.4% of visitors — the rest gave no consent']
       ],
       items: [{ label: 'игры для мальчиков', text: '4 clicks, pos. 12' }],
@@ -71,7 +72,8 @@ export const CARDS = [
     event: {
       type: 'report', project: 'playhub', key: 'analytics-weekly',
       title: 'Weekly analytics for 2026-08-24', period: 'compared with the week before',
-      lines: [['Pages served', '3120 ▲210'], ['GA4 users', 34], ['Google clicks / impressions', '18 / 940']],
+      lines: [['Pages served', '3120 ▲210'], ['GA4 users', 34], ['Google clicks', 18],
+        ['Google impressions', 940]],
       url: 'https://github.com/sazanwork/playhub/blob/master/docs/analytics/weekly/2026-W34.md'
     }
   },

@@ -321,8 +321,10 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     const body = e.groups.flatMap((g, i) => (i === 0 ? renderGroup(g) : ['', ...renderGroup(g)]));
 
     return join([
-      typeLine(iconFor(e), 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
+      typeLine(iconFor(e), 'Report', e.title, e.url),
       '',
+      field('Period', e.period),
+      e.period ? '' : null,
       ...body
     ]);
   }
@@ -332,8 +334,11 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   return join([
     // Both analytics jobs send a link to the day's snapshot in docs/. It used to
     // hang off a trailing `Details: open` row; now it is the report's own name.
-    typeLine(iconFor(e), 'Report', e.period ? `${e.title} · ${e.period}` : e.title, e.url),
+    typeLine(iconFor(e), 'Report', e.title, e.url),
     '',
+    // The period used to ride on the type line after a middot, which made the
+    // clickable name longer than the name and put two facts on one line.
+    field('Period', e.period),
     ...(e.lines ?? []).map(([label, value]) => field(label, value)),
     items.length > 0 ? '' : null,
     ...items
