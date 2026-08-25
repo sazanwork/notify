@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { NotifyEvent, Project } from './events.ts';
-import { clampMessage, render } from './render.ts';
+import { clampMessage, render, reportTags } from './render.ts';
 import type { Target } from './routes.ts';
 import { ROUTES, targets } from './routes.ts';
 
@@ -384,8 +384,12 @@ export const sendReport = async (project: Project, html: string, key?: string): 
   const forum = ROUTES[project];
 
   // Без проекта — как и render.ts: карточка уже лежит в форуме своего
-  // проекта, дублировать его в теге незачем.
-  const tag = key ? `\n<i><code>#${key}</code></i>` : '';
+  // проекта, дублировать его в теге незачем. Строка тегов ПЕРВАЯ и до обрезки,
+  // как у любой другой карточки.
+  const tags = reportTags(key ?? 'daily');
 
-  return deliver([{ chat: forum.chat, thread: forum.ops, silent: true }], clampMessage(html) + tag);
+  return deliver(
+    [{ chat: forum.chat, thread: forum.ops, silent: true }],
+    `${tags}\n${clampMessage(html, Math.max(64, 4000 - tags.length - 1))}`
+  );
 };

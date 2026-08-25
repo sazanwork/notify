@@ -458,7 +458,7 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
 // разрывает Telegram-хэштег на середине слова (`#mac-config` линкуется
 // только как `#mac`), а тег ДОЛЖЕН быть кликабельным — это и есть фильтр
 // «показать всю историю этого экземпляра», которым владелец пользуется вживую.
-const slug = (raw: string): string =>
+export const slug = (raw: string): string =>
   raw
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '_')
@@ -516,6 +516,15 @@ export const eventKey = (e: NotifyEvent): string => {
 };
 
 const tagsLine = (e: NotifyEvent): string => `#${TYPE_TAG[e.type]} #${esc(eventKey(e))}`;
+
+/**
+ * Строка тегов для свободного HTML (`sendReport`). Тег — это ФИЛЬТР владельца,
+ * и к формату тела он отношения не имеет: дневной отчёт остаётся свободным
+ * текстом, но перестаёт быть единственной карточкой без тегов. Раньше ключ
+ * висел хвостом в `<i><code>#ключ</code></i>` — это старый формат, до того как
+ * теги переехали первой строкой.
+ */
+export const reportTags = (key: string): string => `#report #${esc(slug(key))}`;
 
 /**
  * Рендерит событие в готовый HTML-текст, обрезанный под лимит Telegram.

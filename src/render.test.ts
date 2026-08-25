@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ICON, severity, type NotifyEvent } from './events.ts';
-import { render, eventKey, clampMessage } from './render.ts';
+import { render, eventKey, clampMessage, reportTags } from './render.ts';
 
 const XSS = '<script>alert(1)</script>';
 
@@ -1033,6 +1033,19 @@ test('action: a card with nothing to run carries no marker', () => {
   });
 
   assert.ok(!out.includes('▶'), 'a card with no action must not show the action marker');
+});
+
+/**
+ * The free-text daily report was the ONE card with no tag line — it wore the
+ * old shape, a single `#key` hanging in italics at the bottom. The owner:
+ * "если это репорт, почему у него нет тега репорт". The body stays free text;
+ * the tag line is a filter and has nothing to do with the format of the body.
+ */
+test('free report: the tag line is first, and it is a report like any other', () => {
+  const line = reportTags('daily-report');
+
+  assert.equal(line, '#report #daily_report');
+  assert.ok(!line.includes('<i>') && !line.includes('<code>'), 'the old trailing tag shape came back');
 });
 
 test('sound: nothing a pull request does ever rings', () => {

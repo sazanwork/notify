@@ -1,7 +1,7 @@
 // Renders every card with the package's OWN renderer and builds the page.
 // Refuses to write the file if a card came out empty — a silently empty
 // catalogue is exactly the lie this page exists to prevent.
-import { render, eventKey } from '../dist/render.js';
+import { render, eventKey, reportTags } from '../dist/render.js';
 import { ICON, LOUD, severity } from '../dist/events.js';
 import { CARDS } from './cards.mjs';
 import { writeFileSync } from 'node:fs';
@@ -118,7 +118,9 @@ const articles = CARDS.map((c) => {
   // A card may be raw HTML the sender builds itself — the free-text report
   // goes through sendReport, which standardises delivery and nothing else,
   // so there is no event and no tag line to render.
-  const html = c.raw ?? render(c.event);
+  // A free-text report is delivered by sendReport, which prepends the same tag
+  // line every other card has. Render it here the same way, from the package.
+  const html = c.raw ? `${reportTags(c.rawKey)}\n${c.raw}` : render(c.event);
   if (!html || html.split('\n').length < 2) {
     throw new Error(`card ${c.id} rendered empty — refusing to build`);
   }
@@ -148,7 +150,8 @@ const articles = CARDS.map((c) => {
     throw new Error(`card ${c.id}: no expectTag — every rendered card must declare its tag line`);
   }
   const { tags, body } = c.raw
-    ? { tags: '<span class="notag">строки тегов нет</span>', body: html.replace(/\n/g, '<br>') }
+    ? { tags: `<span>#report</span> <span>#${reportTags(c.rawKey).split('#').pop()}</span>`,
+        body: html.split('\n').slice(1).join('\n').replace(/\n/g, '<br>') }
     : toBubble(html);
   const cls = ICON_CLASS(html);
   const [liveCls, liveText] = c.live;
