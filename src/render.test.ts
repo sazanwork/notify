@@ -989,12 +989,12 @@ test('card/session: identifier first, his own words quoted, command copyable', (
   assert.equal(out, [
     '#session #burning_the_limit #fail',
     '🚨 <b>Session:</b> burning the limit',
-    '',
     '<b>Project:</b> mac-config',
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     '',
-    // Unlabelled, the quote reads as a continuation of Reason.
-    '<b>Opened with</b>',
+    // A block heading, in the one style every card uses for a block — not a
+    // bold field label, which means `label: value` on a single line.
+    '<i><u>Opened with</u></i>',
     '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
     '',
     '<b>To do:</b> stop the alarm for this session',

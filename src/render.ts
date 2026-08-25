@@ -230,8 +230,15 @@ const note = (text: string | undefined): string | null => {
  * стоит отдельной строкой, потому что сам текст в поле не помещается: поле
  * держит одну строку и обрезает.
  */
+/**
+ * A quote that needs saying what it is. The heading is a GROUP heading — the
+ * same italic-underline every other card uses over a block — not a bold field
+ * label: a bold label means `label: value` on one line, and using it here made
+ * the session card the only one whose block was titled a third way. The owner
+ * read the card and asked where its group was.
+ */
 const quoted = (label: string, text: string | undefined): string | null =>
-  text ? `<b>${esc(cap(label))}</b>\n${note(text)}` : null;
+  text ? `${group(label)}\n${note(text)}` : null;
 
 /**
  * Склейка карточки. Пустая строка здесь — знак смены блока, а не отступ:
@@ -620,7 +627,9 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
 const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'Session', e.action),
-    '',
+    // No blank line under the type line: a blank means a new block, and here it
+    // opened a block that had no heading. Facts about the session touch the
+    // line that names it, the way they do on every job card.
     field('Project', e.workdir),
     field('Reason', e.reason),
     e.opened ? '' : null,
