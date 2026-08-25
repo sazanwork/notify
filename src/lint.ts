@@ -97,8 +97,21 @@ export const lintCard = (html: string): string[] => {
     }
   }
 
-  if (/all good/i.test(html)) {
-    found.push('"all good" is a status, not a recommendation');
+  // Only when it IS the value of a row or a list item. The first shape of this
+  // rule read the whole card, so a deploy card quoting the words inside a
+  // commit body — the very commit that removed `all good` from the reports —
+  // raised a complaint about itself.
+  for (const row of rows) {
+    const value = row
+      .replace(/^•\s*/, '')
+      .replace(/^<b>[^<]*:<\/b>\s*/, '')
+      .replace(/<[^>]+>/g, '')
+      .trim();
+
+    if (/^all good$/i.test(value)) {
+      found.push('"all good" is a status, not a recommendation');
+      break;
+    }
   }
 
   return found;

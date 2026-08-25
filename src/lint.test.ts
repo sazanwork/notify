@@ -50,6 +50,22 @@ test('lint: a signed number is not a comparison, and "all good" is not advice', 
   assert.match(lintCard('#report #x #news\nℹ️ <b>Report:</b> R\nall good')[0], /is a status/);
 });
 
+test('lint: "all good" quoted inside a body is not a card saying it', () => {
+  // The deploy card for the very commit that removed `all good` from the
+  // reports quoted the words in its body, and the check complained about it.
+  const quoting = render({
+    type: 'deploy',
+    project: 'playhub',
+    status: 'ok',
+    via: 'manual, from the Mac',
+    commit: 'e3fdd7d',
+    commitUrl: 'https://x/c',
+    commitBody: 'Recommendations printed `all good` when there was nothing to say.'
+  });
+
+  assert.deepEqual(lintCard(quoting), []);
+});
+
 test('lint: an empty instance tag groups nothing', () => {
   assert.match(lintCard('#session # #fail\n🚨 <b>Session</b>')[0], /instance tag is empty/);
 });
