@@ -193,8 +193,10 @@ export const CARDS = [
     event: {
       type: 'job', project: 'mac-config', key: 'config-sync',
       job: 'Config sync', status: 'fail',
-      note: 'git push refused: the remote branch holds a commit that is not here'
-    }
+      note: 'git push refused: the remote branch holds a commit that is not here',
+      logs: '/Users/chelsnebes/Library/Logs/config-sync.log'
+    },
+    note: "Красная карточка задачи всегда говорит, куда смотреть: launchd пишет каждую задачу в свой файл, и отправитель подставляет его сам. Локальный файл ссылкой быть не может — он моноширинный, чтобы скопировать одним тапом."
   },
   {
     id: 'job-backups', title: 'Бэкапы сервера сломались',
