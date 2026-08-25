@@ -79,8 +79,24 @@ export type NotifyEvent = Keyed &
       type: 'job';
       project: Project;
       job: string;
-      /** `disabled` — задача выключена извне (например GitHub Actions кончил бесплатные минуты), не провалилась сама. */
-      status: 'ok' | 'fail' | 'disabled';
+      /**
+       * `disabled` — задача выключена извне (например GitHub Actions кончил
+       * бесплатные минуты), не провалилась сама.
+       *
+       * `silent` — задача не отчиталась в срок: она не упала, она вообще не
+       * подала признаков жизни. Это состояние ЗАДАЧИ, а не отдельный вид
+       * события — оно жило типом `heartbeat_miss`, и владелец справедливо
+       * спросил, почему задача по расписанию у него под двумя разными тегами.
+       * Хуже того: сторож молчания шлёт тот же машинный ключ, что и сама
+       * задача, так что красная карточка `#heartbeat #daily_import` не
+       * закрывалась зелёной `#job #daily_import` — разборщик ищет пару по
+       * ПОЛНОМУ тегу. Один поток на задачу это чинит.
+       */
+      status: 'ok' | 'fail' | 'disabled' | 'silent';
+      /** Как часто задача обязана отмечаться — для `silent` и для возврата из него. */
+      expected?: string;
+      /** Когда её видели в последний раз. */
+      lastSeen?: string;
       stats?: Array<[label: string, value: string | number]>;
       /** Детали: что именно упало, замечания прогона; у `disabled` — список выключенных процессов (каждый со своей ссылкой). */
       items?: Item[];
@@ -235,7 +251,12 @@ export type NotifyEvent = Keyed &
       /** `fail` red, `ok` green — a session that recovered is not an alarm. */
       status?: 'fail' | 'ok';
     }
-  /** Задача не отметилась вовремя — сторож молчания (heartbeat). */
+  /**
+   * УСТАРЕЛО с 1.4.2: используйте `job` со статусом `silent`. Тип остаётся,
+   * потому что сторож молчания живёт на сервере и до выкатки шлёт именно его —
+   * убрать значит потерять карточку молчания ровно тогда, когда она нужна.
+   * Новых вызовов не добавлять.
+   */
   | {
       type: 'heartbeat_miss';
       project: Project;
@@ -283,7 +304,10 @@ export const severity = (e: NotifyEvent): 'info' | 'error' => {
   // задача не работает, что бы ни было тому причиной. Молчаливая отправка
   // красной карточки без звука хуже отсутствия карточки: авария выглядит
   // аварией, но не будит (тот же довод, что уже был у `fail`).
-  if ('status' in e && (e.status === 'fail' || e.status === 'disabled')) {
+  // Everything except `ok` rings. A task that has gone silent is not a
+  // quieter kind of broken than one that failed — it is the kind you find
+  // out about days late, which is exactly why it must not arrive muted.
+  if ('status' in e && e.status !== undefined && e.status !== 'ok') {
     return 'error';
   }
 

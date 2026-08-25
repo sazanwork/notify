@@ -220,11 +220,15 @@ const status = (): 'ok' | 'fail' => {
 
 // `job` — единственный тип с третьим состоянием (`disabled`): задача не
 // провалилась сама, её выключил кто-то извне (GitHub Actions без минут).
-const jobStatus = (): 'ok' | 'fail' | 'disabled' => {
+const jobStatus = (): 'ok' | 'fail' | 'disabled' | 'silent' => {
   const raw = (one('status') ?? '').toLowerCase();
 
   if (raw === 'disabled') {
     return 'disabled';
+  }
+
+  if (raw === 'silent') {
+    return 'silent';
   }
 
   return raw === 'ok' || raw === 'success' || raw === 'passed' || raw === '0' ? 'ok' : 'fail';
@@ -269,6 +273,8 @@ if (flags.has('json')) {
         project: project(),
         job: one('job') ?? '(no name)',
         status: jobStatus(),
+        expected: one('expected'),
+        lastSeen: one('last-seen'),
         stats: pairs('stat'),
         items: items(),
         note: one('note'),

@@ -868,3 +868,38 @@ test('card/job: several red checks are a list, not a comma-separated tail', () =
   assert.ok(!out.includes('Disabled workflows'), 'the disabled heading leaked onto a plain list');
   assert.ok(out.includes('<b>Log:</b> <code>/Users/chelsnebes/Library/Logs/update-all.log</code>'), 'the log path is not monospaced');
 });
+
+// ── Silence is a state of the task, not a separate species ──────────────────
+// It used to be its own event type, `heartbeat_miss`, and the owner asked why a
+// scheduled task lived under two different tags. Worse: the watchdog passes the
+// SAME machine key as the task itself, so a red `#heartbeat #daily_import`
+// could never be closed by a green `#job #daily_import` — the reactor pairs on
+// the whole tag line.
+
+test('card/job silent: one task, one tag, and the pair closes', () => {
+  const gone = render({
+    type: 'job', project: 'playhub', key: 'daily-import', job: 'Yandex game import',
+    status: 'silent', expected: 'at least once every 26h', lastSeen: '23.08 04:12'
+  });
+  const back = render({
+    type: 'job', project: 'playhub', key: 'daily-import', job: 'Yandex game import',
+    status: 'ok', expected: 'at least once every 26h', lastSeen: '25.08 04:10'
+  });
+
+  assert.equal(gone.split('\n')[0], '#job #daily_import');
+  assert.equal(gone.split('\n')[0], back.split('\n')[0], 'the pair does not share a tag line');
+  assert.ok(gone.includes('🔴 <b>Job:</b> silent'), 'silent is not red');
+  assert.ok(gone.includes('<b>Last seen:</b> 23.08 04:12'), 'a silent task must say when it was last seen');
+  assert.ok(back.includes('<b>Last run:</b> 25.08 04:10'), 'a live task says last RUN, not last seen');
+  assert.equal(severity({ type: 'job', project: 'playhub', job: 'x', status: 'silent' }), 'error');
+});
+
+test('severity: every status that is not ok rings', () => {
+  for (const status of ['fail', 'disabled', 'silent'] as const) {
+    assert.equal(
+      severity({ type: 'job', project: 'playhub', job: 'x', status }), 'error',
+      `${status} arrived muted`
+    );
+  }
+  assert.equal(severity({ type: 'job', project: 'playhub', job: 'x', status: 'ok' }), 'info');
+});

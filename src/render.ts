@@ -271,7 +271,7 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
 };
 
 const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
-  const icon = e.status === 'fail' || e.status === 'disabled' ? ICON.red : ICON.ok;
+  const icon = e.status === 'ok' ? ICON.ok : ICON.red;
   const hasItems = (e.items ?? []).length > 0;
   const disabledList = hasItems && e.status === 'disabled';
 
@@ -288,6 +288,10 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // workflow name, so that row was the bare verb the owner objected to.
     fieldLink('Task', e.workflowUrl ?? e.url, e.job),
     field('Reason', e.note),
+    field('Expected', e.expected),
+    // `Last run` when the task is alive, `Last seen` when it is not: the same
+    // timestamp answers two different questions.
+    field(e.status === 'silent' ? 'Last seen' : 'Last run', e.lastSeen),
     ...(e.stats ?? []).map(([label, value]) => field(label, value)),
     hasItems ? '' : null,
     // Heading ONLY for `disabled`. It used to print for any job carrying a
