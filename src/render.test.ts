@@ -150,7 +150,7 @@ test('поле: жирный ярлык с большой буквы, значе
   assert.ok(!text.includes('<b>Reason:</b> <b>причина</b>'), 'значение не должно быть жирным');
 });
 
-test('commit/pr/issue — единая форма: ярлык → идентификатор ссылкой → цитата с названием, без дублей', () => {
+test('commit/pr/issue: one form — identifier, then the body as a quote, no doubles', () => {
   const ci = render({
     type: 'ci',
     project: 'arvent',
@@ -162,8 +162,9 @@ test('commit/pr/issue — единая форма: ярлык → идентиф
 
   assert.ok(ci.includes('<b>Title:</b> Онбординг: заготовки вопросов (#294)'));
   assert.ok(ci.includes('<b>Commit:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">9b1fc68</a>'));
-  // Заголовок — поле, не цитата: цитата держит ТОЛЬКО тело. Без тела её нет.
-  assert.ok(!ci.includes('<blockquote>'), 'без тела цитаты быть не должно');
+  // A commit title is a field, not a quote: the quote holds ONLY the body. With
+  // no body there is no quote.
+  assert.ok(!ci.includes('<blockquote>'), 'no body means no quote');
   assert.equal((ci.match(/Онбординг: заготовки вопросов \(#294\)/g) ?? []).length, 1);
 
   const issue = render({
@@ -175,11 +176,12 @@ test('commit/pr/issue — единая форма: ярлык → идентиф
     body: 'разбор 150 коммитов'
   });
 
-  assert.ok(issue.includes('<b>Number:</b> #322'), 'без url номер задачи всё равно показывается, просто без ссылки');
-  // Ярлык второй строки — `Number`, а не `Issue`: строка выше уже говорит
-  // `Issue: opened`, и повтор ярлыка читается как ошибка вёрстки.
-  assert.equal((issue.match(/<b>Issue:<\/b>/g) ?? []).length, 1, 'ярлык типа не должен повторяться');
-  assert.ok(issue.includes('<b>Title:</b> Коммиты не следуют конвенции'));
+  // Number and title are ONE identifier on the type line, the way GitHub writes
+  // it. With no url it is still there, simply not a link.
+  assert.equal(issue.split('\n')[1], '🆕 <b>Issue:</b> #322 Коммиты не следуют конвенции');
+  assert.ok(!issue.includes('<b>Number:</b>'), 'the Number row came back');
+  assert.ok(!issue.includes('<b>Title:</b>'), 'the Title row came back');
+  assert.equal((issue.match(/<b>Issue:<\/b>/g) ?? []).length, 1, 'the type label must not repeat');
   assert.ok(issue.includes('<blockquote>разбор 150 коммитов</blockquote>'));
 });
 
@@ -382,23 +384,23 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
   // This test used to assert the opposite — that a long detail stayed a
   // one-line field. That WAS the bug: `field()` keeps only the first line, and
   // vault (the only sender of this type) passes a three-line diagnosis, so
-  // every alarm arrived gutted. `Title:` now carries the short title and the
+  // every alarm arrived gutted. The title is the type line now and the
   // diagnosis is quoted under it, the same shape a commit body already had.
   const multiline = 'нет sops\nключ не найден\nлог: ~/Library/Logs/vault.log';
   const short = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: multiline });
   const long = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'А'.repeat(500) });
 
-  assert.ok(short.includes('<b>Title:</b> Vault needs a fix'), 'заголовок аварии — поле Reason');
-  assert.ok(short.includes('лог: ~/Library/Logs/vault.log'), 'последняя строка диагноза потеряна — вернулась обрезка');
-  assert.ok(short.includes('<blockquote>'), 'диагноз должен идти цитатой');
-  assert.ok(long.includes('<blockquote expandable>'), 'длинный диагноз сворачивается');
+  assert.equal(short.split('\n')[1], '🚨 <b>Incident:</b> Vault needs a fix');
+  assert.ok(short.includes('лог: ~/Library/Logs/vault.log'), 'the last line of the diagnosis was cut off');
+  assert.ok(short.includes('<blockquote>'), 'the diagnosis must be quoted');
+  assert.ok(long.includes('<blockquote expandable>'), 'a long diagnosis folds up');
 });
 
 test('incident: detail equal to title is not printed twice', () => {
   const out = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'Vault needs a fix' });
 
-  assert.ok(out.includes('<b>Title:</b> Vault needs a fix'));
-  assert.ok(!out.includes('<blockquote>'), 'цитата повторяет заголовок — образец это запрещает');
+  assert.equal(out.split('\n')[1], '🚨 <b>Incident:</b> Vault needs a fix');
+  assert.ok(!out.includes('<blockquote>'), 'the quote repeats the title');
 });
 
 test('multiline commit title режется до первой строки (защита от полного тела в поле)', () => {
@@ -437,19 +439,23 @@ test('workflow без url — строки нет вообще, не "Check: run
   assert.ok(!out.includes('Workflow'), 'старая хвостовая строка не должна вернуться');
 });
 
-// Владелец: «Workflow должен быть сверху, возле слова deploy — это показывает,
-// что они связаны». Он читал `Deploy: ok` первой строкой и `Workflow: …`
-// девятой, и они выглядели как разные вещи. Теперь имя того, что запустилось,
-// стоит второй строкой и оно же — ссылка на прогон.
-test('run: what ran is named beside the type line and is the link', () => {
+// What ran IS the identifier of the card, so it stands ON the type line and
+// carries the link, exactly as a job's name and a report's name do. It used to
+// be one fact split in three: `Deploy: ok` on line 2, `Via:` under it and a
+// trailing `Workflow:` row eight lines below, all naming the same run.
+test('run: what ran is the type line itself and carries the link', () => {
   const deploy = render({
     type: 'deploy', project: 'playhub', status: 'fail',
     commit: 'a1b2c3d', commitUrl: 'https://x/c',
     via: 'GitHub Actions', workflowName: 'Deploy to Beget', workflowUrl: 'https://x/run'
   });
 
-  assert.equal(deploy.split('\n')[2], '<b>Via:</b> <a href="https://x/run">Deploy to Beget</a>');
-  assert.ok(!deploy.includes('<b>Workflow:</b>'), 'хвостовая строка Workflow должна была уйти');
+  assert.equal(
+    deploy.split('\n')[1],
+    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a>'
+  );
+  assert.ok(!deploy.includes('<b>Via:</b>'), 'the Via row carried the name a floor below');
+  assert.ok(!deploy.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go');
 
   const ci = render({
     type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
@@ -457,8 +463,12 @@ test('run: what ran is named beside the type line and is the link', () => {
     workflowName: 'nightly', workflowUrl: 'https://x/run'
   });
 
-  assert.equal(ci.split('\n')[2], '<b>Check:</b> <a href="https://x/run">nightly</a>');
-  assert.ok(!ci.includes('<b>Workflow:</b>'), 'хвостовая строка Workflow должна была уйти и с CI');
+  assert.equal(
+    ci.split('\n')[1],
+    '\u{1F534} <b>CI:</b> <a href="https://x/run">nightly</a>'
+  );
+  assert.ok(!ci.includes('<b>Check:</b>'), 'CI called its own name by a different word');
+  assert.ok(!ci.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go from CI too');
 });
 
 // `GitHub Actions` одинаково на каждой карточке в каждом репозитории — как имя
@@ -474,15 +484,16 @@ test('run: the workflow name beats the platform as the link text', () => {
   assert.ok(!out.includes('>GitHub Actions</a>'), 'платформа не имя прогона');
 });
 
-// Ручная выкатка открывать нечего — поле остаётся, ссылки нет.
-test('run: a hand deploy keeps the row and has nothing to open', () => {
+// A hand deploy has no run to open: the type line still says by what means it
+// went out, it is simply not a link.
+test('run: a hand deploy names the means and has nothing to open', () => {
   const out = render({
     type: 'deploy', project: 'game-publisher', status: 'ok',
     commit: '3f1a882', commitUrl: 'https://x/c', via: 'manual, from the Mac'
   });
 
-  assert.equal(out.split('\n')[2], '<b>Via:</b> manual, from the Mac');
-  assert.ok(!out.includes('<a href="https://x/run"'), 'прогона у ручной выкатки нет');
+  assert.equal(out.split('\n')[1], '\u2705 <b>Deploy:</b> manual, from the Mac');
+  assert.ok(!out.includes('<a href="https://x/run"'), 'a hand deploy has no run');
 });
 
 // Худший случай: ссылка на прогон есть, а имени нет ни одного. Потерять ссылку
@@ -555,7 +566,11 @@ test('run: a nameless run keeps its link rather than losing it', () => {
     commit: 'a1b2c3d', commitUrl: 'https://x/c', url: 'https://x/run'
   });
 
-  assert.ok(out.includes('<b>Via:</b> <a href="https://x/run">the run</a>'), 'ссылка на логи потерялась');
+  assert.equal(
+    out.split('\n')[1],
+    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">the run</a>',
+    'the link to the logs was lost'
+  );
 });
 
 test('severity: job disabled звонит как fail, heartbeat recovered — молчит как success', () => {
@@ -637,8 +652,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <b>CI:</b> ok',
-    '<b>Check:</b> <a href="https://x/run">the run</a>',
+    '✅ <b>CI:</b> <a href="https://x/run">the run</a>',
     '',
     '<i><u>Run</u></i>',
     '<b>Actor:</b> @chelsnebes',
@@ -659,8 +673,7 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <b>CI:</b> ok',
-    '<b>Check:</b> <a href="https://x/run">the run</a>',
+    '✅ <b>CI:</b> <a href="https://x/run">the run</a>',
     '',
     '<i><u>Run</u></i>',
     '<b>Reason:</b> nightly check of master',
@@ -679,8 +692,7 @@ test('card/deploy', () => {
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> ok',
-    '<b>Via:</b> <a href="https://x/run">GitHub Actions</a>',
+    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a>',
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a>',
@@ -698,10 +710,7 @@ test('card/issue: body arrives — it never did before', () => {
 
   assert.equal(out, [
     '#issue #i322 #news',
-    '🆕 <b>Issue:</b> opened',
-    '',
-    '<b>Number:</b> <a href="https://x/i/322">#322</a>',
-    '<b>Title:</b> Commit convention for all repos',
+    '🆕 <b>Issue:</b> <a href="https://x/i/322">#322 Commit convention for all repos</a>',
     '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '<b>Author:</b> mikitasazan'
   ].join('\n'));
@@ -717,23 +726,19 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
 
   assert.equal(out, [
     '#pr #p294 #news',
-    '🆕 <b>PR:</b> opened',
-    '',
-    '<b>Number:</b> <a href="https://x/p/294">#294</a>',
-    '<b>Title:</b> Onboarding: question drafts',
+    '🆕 <b>PR:</b> <a href="https://x/p/294">#294 Onboarding: question drafts</a>',
     '<blockquote>PR description here.</blockquote>',
     '<b>Author:</b> Ilja-Prihach'
   ].join('\n'));
 
-  // Один заголовок — одна строка, у всех типов одинаково. PR-заголовок раньше
-  // был исключением и НЕ резался; исключение убрано вместе с тем, что его
-  // порождало — заголовок больше не лежит в цитате, он поле как все.
+  // One title is one line, the same for every type. It is the identifier now,
+  // so a two-line title is cut at the first line like any other value.
   const twoLine = render({
     type: 'pr', project: 'playhub', action: 'opened', number: 1,
     title: 'first line\nsecond line'
   });
-  assert.ok(twoLine.includes('<b>Title:</b> first line'), 'заголовок PR — поле');
-  assert.ok(!twoLine.includes('second line'), 'заголовок режется по первой строке, как у задачи и коммита');
+  assert.ok(twoLine.includes('#1 first line'), 'the PR identifier is number plus title');
+  assert.ok(!twoLine.includes('second line'), 'a title is cut at its first line');
 });
 
 test('card/incident: every line of the diagnosis survives', () => {
@@ -745,9 +750,7 @@ test('card/incident: every line of the diagnosis survives', () => {
 
   assert.equal(out, [
     '#incident #vault_needs_a_fix #fail',
-    '🚨 <b>Incident:</b> open',
-    '',
-    '<b>Title:</b> Vault needs a fix',
+    '🚨 <b>Incident:</b> Vault needs a fix',
     '<blockquote>нет sops',
     'ключ не найден',
     'лог: ~/Library/Logs/vault.log</blockquote>',
@@ -764,9 +767,7 @@ test('card/heartbeat miss', () => {
 
   assert.equal(out, [
     '#heartbeat #yandex_game_import #fail',
-    '❓ <b>Heartbeat:</b> miss',
-    '',
-    '<b>Task:</b> Yandex game import',
+    '❓ <b>Heartbeat:</b> Yandex game import (miss)',
     '<b>Expected:</b> at least once every 26h',
     '<b>Last seen:</b> never'
   ].join('\n'));
@@ -801,9 +802,9 @@ test('card/report', () => {
 
   assert.equal(out, [
     '#report #analytics #news',
-    'ℹ️ <b>Report:</b> Analytics',
-    // Строки без группы стоят вплотную к шапке: это факты про сам отчёт.
-    '<b>Period:</b> compared to 23.08',
+    'ℹ️ <b>Report:</b> Analytics (compared to 23.08)',
+    // Ungrouped rows stand flush against the header: they are facts about the
+    // report itself.
     '<b>Pageviews (server):</b> 1284',
     '<b>Game launches:</b> 412',
     '',
@@ -811,18 +812,20 @@ test('card/report', () => {
   ].join('\n'));
 });
 
-// Владелец: «период пошёл не туда, он же должен быть рядом с датой». То, что
-// уточняет вторую строку, стоит вплотную к ней — тот же закон, что у `Via` и
-// `Check`, а не в блоке фактов через пустую строку.
-test('report: the period touches the name, the facts start after the seam', () => {
+// What a report covers is part of its NAME, not another fact about it: as a row
+// of its own it read as a number among numbers, and only this one report ever
+// had that row. In brackets on the type line every report says the same thing
+// the same way.
+test('report: what it covers rides in brackets on the name itself', () => {
   const out = render({
     type: 'report', project: 'playhub', key: 'daily', title: 'russkie-igry.ru',
-    period: '25.08.2026', lines: [['Games', 412, 'Catalogue']]
+    period: '2026-08-25', lines: [['Games', 412, 'Catalogue']]
   });
   const rows = out.split('\n');
 
-  assert.equal(rows[2], '<b>Period:</b> 25.08.2026');
-  assert.equal(rows[3], '');
+  assert.equal(rows[1], 'ℹ️ <b>Report:</b> russkie-igry.ru (2026-08-25)');
+  assert.ok(!out.includes('<b>Period:</b>'), 'the Period row came back');
+  assert.equal(rows[2], '');
   assert.ok(rows.includes('<i><u>Catalogue</u></i>'));
 });
 
@@ -886,12 +889,12 @@ test('link/report: the report name is the link, and there is no Details row', ()
   });
 
   assert.ok(
-    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22</a>'),
-    'the report name is not the link'
+    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22</a> (compared with 2026-08-21)'),
+    'the report name is not the link, or its brackets are gone'
   );
   assert.ok(
-    out.includes('<b>Period:</b> compared with 2026-08-21'),
-    'the period must be its own line, not a tail on the clickable name'
+    !out.includes('<b>Period:</b>'),
+    'what the report covers must ride on the name, not take a row of its own'
   );
   assert.ok(!out.includes('2026-08-22 · '), 'the middot pair on the type line came back');
   assert.ok(!out.includes('Details'), 'the Details row came back');
@@ -939,8 +942,12 @@ test('link/incident: the title is the link', () => {
     detail: 'three lines of diagnosis', url: 'https://x/run'
   });
 
-  assert.ok(out.includes('<b>Title:</b> <a href="https://x/run">The vault needs repair</a>'), 'incident title is not the link');
-  assert.ok(!out.includes('>open</a>'), 'the bare Workflow: open row came back on the incident');
+  assert.ok(
+    out.includes('🚨 <b>Incident:</b> <a href="https://x/run">The vault needs repair</a>'),
+    'the incident title is not the type line, or not the link'
+  );
+  assert.ok(!out.includes('<b>Title:</b>'), 'the Title row came back on the incident');
+  assert.ok(!out.includes('>open</a>'), 'the bare open link came back on the incident');
 });
 
 test('link/no url: the name stays plain text, the card does not invent a link', () => {
@@ -982,12 +989,10 @@ test('card/session: identifier first, his own words quoted, command copyable', (
     '#session #burning_the_limit #fail',
     '🚨 <b>Session:</b> burning the limit',
     '',
-    '<b>Id:</b> 8f03d18c-b7d6-438c-bb40-6756c3e1e835',
     '<b>Project:</b> mac-config',
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     '',
-    // Без подписи цитата читается как продолжение Reason — владелец спросил,
-    // что это за текст и откуда он берётся.
+    // Unlabelled, the quote reads as a continuation of Reason.
     '<b>Opened with</b>',
     '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
     '',

@@ -413,7 +413,7 @@ if (flags.has('json')) {
         type: 'report',
         project: project(),
         title: one('title') ?? '(no title)',
-        period: one('note'),
+        // A file card has no period; the caption is its title.
         lines: []
       };
       break;

@@ -399,15 +399,28 @@ type Renderer<E extends NotifyEvent> = (e: E) => string;
 // report and asked what "open" was — the answer is the report itself, which was
 // sitting three lines above as dead text. So line 2 takes an optional URL and
 // the action text becomes the link: `Report: <a>Analytics for 12.08</a>`.
-const typeLine = (icon: string, type: string, action: string | undefined, url?: string): string => {
-  // `field` возвращает null на пустом значении, а интерполяция null в шаблон
-  // печатает слово «null». Так вторая строка карточки становилась `ℹ️ null` —
-  // достижимо через `--json` и прямой вызов на JS, где типов нет.
+// `aside` is the one qualifier an identifier needs to be readable on its own —
+// which day a report covers, which day its arrows are measured against. It
+// rides in brackets ON the type line instead of taking a row of its own,
+// because a row of its own reads as another fact about the subject rather than
+// as part of the name.
+const typeLine = (
+  icon: string,
+  type: string,
+  action: string | undefined,
+  url?: string,
+  aside?: string
+): string => {
+  // `field` returns null on an empty value, and interpolating null into a
+  // template prints the word "null". That is how line 2 of a card became
+  // `ℹ️ null` — reachable through `--json` and through a direct call from JS,
+  // where there are no types.
   // `action || 'open'` in the linked case: an empty title must not swallow the
   // link, which would be the one thing the card cannot afford to lose.
   const line = url ? fieldLink(type, url, action || 'open') : field(type, action);
+  const tail = aside ? ` (${esc(aside)})` : '';
 
-  return line === null ? `${icon} <b>${esc(cap(type))}</b>` : `${icon} ${line}`;
+  return line === null ? `${icon} <b>${esc(cap(type))}</b>${tail}` : `${icon} ${line}${tail}`;
 };
 
 // `workflowUrl ?? url`: половина отправителей шлёт ссылку на прогон под именем
@@ -448,8 +461,10 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   const runUrl = e.workflowUrl ?? e.url;
 
   return join([
-    typeLine(icon, 'Deploy', e.status),
-    fieldLink('Via', runUrl, mechanism(e.workflowName, e.via, runUrl)),
+    // Имя того, чем выкатили, — на строке типа. Исход говорят значок и третий
+    // тег; повторять его словом нечего, и это тот же закон, что у задачи и у
+    // отчёта. Строки `Via` больше нет: она несла это имя этажом ниже.
+    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via, runUrl) ?? e.status, runUrl),
     ...twoBlocks(
       [field('Target', e.target), field('Reason', e.note)],
       [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
@@ -507,23 +522,16 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   if (e.groups && e.groups.length > 0) {
     const body = e.groups.flatMap((g, i) => (i === 0 ? renderGroup(g) : ['', ...renderGroup(g)]));
 
-    // `lines` и `groups` вместе, а не «или»: раньше ветка с группами печатала
-    // ТОЛЬКО группы, и цифры отчёта молча исчезали. Поймано 25.08.2026 при
-    // переводе утреннего отчёта PlayHub на типизированное событие.
+    // `lines` AND `groups` together, not one or the other: the branch with
+    // groups used to print ONLY the groups, and the report's numbers vanished
+    // without a word.
     const numbers = labelled(e.lines);
 
     return join([
-      typeLine(iconFor(e), 'Report', e.title, e.url),
-      // Период стоит ВПЛОТНУЮ к названию, без пустой строки, по тому же
-      // закону, что `Via` у выкатки и `Check` у проверки: строка, которая
-      // уточняет вторую строку, живёт рядом с ней, а не в блоке фактов.
-      // Владелец: «период пошёл не туда, он же должен быть рядом с датой».
-      field('Period', e.period),
-      // Строки БЕЗ группы идут вплотную к шапке, а не отдельным куском под
-      // пустой строкой: это факты про сам отчёт — период, номер, — а не про
-      // то, о чём он. Владелец: «number отдельно и период отдельно, непонятно,
-      // куда их относить». `labelled` сам ставит пустую строку перед первой
-      // группой, поэтому её здесь больше нет.
+      typeLine(iconFor(e), 'Report', e.title, e.url, e.period),
+      // Rows with no group of their own sit flush against the header instead of
+      // forming a separate slab under a blank line. `labelled` puts the blank
+      // line before the first group itself, so there is none here.
       ...numbers,
       body.length > 0 ? '' : null,
       ...body
@@ -535,10 +543,8 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   return join([
     // Both analytics jobs send a link to the day's snapshot in docs/. It used to
     // hang off a trailing `Details: open` row; now it is the report's own name.
-    typeLine(iconFor(e), 'Report', e.title, e.url),
-    // Вплотную к названию — см. соседнюю ветку.
-    field('Period', e.period),
-    // Вплотную к шапке — см. соседнюю ветку.
+    typeLine(iconFor(e), 'Report', e.title, e.url, e.period),
+    // Flush against the header — see the branch above.
     ...labelled(e.lines),
     items.length > 0 ? '' : null,
     ...items
@@ -554,8 +560,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   const runUrl = e.workflowUrl ?? e.url;
 
   return join([
-    typeLine(icon, 'CI', e.status),
-    fieldLink('Check', runUrl, mechanism(e.workflowName, undefined, runUrl)),
+    typeLine(icon, 'CI', mechanism(e.workflowName, undefined, runUrl) ?? e.status, runUrl),
     ...twoBlocks(
       [field('Actor', e.actor), field('Reason', e.note)],
       [fieldLink('Commit', e.commitUrl, e.commit), titleField(e.commitTitle), bodyQuote(e.commitBody)]
@@ -563,63 +568,59 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   ]);
 };
 
+// A pull request and an issue are identified the way GitHub itself identifies
+// them: `#118 <title>`, one string, and it is the link. It used to take three
+// rows — the action on line 2, `Number:` under it, `Title:` under that — so
+// the thing the card is about could not be read without reading three lines.
+// The action is not repeated in words: the icon carries it, and no two actions
+// of one type share an icon.
+const named = (number: number, title: string | undefined): string =>
+  title ? `#${number} ${title}` : `#${number}`;
+
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'PR', e.action),
-    '',
-    // Идентификатор первым, заголовок под ним: так вещь читается «#118, вот
-    // такая», а не «вот такая, кстати #118» — и так её пишет сам GitHub.
-    fieldLink('Number', e.url, `#${e.number}`),
-    titleField(e.title),
+    typeLine(iconFor(e), 'PR', named(e.number, e.title), e.url),
     bodyQuote(e.body),
-    // Без пустой строки перед автором: у задачи её нет, и одно и то же поле
-    // не должно стоять по-разному в двух соседних карточках. Пустая строка в
-    // этом формате означает «дальше указатель, куда пойти» — автор не он.
     field('Author', e.author),
     field('Reviewer', e.reviewer)
   ]);
 
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'Issue', e.action),
-    '',
-    fieldLink('Number', e.url, `#${e.number}`),
-    titleField(e.title),
+    typeLine(iconFor(e), 'Issue', named(e.number, e.title), e.url),
     bodyQuote(e.body),
     field('Author', e.author),
     field('Assignee', e.assignee)
   ]);
 
+// The incident's own title IS line 2, exactly as an issue's is. It used to say
+// the word `open` there — which the 🚨 already says, and no other card repeats
+// its icon in words — with the real title one row below under a `Title:` label.
+//
+// `detail` is a diagnosis of several lines (vault greps three of them plus a
+// log path). It used to go through `field`, which keeps only the first line, so
+// every alarm this package ever sent arrived gutted. It is quoted now, the same
+// shape a commit body takes.
 const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'Incident', 'open'),
-    '',
-    // `detail` is a diagnosis of several lines (vault greps three of them plus a
-    // log path). It used to go through `field`, which keeps only the first line,
-    // so every alarm this package ever sent arrived gutted. Same shape as a
-    // commit now: short label, full text quoted under it.
-    // Ярлык `Title`, а не `Reason`: у аварии заголовок — такой же заголовок,
-    // как у коммита и задачи, и называться в одной карточке он должен так же.
-    // Same rule as the report: the link rides on the incident's own title
-    // rather than on a trailing row whose only text is the word `open`.
-    fieldLink('Title', e.url, e.title),
+    typeLine(iconFor(e), 'Incident', e.title, e.url),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
     e.logs ? '' : null,
     fieldCode('Logs', e.logs)
   ]);
 
-// Раньше всё это склеивалось в одну строку `Reason:` через тире: «имя — no
-// reports — expected X, last seen Y». Каждая другая карточка кладёт факт на
-// свою строку с ярлыком, и владелец справедливо спросил, зачем тут отдельный
-// формат. Отдельного формата больше нет.
 // A session in trouble. Same law as every other card: identifier first, then
 // the facts as fields, then his own words as a quote — never as a field, which
 // keeps one line and clipped the name of the very session the card is about.
+//
+// A session has no name, so line 2 says what happened to it. The 36-character
+// id is not printed: he cannot type it, cannot search it and cannot act on it.
+// It is still in the card — inside the `rm` command at the bottom, which is the
+// one place it is of any use.
 const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'Session', e.action),
     '',
-    field('Id', e.id),
     field('Project', e.workdir),
     field('Reason', e.reason),
     e.opened ? '' : null,
@@ -633,9 +634,12 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
   const action = e.recovered ? 'ok' : 'miss';
 
   return join([
-    typeLine(icon, 'Heartbeat', action),
-    '',
-    field('Task', e.job),
+    // The task's name on the type line, exactly as a job card carries it. The
+    // `Task:` row said the same thing a floor below. No sender in any
+    // repository builds this event any more — the silence watchdog sends an
+    // ordinary job with `--status silent` — but a machine still running the old
+    // copy of that watchdog can, and the card it gets must obey the template.
+    typeLine(icon, 'Heartbeat', e.job, undefined, action),
     field('Reason', e.note),
     field('Expected', e.expected),
     field(e.recovered ? 'Last run' : 'Last seen', e.lastSeen)

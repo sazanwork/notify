@@ -22,7 +22,7 @@ export const CARDS = [
       workflowUrl: 'https://github.com/sazanwork/playhub/actions/runs/1',
       workflowName: 'Deploy to Beget'
     },
-    note: "Чем выкатили — второй строкой, рядом со словом Deploy, и это же ссылка на прогон. Раньше один факт был разрезан надвое: «Via» в середине и «Workflow» в самом низу."
+    note: "Чем выкатили — сама вторая строка, и она же ссылка на прогон. Раньше один факт был разрезан натрое: слово «ok», строка «Via» под ним и «Workflow» в самом низу."
   },
   {
     id: 'deploy-fail', title: 'Выкатка сорвалась',
@@ -69,8 +69,8 @@ export const CARDS = [
     event: {
       type: 'report', project: 'game-publisher', key: 'analytics-daily',
       title: 'Analytics for 2026-08-22',
+      period: 'compared with 2026-08-21',
       lines: [
-        ['Compared with', '2026-08-23'],
         ['Humans', '485 ▲207', 'Server log'],
         ['Game plays', '0 =', 'GA4'],
         ['Users', '0 ▼1', 'GA4'],
@@ -81,7 +81,7 @@ export const CARDS = [
       groups: [{ name: 'Top search queries', items: [{ label: 'игры для мальчиков', text: '4 clicks, pos. 12' }] }],
       url: 'https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md'
     },
-    note: "Источник числа — заголовок группы, а не хвост ярлыка: было «GA4 users», стало «Users» под «GA4». Стрелка сравнения у каждого числа, а «Compared with» называет день, против которого они посчитаны."
+    note: "Стрелка сравнения у каждого числа, а день, против которого они посчитаны, стоит в скобках у названия отчёта — не отдельной строкой среди цифр."
   },
   {
     id: 'report-weekly', title: 'Недельный отчёт аналитики',
@@ -93,8 +93,8 @@ export const CARDS = [
     event: {
       type: 'report', project: 'playhub', key: 'analytics-weekly',
       title: 'Weekly analytics 2026-08-18 – 2026-08-24',
+      period: 'compared with 2026-08-11 – 2026-08-17',
       lines: [
-        ['Compared with', '2026-08-11 – 2026-08-17'],
         ['Pageviews', '7882 ▲799', 'Server log'],
         ['Game plays', '156 ▼17', 'GA4'],
         ['Users (sum of days)', '345 ▼134', 'GA4'],
@@ -104,7 +104,7 @@ export const CARDS = [
         ['Visible', '4.4% ▼2.4 of server pageviews (sum of days)', 'Coverage']],
       groups: [{ name: 'Top search queries', items: [{ label: 'online games ru', text: '0 clicks, pos. 55' }] }]
     },
-    note: "То же, что у дневной, плюс своё: сравнение идёт с прошлой неделей, и её диапазон назван. Ссылка ведёт на недельный файл в docs."
+    note: "То же, что у дневной: неделя, с которой сравниваем, названа в скобках у названия. Ссылка ведёт на недельный файл в docs."
   },
   {
     id: 'report-free', title: 'Утренний отчёт сервера',
@@ -115,9 +115,8 @@ export const CARDS = [
     expectTag: '#report #daily_report #news',
     event: {
       type: 'report', project: 'playhub', key: 'daily-report',
-      title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', period: '25.08.2026',
+      title: 'russkie-igry.ru', url: 'https://russkie-igry.ru', period: '2026-08-25',
       lines: [
-        ['Number', 128],
         ['Games', 412, 'Catalogue'], ['iOS', '210 +3', 'Catalogue'], ['Android', '202 +5', 'Catalogue'],
         ['Plays', '+37', 'Today'], ['Added this week', '+12', 'Today'], ['Added', '+6', 'Today'],
         ['Through sync', '+6', 'Today'],
@@ -143,7 +142,7 @@ export const CARDS = [
         ] }
       ]
     },
-    note: "Последняя карточка, которая шла свободным текстом. Теперь обычное событие: один факт — одна строка, списки — группы, здоровье машины последней группой."
+    note: "День, за который отчёт, стоит в скобках у названия — как у остальных отчётов; строки «Period» и «Number» ушли. Здоровье машины — последней группой."
   },
   {
     id: 'session', title: 'Сессия жжёт лимит',
@@ -162,7 +161,7 @@ export const CARDS = [
       command: 'rm /var/folders/f1/vkkb__f93dv44kmfstl9pgf40000gn/T/claude-ctxguard/8f03d18c.latch',
       commandNote: 'let this session keep working — it stays stopped until you do'
     },
-    note: "Сессия — свой тип, а не задача по расписанию. Имя сессии — та строка, которой ты её открыл; команда внизу не ходит без строки «To do», пакет отказывается её печатать."
+    note: "У сессии имени нет, поэтому вторая строка говорит, что с ней случилось. Её 36-значный id с карточки убран — он остался внутри команды внизу, где от него есть толк."
   },
   {
     id: 'job-import', title: 'Импорт игр — дневной итог',
@@ -260,10 +259,10 @@ export const CARDS = [
       // the hash and the run link, and that is all it ever carries.
       type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
       commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/arvent/commit/9b1fc68',
-      actor: '@chelsnebes', note: 'nightly master check, full run: success',
+      actor: '@chelsnebes', note: 'nightly master check',
       workflowUrl: 'https://github.com/sazanwork/arvent/actions/runs/1', workflowName: 'nightly'
     },
-    note: "Заголовка коммита здесь нет и быть не может: ночной прогон запускается по расписанию, а не по коммиту. Имя проверки стоит второй строкой и оно же ссылка на прогон."
+    note: "Заголовка коммита здесь нет и быть не может: ночной прогон запускается по расписанию, а не по коммиту. Имя проверки — сама вторая строка, и она же ссылка на прогон."
   },
   {
     id: 'issue', title: 'Задача на доске',
@@ -279,7 +278,7 @@ export const CARDS = [
       body: 'Первый экран мастера — пустое поле ввода. Человек не понимает,\nчто туда писать, и уходит.\n\nНужно 5–6 готовых вопросов под полем, кликом подставляются в поле.',
       author: 'chelsnebes'
     },
-    note: "Заголовок задачи — поле, тело — цитата. Раньше они лежали в цитате вместе, и отличить одно от другого было нельзя."
+    note: "Номер и заголовок — одна строка, как их пишет сам GitHub, и она же ссылка. Что именно случилось, говорит значок: 🆕 завели, 🙋 назначили, ✅ закрыли."
   },
   {
     id: 'pr', title: 'Pull request',
@@ -295,7 +294,7 @@ export const CARDS = [
       body: 'Закрывает #322. Шесть вопросов приходят из конфига, а не из кода —\nменять список можно без выкатки.',
       author: 'chelsnebes'
     },
-    note: "Та же форма, что у задачи с доски: номер, заголовок полем, тело цитатой."
+    note: "Та же форма, что у задачи с доски: номер с заголовком одной строкой, тело цитатой."
   },
   {
     id: 'pr-review', title: 'Вердикт ревью',
@@ -310,7 +309,7 @@ export const CARDS = [
       title: 'Онбординг: заготовки вопросов',
       reviewer: 'Ilja-Prihach'
     },
-    note: "Единственная красная карточка, какую вообще даёт PR. Тела у неё нет — ревьюер писал в GitHub, а не в описании."
+    note: "Значок 📝 говорит, что ревьюер просит правки, и звука не даёт: это не поломка. Тела нет — ревьюер писал в GitHub, а не в описании PR."
   },
   {
     id: 'incident', title: 'Авария',
@@ -322,7 +321,8 @@ export const CARDS = [
       type: 'incident', project: 'vault', key: 'vault-selfcheck',
       title: 'The vault needs repair',
       detail: 'DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another\nSTALE IN ARCHIVE: ssh-keys.tar.gz.age\nBAD   only one recipient: losing the key loses the whole vault\nlog: ~/Library/Logs/vault-selfcheck-fail-20260824-031500.log'
-    }
+    },
+    note: "Вторая строка — сам заголовок аварии, а не слово «open», которое и так говорит значок. Диагноз идёт цитатой целиком: раньше от него оставалась первая строка."
   },
   {
     id: 'job-silent', title: 'Задача перестала отчитываться',

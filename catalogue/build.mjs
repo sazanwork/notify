@@ -60,16 +60,16 @@ const TYPES = [
     tag: '#deploy', what: 'Выкатка сайта на сервер',
     who: 'deploy.yml, scripts/deploy.sh',
     lines: [
-      ['выкатилось', { type: 'deploy', ...P, status: 'ok' }],
-      ['не выкатилось', { type: 'deploy', ...P, status: 'fail' }]
+      ['выкатилось', { type: 'deploy', ...P, status: 'ok', workflowName: 'Deploy to Beget' }],
+      ['не выкатилось', { type: 'deploy', ...P, status: 'fail', workflowName: 'Deploy to Beget' }]
     ]
   },
   {
     tag: '#ci', what: 'Проверка кода: линт, типы, тесты',
     who: 'nightly.yml, quality.yml',
     lines: [
-      ['прошла', { type: 'ci', ...P, status: 'ok' }],
-      ['упала', { type: 'ci', ...P, status: 'fail' }]
+      ['прошла', { type: 'ci', ...P, status: 'ok', workflowName: 'nightly' }],
+      ['упала', { type: 'ci', ...P, status: 'fail', workflowName: 'nightly' }]
     ]
   },
   {
