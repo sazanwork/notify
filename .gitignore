@@ -7,3 +7,10 @@ node_modules/
 # Собирается автоматически: `prepare` при npm install (в т.ч. из git-ссылки).
 # В репозитории артефакты не держим.
 dist/
+
+# The catalogue page is a build artifact like dist/ — it is published as an
+# Artifact, not kept here.
+catalogue/telegram-cards.html
+catalogue/nav.html
+catalogue/articles.html
+catalogue/types.html
