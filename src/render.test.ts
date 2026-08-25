@@ -430,10 +430,70 @@ test('field/fieldLink принимают null как отсутствие зна
   assert.ok(!out.includes('null'));
 });
 
-test('workflow без url — строки нет вообще, не "Workflow: run" без ссылки', () => {
+test('workflow без url — строки нет вообще, не "Check: run" без ссылки', () => {
   const out = render({ type: 'ci', project: 'arvent', status: 'ok' });
 
-  assert.ok(!out.includes('Workflow'), 'пустое поле workflow не должно рендериться без ссылки');
+  assert.ok(!out.includes('Check'), 'нечего открывать — строки быть не должно');
+  assert.ok(!out.includes('Workflow'), 'старая хвостовая строка не должна вернуться');
+});
+
+// Владелец: «Workflow должен быть сверху, возле слова deploy — это показывает,
+// что они связаны». Он читал `Deploy: ok` первой строкой и `Workflow: …`
+// девятой, и они выглядели как разные вещи. Теперь имя того, что запустилось,
+// стоит второй строкой и оно же — ссылка на прогон.
+test('run: what ran is named beside the type line and is the link', () => {
+  const deploy = render({
+    type: 'deploy', project: 'playhub', status: 'fail',
+    commit: 'a1b2c3d', commitUrl: 'https://x/c',
+    via: 'GitHub Actions', workflowName: 'Deploy to Beget', workflowUrl: 'https://x/run'
+  });
+
+  assert.equal(deploy.split('\n')[2], '<b>Via:</b> <a href="https://x/run">Deploy to Beget</a>');
+  assert.ok(!deploy.includes('<b>Workflow:</b>'), 'хвостовая строка Workflow должна была уйти');
+
+  const ci = render({
+    type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
+    commit: '9b1fc68', commitUrl: 'https://x/c',
+    workflowName: 'nightly', workflowUrl: 'https://x/run'
+  });
+
+  assert.equal(ci.split('\n')[2], '<b>Check:</b> <a href="https://x/run">nightly</a>');
+  assert.ok(!ci.includes('<b>Workflow:</b>'), 'хвостовая строка Workflow должна была уйти и с CI');
+});
+
+// `GitHub Actions` одинаково на каждой карточке в каждом репозитории — как имя
+// ссылки оно не называет ничего. Имя самого workflow называет.
+test('run: the workflow name beats the platform as the link text', () => {
+  const out = render({
+    type: 'deploy', project: 'playhub', status: 'ok',
+    commit: 'a1b2c3d', commitUrl: 'https://x/c',
+    via: 'GitHub Actions', workflowName: 'Deploy to Beget', workflowUrl: 'https://x/run'
+  });
+
+  assert.ok(out.includes('>Deploy to Beget</a>'), 'ссылка должна называться именем workflow');
+  assert.ok(!out.includes('>GitHub Actions</a>'), 'платформа не имя прогона');
+});
+
+// Ручная выкатка открывать нечего — поле остаётся, ссылки нет.
+test('run: a hand deploy keeps the row and has nothing to open', () => {
+  const out = render({
+    type: 'deploy', project: 'game-publisher', status: 'ok',
+    commit: '3f1a882', commitUrl: 'https://x/c', via: 'manual, from the Mac'
+  });
+
+  assert.equal(out.split('\n')[2], '<b>Via:</b> manual, from the Mac');
+  assert.ok(!out.includes('<a href="https://x/run"'), 'прогона у ручной выкатки нет');
+});
+
+// Худший случай: ссылка на прогон есть, а имени нет ни одного. Потерять ссылку
+// на логи у красной карточки нельзя — она остаётся, пусть и безымянной.
+test('run: a nameless run keeps its link rather than losing it', () => {
+  const out = render({
+    type: 'deploy', project: 'playhub', status: 'fail',
+    commit: 'a1b2c3d', commitUrl: 'https://x/c', url: 'https://x/run'
+  });
+
+  assert.ok(out.includes('<b>Via:</b> <a href="https://x/run">the run</a>'), 'ссылка на логи потерялась');
 });
 
 test('severity: job disabled звонит как fail, heartbeat recovered — молчит как success', () => {
@@ -521,13 +581,12 @@ test('card/ci: commit hash links, body quoted under it', () => {
   assert.equal(out, [
     '#ci #master',
     '✅ <b>CI:</b> ok',
+    '<b>Check:</b> <a href="https://x/run">the run</a>',
     '',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
     '<b>Title:</b> Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>',
-    '<b>Actor:</b> @chelsnebes',
-    '',
-    '<b>Workflow:</b> <a href="https://x/run">open</a>'
+    '<b>Actor:</b> @chelsnebes'
   ].join('\n'));
 });
 
@@ -541,11 +600,10 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
   assert.equal(out, [
     '#ci #master',
     '✅ <b>CI:</b> ok',
+    '<b>Check:</b> <a href="https://x/run">the run</a>',
     '',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
-    '<b>Reason:</b> nightly check of master',
-    '',
-    '<b>Workflow:</b> <a href="https://x/run">open</a>'
+    '<b>Reason:</b> nightly check of master'
   ].join('\n'));
 });
 
@@ -559,12 +617,10 @@ test('card/deploy', () => {
   assert.equal(out, [
     '#deploy #playhub',
     '✅ <b>Deploy:</b> ok',
+    '<b>Via:</b> <a href="https://x/run">GitHub Actions</a>',
     '',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a>',
-    '<b>Title:</b> feat: new landing',
-    '<b>Via:</b> GitHub Actions',
-    '',
-    '<b>Workflow:</b> <a href="https://x/run">open</a>'
+    '<b>Title:</b> feat: new landing'
   ].join('\n'));
 });
 

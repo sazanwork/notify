@@ -289,20 +289,47 @@ const typeLine = (icon: string, type: string, action: string | undefined, url?: 
 // только `workflowUrl`, поэтому красная карточка приходила БЕЗ ЕДИНОЙ ССЫЛКИ
 // на логи. Отвергать `--url` было бы честнее по имени и хуже по делу: намерение
 // однозначно, а карточка без ссылки бесполезна ровно тогда, когда нужна.
+/**
+ * What to call the thing that ran. The workflow's own name first — it is the
+ * only text here that identifies THIS run. Then the caller's own word for the
+ * mechanism (`manual, from the Mac`). Last resort `the run`, and only when a
+ * link exists: losing the link to the logs on a red card is the one loss this
+ * format cannot afford, and a row that says nothing is still better than a
+ * card with nowhere to click. No live sender reaches that last resort — the
+ * GitHub Action always fills the workflow name, and the hand-run scripts send
+ * no run link at all.
+ */
+const mechanism = (
+  workflowName: string | undefined,
+  via: string | undefined,
+  runUrl: string | undefined
+): string | undefined => workflowName ?? via ?? (runUrl ? 'the run' : undefined);
+
+// The name of what ran sits WITH the type line, not eight lines below it.
+// `Deploy: fail` and `by what means it ran` answer one question, and the owner
+// read the two rows as unrelated things. It used to be one fact split in two:
+// `Via: GitHub Actions` in the middle of the card and a trailing
+// `Workflow: <run>` in the actions block. On one-q that trailing row rendered
+// `Workflow: Deploy` — the link text repeating the word on line 2 and naming
+// nothing.
+//
+// The link text is the workflow's OWN name, never the platform: `GitHub
+// Actions` is identical on every card in every repository, so clicking it told
+// the owner nothing about where he was going. `manual, from the Mac` stays
+// unlinked, because a hand deploy has no run to open.
 const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => {
   const icon = iconFor(e);
+  const runUrl = e.workflowUrl ?? e.url;
 
   return join([
     typeLine(icon, 'Deploy', e.status),
+    fieldLink('Via', runUrl, mechanism(e.workflowName, e.via, runUrl)),
     '',
     fieldLink('Commit', e.commitUrl, e.commit),
     titleField(e.commitTitle),
     bodyQuote(e.commitBody),
-    field('Via', e.via),
     field('Target', e.target),
-    field('Reason', e.note),
-    e.workflowUrl ?? e.url ? '' : null,
-    fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName)
+    field('Reason', e.note)
   ]);
 };
 
@@ -380,19 +407,23 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   ]);
 };
 
+// Same law as the deploy card, one row up: what ran is named beside the type
+// line and carries the link to its run. The label is `Check` and not `Via`
+// because here the name answers WHICH gate spoke — `nightly`, `Quality` —
+// while on a deploy it answers by what means the code was shipped.
 const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   const icon = iconFor(e);
+  const runUrl = e.workflowUrl ?? e.url;
 
   return join([
     typeLine(icon, 'CI', e.status),
+    fieldLink('Check', runUrl, mechanism(e.workflowName, undefined, runUrl)),
     '',
     fieldLink('Commit', e.commitUrl, e.commit),
     titleField(e.commitTitle),
     bodyQuote(e.commitBody),
     field('Actor', e.actor),
-    field('Reason', e.note),
-    e.workflowUrl ?? e.url ? '' : null,
-    fieldAction('Workflow', e.workflowUrl ?? e.url, e.workflowName)
+    field('Reason', e.note)
   ]);
 };
 
