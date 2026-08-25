@@ -816,7 +816,7 @@ test('link/job: a command he must run is monospaced, so Telegram makes it copyab
     command: 'claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835'
   });
 
-  assert.ok(out.includes('<b>Command:</b> <code>claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835</code>'),
+  assert.ok(out.includes('▶ <b>Run:</b> <code>claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835</code>'),
     'the command is not monospaced');
   assert.ok(out.includes('<b>Session:</b> Пройди на Хекслете следующие темы'), 'the session name was dropped');
 });
@@ -844,7 +844,7 @@ test('card/session: identifier first, his own words quoted, command copyable', (
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
     '',
-    '<b>Command:</b> <code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
+    '▶ <b>Run:</b> <code>rm /var/folders/x/claude-ctxguard/8f03d18c.latch</code>'
   ].join('\n'));
 });
 
@@ -999,6 +999,34 @@ test('sound: a review asking for edits does not ring', () => {
   };
   assert.ok(render(e).split('\n')[1].startsWith('📝'), 'changes_requested is not a breakage');
   assert.equal(severity(e), 'info', 'a request for edits started ringing again');
+});
+
+/**
+ * The action line is the only line that asks something OF HIM. Two reviews on
+ * 25.08.2026 rejected group headings for a six-line card and agreed on this
+ * instead: one marker, no extra lines. The invariant the test protects is that
+ * the line is findable — marked, monospaced, and last.
+ */
+test('action: the line he must run is marked, copyable, and last', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', job: 'Config checks', status: 'fail',
+    note: 'red: test-update-all', logs: '/Users/x/Library/Logs/update-all.log',
+    command: 'bash ~/bin/update-all --tests-only'
+  });
+  const lines = out.split('\n').filter(Boolean);
+
+  assert.ok(lines.at(-1)?.startsWith('▶ <b>Run:</b>'), `the action is not the last line: ${lines.at(-1)}`);
+  assert.equal(out.match(/▶/g)?.length, 1, 'the marker must be unique in the card, or it stops marking anything');
+  assert.ok(out.includes('<code>bash ~/bin/update-all --tests-only</code>'), 'the command lost its copyable box');
+});
+
+test('action: a card with nothing to run carries no marker', () => {
+  const out = render({
+    type: 'job', project: 'mac-config', job: 'Server backups', status: 'fail',
+    note: 'fresh copies: 10, broken: 1'
+  });
+
+  assert.ok(!out.includes('▶'), 'a card with no action must not show the action marker');
 });
 
 test('sound: nothing a pull request does ever rings', () => {

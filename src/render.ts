@@ -162,6 +162,16 @@ const fieldAction = (label: string, url: string | undefined, text: string | unde
 const fieldCode = (label: string, value: string | undefined): string | null =>
   value ? `<b>${esc(cap(label))}:</b> <code>${esc(value)}</code>` : null;
 
+/**
+ * Строка, которая просит что-то ОТ ВЛАДЕЛЬЦА, а не сообщает факт. Она уже
+ * стояла последней и через пустую строку, и всё равно читалась как рядовое
+ * поле среди пяти других. Маркер `▶` — единственное отличие: заголовок группы
+ * здесь был бы третьей строкой разметки на карточку из шести (25.08.2026, два
+ * ревью против группировки), а маркер не тратит ни одной.
+ */
+const fieldRun = (value: string | undefined): string | null =>
+  value ? `▶ <b>Run:</b> <code>${esc(value)}</code>` : null;
+
 /** Заголовок группы: курсив + подчёркивание, без жирности, без двоеточия. */
 const group = (name: string): string => `<i><u>${esc(cap(name))}</u></i>`;
 
@@ -298,7 +308,7 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     ...(hasItems ? bullets(e.items, disabledList) : []),
     e.command || e.logs ? '' : null,
     fieldCode('Log', e.logs),
-    fieldCode('Command', e.command),
+    fieldRun(e.command),
     // Kept only when the caller actually names the workflow — a named row is a
     // second, different destination; an unnamed one repeats the Task link.
     e.workflowName && (e.workflowUrl ?? e.url) ? '' : null,
@@ -407,7 +417,7 @@ const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =
     field('Reason', e.reason),
     note(e.opened),
     e.command ? '' : null,
-    fieldCode('Command', e.command)
+    fieldRun(e.command)
   ]);
 
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {
