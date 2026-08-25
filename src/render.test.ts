@@ -1240,3 +1240,40 @@ test('sound: nothing a pull request does ever rings', () => {
     );
   }
 });
+
+test('позиции списка: именованная группа всегда печатает заголовок, безымянные идут выше', () => {
+  const out = render({
+    type: 'job',
+    project: 'playhub',
+    job: 'Yandex game import',
+    status: 'ok',
+    items: [
+      { text: 'без группы' },
+      { text: 'Cut the Rope', group: 'New today' },
+      { text: 'Bloxorz', group: 'Out of the backlog' },
+      { text: 'Vex 7', group: 'New today' }
+    ]
+  });
+
+  const at = (s: string): number => out.indexOf(s);
+
+  assert.ok(at('без группы') < at('New today'), 'безымянная позиция должна стоять выше первой группы');
+  assert.ok(at('New today') < at('Cut the Rope'), 'заголовок группы стоит перед её позициями');
+  assert.ok(at('Cut the Rope') < at('Vex 7'), 'позиции одной группы собраны вместе');
+  assert.ok(at('Vex 7') < at('Out of the backlog'), 'вторая группа идёт после первой целиком');
+  assert.equal(out.split('New today').length - 1, 1, 'заголовок группы напечатан ровно один раз');
+});
+
+test('позиции списка: без единой группы список остаётся плоским, как у прежних отправителей', () => {
+  const out = render({
+    type: 'job',
+    project: 'playhub',
+    job: 'x',
+    status: 'fail',
+    items: [{ text: 'один' }, { text: 'два' }]
+  });
+
+  assert.ok(out.includes('• один'));
+  assert.ok(out.includes('• два'));
+  assert.ok(!out.includes('<i><u>'), 'без групп заголовков быть не должно');
+});

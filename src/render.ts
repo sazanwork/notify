@@ -254,8 +254,31 @@ const join = (parts: Array<string | null>): string => {
 };
 
 /** Плоский список позиций (без ярлыков) — job/report без групп. */
-const bullets = (items: Item[] | undefined, numbered: boolean): string[] =>
-  (items ?? []).map((it, i) => groupItem(it, i, numbered));
+/**
+ * Позиции списка. Именованная группа ВСЕГДА печатает свой заголовок — тот же
+ * закон, что у `labelled`: карточка одного типа не должна выглядеть по-разному
+ * в разные дни. Нумерация идёт внутри блока, а не сквозная: «1, 2» под своим
+ * заголовком читается, сквозная «3, 4» под вторым — нет.
+ */
+const bullets = (items: Item[] | undefined, numbered: boolean): string[] => {
+  const list = items ?? [];
+  const names = [...new Set(list.map((it) => it.group).filter((g): g is string => !!g))];
+
+  if (names.length === 0) {
+    return list.map((it, i) => groupItem(it, i, numbered));
+  }
+
+  const out: string[] = [];
+  list.filter((it) => !it.group).forEach((it, i) => out.push(groupItem(it, i, numbered)));
+
+  for (const name of names) {
+    out.push('');
+    out.push(group(name));
+    list.filter((it) => it.group === name).forEach((it, i) => out.push(groupItem(it, i, numbered)));
+  }
+
+  return out;
+};
 
 /** Именованная группа целиком: заголовок + позиции, разделены строкой пустоты внутри вызова через join. */
 const renderGroup = (g: { name: string; items: Item[] }): string[] => [

@@ -171,17 +171,17 @@ export const CARDS = [
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
       job: 'Yandex game import', status: 'ok',
-      stats: [['Total', 9, 'Published'], ['New', 5, 'Published'],
-        ['From backlog', 4, 'Published'], ['Stuck', 2, 'Published']],
+      stats: [['Published', 3]],
       items: [
-        { text: '🆕 Cut the Rope', url: 'https://russkie-igry.ru/ru/game/cut-the-rope/' },
-        { text: '🆕 Vex 7', url: 'https://russkie-igry.ru/ru/game/vex-7/' },
-        { text: '🔁 Bloxorz', url: 'https://russkie-igry.ru/ru/game/bloxorz/' },
-        { text: '⚠ Fireboy and Watergirl: the judge rejected the description' }
+        { text: 'Cut the Rope', url: 'https://russkie-igry.ru/ru/game/cut-the-rope/', group: 'New today' },
+        { text: 'Vex 7', url: 'https://russkie-igry.ru/ru/game/vex-7/', group: 'New today' },
+        { text: 'Bloxorz', url: 'https://russkie-igry.ru/ru/game/bloxorz/', group: 'Out of the backlog' },
+        { text: 'Fireboy and Watergirl: the judge rejected the description', group: 'Did not come out' },
+        { text: 'Nomad: description was not generated', group: 'Did not come out' }
       ],
       url: 'https://russkie-igry.ru'
     },
-    note: 'Имя задачи стало ссылкой. Отдельной строки «Workflow: open» больше нет — она вела туда же, а называлась глаголом. Этот отправитель передаёт адрес сайта, так что ссылка ведёт на сайт, а не на прогон.'
+    note: 'Здесь в одном перечне лежали ТРИ разные вещи, и различались они значком в начале строки: 🆕 вышло сегодня, 🔁 вышло из очереди, ⚠ не вышло совсем. Значок делал работу заголовка — теперь у каждой свой заголовок, а значки не нужны. Цифр было четыре (Total, New, From backlog, Stuck), и три из них были размерами этих же списков, то есть одно и то же сказано дважды; осталась одна — сколько опубликовано. Карточка собрана из настоящего вывода отправителя. Имя задачи — ссылка; отдельной строки «Workflow: open» нет, она вела туда же, а называлась глаголом. Этот отправитель передаёт адрес сайта, так что ссылка ведёт на сайт, а не на прогон.'
   },
   {
     id: 'job-fail', title: 'Задача конфига упала',
