@@ -17,9 +17,10 @@
 export type Project = 'playhub' | 'one-q' | 'arvent' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools';
 
 /**
- * A stable machine key for the task — the last line of every card, shaped
- * as `#key` (with no project name: the card already sits in its own
- * project's forum — `targets()` never sends it to someone else's). The
+ * A stable machine key for the task — the instance tag on the FIRST line of
+ * every card, shaped as `#key` (with no project name: the card already sits
+ * in its own project's forum — `targets()` never sends it to someone else's).
+ * The
  * daily parser uses it to check "is this 🔴 already closed by a later card
  * with the same key?" without comparing human wording, which changes. It
  * is optional: without it, the key is derived from the type and the title
@@ -63,7 +64,20 @@ type Keyed = {
  * 🆕 came out today, 🔁 came out of the queue, ⚠ did not come out at all.
  * The icon was doing a heading's job.
  */
-export type Item = { text: string; url?: string; label?: string; group?: string };
+/**
+ * `facts` — sub-rows under an item, indented, each `label: value`. For an
+ * item whose own value is not one number but several (a search query with
+ * its own clicks AND position) — a nested list, not a sentence stuffed into
+ * `text`: "0 clicks, pos. 55" was two facts hand-joined into a string, the
+ * exact shape that gets pulled apart into its own field everywhere else.
+ */
+export type Item = {
+  text: string;
+  url?: string;
+  label?: string;
+  group?: string;
+  facts?: Array<[label: string, value: string | number]>;
+};
 
 export type NotifyEvent = Keyed &
   (
@@ -75,12 +89,14 @@ export type NotifyEvent = Keyed &
       commit?: string;
       /** A link to the commit — the "commit" row becomes clickable. */
       commitUrl?: string;
-      /** The commit's title — renders as the `Title:` field, the body follows as a quote. */
+      /** The commit's title — joins the `Commit:` row after the hash, the body follows as a quote. */
       commitTitle?: string;
       /** The commit's body, if there is one — the same quote shape as the title. */
       commitBody?: string;
+      /** The commit's author (GitHub login) — the `Author:` row links to their profile. */
+      commitAuthor?: string;
       workflowUrl?: string;
-      /** The run's name, for the link's visible text (defaults to `open`). */
+      /** The run's name, for the link's visible text. Without it, the type line itself becomes the link. */
       workflowName?: string;
       url?: string;
       /**
@@ -167,7 +183,7 @@ export type NotifyEvent = Keyed &
        */
       logs?: string;
       workflowUrl?: string;
-      /** The run's name, for the link's visible text (defaults to `open`). */
+      /** The run's name, for the link's visible text. Without it, the type line itself becomes the link. */
       workflowName?: string;
       /**
        * A fallback name for the run link: half the senders send it as
@@ -188,19 +204,25 @@ export type NotifyEvent = Keyed &
        * accepts `--period` for it.
        */
       aside?: string;
-      /** Empty/not passed when `groups` is used — the two kinds of report are not mixed in one event. */
+      /**
+       * Renders even when `groups` is also set — a report's headline numbers
+       * (Pages, People, Impressions…) sit above the grouped section, not
+       * replaced by it. `lines` and `groups` answer different questions:
+       * "what changed" and "what's in each list".
+       */
       lines?: Array<[label: string, value: string | number, group?: string]>;
       /**
        * A list of items with links — for task digests, where the value is
        * in the names themselves, not in a number. Renders as a separate
-       * block after `lines`.
+       * block after `lines`. Ignored (not merged, not an error) when `groups`
+       * is also set — no live sender sets both today.
        */
       items?: Item[];
       /**
        * Named groups (a task board: Ready/In Progress/Not on the board;
-       * analytics: Metrics/Links) — each with its own heading and list of
-       * items. Replaces `lines`/`items` when set: different reports use
-       * either the flat form or groups, never both at once.
+       * analytics: Top search queries) — each with its own heading and list
+       * of items. Replaces `items` when set, but `lines` still renders above
+       * it — see that field's own doc.
        */
       groups?: Array<{ name: string; items: Item[] }>;
       url?: string;
@@ -214,10 +236,12 @@ export type NotifyEvent = Keyed &
       commit?: string;
       /** A link to the commit — the hash becomes clickable. */
       commitUrl?: string;
-      /** The commit's title (subject) — a separate `Title:` field, not a quote. */
+      /** The commit's title (subject) — joins the `Commit:` row after the hash, not a quote. */
       commitTitle?: string;
       /** The commit's body (after the subject) — the same quote shape as the title. */
       commitBody?: string;
+      /** The commit's author (GitHub login) — the `Author:` row links to their profile. Distinct from `actor`: on a scheduled run `actor` is whoever is on duty to fix it, not who wrote the code. */
+      commitAuthor?: string;
       actor?: string;
       /**
        * Why this run happened, when there is no commit to point at: a nightly
@@ -226,7 +250,7 @@ export type NotifyEvent = Keyed &
       note?: string;
       /** A link to the run (workflow run) — separate from `url`, a fallback for `workflowUrl`. */
       workflowUrl?: string;
-      /** The run's name, for the link's visible text (defaults to `open`). */
+      /** The run's name, for the link's visible text. Without it, the type line itself becomes the link. */
       workflowName?: string;
       url?: string;
     }
@@ -247,7 +271,12 @@ export type NotifyEvent = Keyed &
         | 'closed';
       number: number;
       title: string;
-      /** PR description — quoted on its own; the title is the `Title:` field above it. */
+      /**
+       * On `opened`: the PR's own description. On `approved`/
+       * `changes_requested`: the reviewer's comment, not the PR's
+       * description again — quoted on its own either way; the title joins
+       * the `PR:` type line above it, there is no separate field for it.
+       */
       body?: string;
       author?: string;
       reviewer?: string;
@@ -260,7 +289,7 @@ export type NotifyEvent = Keyed &
       action: 'opened' | 'assigned' | 'closed';
       number: number;
       title: string;
-      /** The issue's body — a quote under the `Title:` field, separate from the title. */
+      /** The issue's body — a quote under the `Issue:` type line, which already carries the title. */
       body?: string;
       author?: string;
       assignee?: string;
@@ -271,7 +300,16 @@ export type NotifyEvent = Keyed &
       type: 'incident';
       project: Project;
       title: string;
+      /** One free-form paragraph — a diagnosis that is genuinely one thought, not several findings glued by newlines. */
       detail?: string;
+      /**
+       * Several INDEPENDENT findings (a self-check emitting up to three
+       * unrelated diagnostic lines, each starting with its own marker word
+       * — `BAD`, `STALE`, `DIVERGED`) go here, not into `detail`: a list
+       * squeezed into one blockquote read as a wall of text with no
+       * category, the marker words doing a label's job inside a value.
+       */
+      items?: Item[];
       /** A local path to the logs (not a URL — renders monospaced, to copy, not to click). */
       logs?: string;
       url?: string;
@@ -292,7 +330,7 @@ export type NotifyEvent = Keyed &
       project: Project;
       /** What happened, as the second line reads it: `Session: burning the limit`. */
       action: string;
-      /** The session's own id — the identifier field, first, as everywhere else. */
+      /** The session's own id. Never printed as a field — he cannot type it or search it; it only reaches the card inside the `command`'s `rm`. */
       id?: string;
       /** Working directory name, when several sessions opened with a similar line. */
       workdir?: string;
@@ -325,7 +363,7 @@ export type NotifyEvent = Keyed &
       expected?: string;
       /** The task reported in again — same type, a green card instead of a red one, the key (for matching) does not change. */
       recovered?: boolean;
-      /** A ready-made reason sentence; without it, one is built from lastSeen/expected. */
+      /** A ready-made reason sentence. Without it there is no `Reason:` row at all — `lastSeen`/`expected` still print, under their own `Schedule` group. */
       note?: string;
     }
   );

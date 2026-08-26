@@ -130,7 +130,13 @@ const num = (key: string): number => {
 };
 
 /**
- * `--item "text"` or `--item "text|https://link"`.
+ * `--item "text"`, `--item "text|https://link"`, or, since 26.08.2026,
+ * `--item "LABEL::text"` (and `LABEL::text|https://link`) for a bold label
+ * in front of the row — the same shape a search query's `facts` render,
+ * so a list of independent findings (vault's BAD/STALE/DIVERGED lines) does
+ * not have to smuggle its own heading inside the text. `::` and not `|`,
+ * which the link already owns, and not `:`, which shows up inside real
+ * findings ("STALE IN ARCHIVE: ssh-keys.tar.gz.age" already has one).
  *
  * An item's group name cannot be passed the same way `--stat` does it: the
  * bar here is already taken by the link. So `--item-group "Red checks"` is
@@ -138,15 +144,19 @@ const num = (key: string): number => {
  * (red checks, disabled processes), and a mixed list is what `--json` is
  * for.
  */
-const items = (): Array<{ text: string; url?: string; group?: string }> => {
+const items = (): Array<{ text: string; url?: string; group?: string; label?: string }> => {
   const name = flags.get('item-group')?.[0];
 
   return (flags.get('item') ?? []).map((raw) => {
-    const idx = raw.lastIndexOf('|');
-    const base =
-      idx === -1 ? { text: raw } : { text: raw.slice(0, idx), url: raw.slice(idx + 1) };
+    const labelEnd = raw.indexOf('::');
+    const label = labelEnd === -1 ? undefined : raw.slice(0, labelEnd);
+    const rest = labelEnd === -1 ? raw : raw.slice(labelEnd + 2);
 
-    return name ? { ...base, group: name } : base;
+    const idx = rest.lastIndexOf('|');
+    const base =
+      idx === -1 ? { text: rest } : { text: rest.slice(0, idx), url: rest.slice(idx + 1) };
+
+    return { ...base, ...(label ? { label } : {}), ...(name ? { group: name } : {}) };
   });
 };
 /**
@@ -294,6 +304,7 @@ if (flags.has('json')) {
         commitUrl: one('commit-url'),
         commitTitle: one('commit-title'),
         commitBody: one('commit-body'),
+        commitAuthor: one('commit-author'),
         workflowUrl: one('workflow-url'),
         workflowName: one('workflow-name'),
         url: one('url'),
@@ -345,6 +356,7 @@ if (flags.has('json')) {
         commitUrl: one('commit-url'),
         commitTitle: one('commit-title'),
         commitBody: one('commit-body'),
+        commitAuthor: one('commit-author'),
         actor: one('actor'),
         note: one('note'),
         workflowUrl: one('workflow-url'),
@@ -399,6 +411,7 @@ if (flags.has('json')) {
         project: project(),
         title: one('title') ?? '(no title)',
         detail: one('detail'),
+        items: items(),
         logs: one('logs'),
         url: one('url')
       };
@@ -423,8 +436,10 @@ if (flags.has('json')) {
         type: 'report',
         project: project(),
         title: one('title') ?? '(no title)',
-        // A file card has no period; the caption is its title.
-        lines: []
+        aside: one('aside') ?? one('period'),
+        lines: pairs('line'),
+        items: items(),
+        url: one('url')
       };
       break;
     default:

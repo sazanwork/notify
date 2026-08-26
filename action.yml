@@ -42,7 +42,7 @@ inputs:
     description: 'По умолчанию — имя ветки (github.ref_name)'
     required: false
   actor:
-    description: 'По умолчанию — инициатор (github.actor)'
+    description: 'Telegram-хэндл дежурного (не github.actor — это разные пространства имён; своё имя по умолчанию нет)'
     required: false
   action:
     description: opened/review_requested/merged (для pr)
@@ -71,6 +71,10 @@ inputs:
     default: ${{ github.event.head_commit.message }}
     required: false
   commit-body:
+    required: false
+  commit-author:
+    description: 'GitHub-логин автора коммита — по умолчанию github.event.head_commit.author.username. Пусто на прогонах по расписанию: у события schedule нет head_commit.'
+    default: ${{ github.event.head_commit.author.username }}
     required: false
   workflow-url:
     description: 'Ссылка на прогон — по умолчанию текущий'
@@ -133,6 +137,7 @@ runs:
         IN_ACTOR: ${{ inputs.actor }}
         IN_COMMIT_TITLE: ${{ inputs.commit-title }}
         IN_COMMIT_BODY: ${{ inputs.commit-body }}
+        IN_COMMIT_AUTHOR: ${{ inputs.commit-author }}
         IN_WORKFLOW_URL: ${{ inputs.workflow-url }}
         IN_WORKFLOW_NAME: ${{ inputs.workflow-name }}
         IN_BODY: ${{ inputs.body }}
@@ -168,6 +173,7 @@ runs:
         add() { [ -n "$2" ] && ARGS+=("$1=$2"); return 0; }
         add --commit   "$IN_COMMIT"
         add --commit-url "$IN_COMMIT_URL"
+        add --commit-author "$IN_COMMIT_AUTHOR"
         add --url      "$IN_URL"
         add --target   "$IN_TARGET"
         add --via      "$IN_VIA"
@@ -217,7 +223,13 @@ runs:
         repeat --item "$IN_ITEMS"
 
         if [ "$IN_EVENT" = "ci" ]; then
-          ARGS+=("--branch=${IN_BRANCH:-$GH_REF_NAME}" "--actor=${IN_ACTOR:-$GH_ACTOR}")
+          ARGS+=("--branch=${IN_BRANCH:-$GH_REF_NAME}")
+          # No fallback to `github.actor` here: `actor` renders as a link to
+          # a Telegram handle (t.me/<handle>), not a GitHub profile — a bare
+          # GitHub login is a different namespace and the link would 404.
+          # The caller must map login -> handle itself (nightly.yml does,
+          # with its own "who" step) and pass the result as `actor`.
+          [ -n "$IN_ACTOR" ] && ARGS+=("--actor=$IN_ACTOR")
         fi
 
         # The `commit:` field is the IDENTIFIER — a short hash that links to the

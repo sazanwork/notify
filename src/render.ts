@@ -21,7 +21,6 @@
  */
 import { ICON, LOUD, iconFor, type Item, type NotifyEvent } from './events.ts';
 
-/** First letter capitalized, the rest left as is (ga4/GitHub stay themselves). */
 /**
  * A label gets a capital letter — but NOT a name that is deliberately
  * written lowercase: `iOS` was turning into `IOS`. The signal is a capital
@@ -68,8 +67,14 @@ export const clampMessage = (text: string, limit = 4000): string => {
   let end = lastBreak > limit * 0.6 ? lastBreak : limit;
 
   // Never cut inside `<...>` or inside `&...;` — otherwise the markup breaks.
+  // The closing `>` must be searched for only up to `end`, not across all of
+  // `cut`: a `>` that belongs to a LATER, already-doomed part of the message
+  // (still inside `cut` because `cut` runs to `limit`, past `end`) used to
+  // read as "this tag is closed" and let a tag get cut mid-attribute anyway —
+  // found by GLM review, reproduces with a long `href` that straddles the
+  // line-boundary cut point.
   const openTag = cut.lastIndexOf('<', end - 1);
-  if (openTag !== -1 && cut.indexOf('>', openTag) === -1) {
+  if (openTag !== -1 && cut.slice(openTag, end).indexOf('>') === -1) {
     end = openTag;
   }
   const amp = cut.lastIndexOf('&', end - 1);
@@ -159,19 +164,6 @@ const fieldLink = (
     : field(label, text);
 };
 
-/**
- * An action field (`workflow:`): unlike `fieldLink`, without a URL this is
- * NOT a field — the run simply has nowhere to lead, and showing the bare
- * word "run" with no link is more meaningless than not showing the row at
- * all.
- */
-// The link text is the name of where it leads (the workflow's name, the run's
-// name). The fallback word used to be "run": a noun that names nothing — the
-// owner read "Workflow: run" and did not understand what it was. "open" is a
-// verb, and it is at least honest about being a link, not a name.
-const fieldAction = (label: string, url: string | undefined, text: string | undefined): string | null =>
-  url ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(text ?? 'open')}</a>` : null;
-
 /** A monospace field — a path/command to copy, not a link. */
 const fieldCode = (label: string, value: string | undefined): string | null =>
   value ? `<b>${esc(cap(label))}:</b> <code>${esc(value)}</code>` : null;
@@ -184,8 +176,17 @@ const fieldCode = (label: string, value: string | undefined): string | null =>
  * автора" — a name is an identifier like a commit hash or a PR number, and
  * every other identifier on the card is a link.
  */
-const fieldPerson = (label: string, login: string | undefined): string | null =>
-  login ? `<b>${esc(cap(label))}:</b> <a href="https://github.com/${esc(login)}">${esc(login)}</a>` : null;
+// `firstLine`, same as `fieldLink`: a login with an embedded `\n` (found by
+// Codex/GLM review) would otherwise land a raw newline inside the `href`
+// itself, not just the link text — every other field guards against a
+// multi-line value, this one didn't.
+const fieldPerson = (label: string, login: string | undefined): string | null => {
+  if (!login) {
+    return null;
+  }
+  const oneLine = firstLine(login) as string;
+  return `<b>${esc(cap(label))}:</b> <a href="https://github.com/${esc(oneLine)}">${esc(oneLine)}</a>`;
+};
 
 /**
  * `Actor` on a CI card is a Telegram handle, not a GitHub login
@@ -196,8 +197,13 @@ const fieldPerson = (label: string, login: string | undefined): string | null =>
  * for an explicit link like every other identifier on the card, not an
  * implicit one riding on a client behavior he cannot see from here.
  */
-const fieldTelegram = (label: string, handle: string | undefined): string | null =>
-  handle ? `<b>${esc(cap(label))}:</b> <a href="https://t.me/${esc(handle.replace(/^@/, ''))}">${esc(handle)}</a>` : null;
+const fieldTelegram = (label: string, handle: string | undefined): string | null => {
+  if (!handle) {
+    return null;
+  }
+  const oneLine = firstLine(handle) as string;
+  return `<b>${esc(cap(label))}:</b> <a href="https://t.me/${esc(oneLine.replace(/^@/, ''))}">${esc(oneLine)}</a>`;
+};
 
 /**
  * A row that asks something FROM THE OWNER, rather than reports a fact. It
@@ -227,15 +233,28 @@ const fieldRun = (value: string | undefined, why: string | undefined): string[] 
 /** A group heading: italic + underline, no bold, no colon. */
 const group = (name: string): string => `<i><u>${esc(cap(name))}</u></i>`;
 
-/** An item inside a group: `<b>label:</b> <a>text</a>` — or a plain bulleted/numbered row with no label. */
+/**
+ * An item inside a group: `<b>label:</b> <a>text</a>` — or a plain
+ * bulleted/numbered row with no label. `facts`, when the item carries them,
+ * print as indented `label: value` rows underneath — a nested list, one
+ * item with several facts of its own, the way a search query has both a
+ * click count and a position.
+ */
 const groupItem = (it: Item, index: number, numbered: boolean): string => {
   const linked = it.url ? `<a href="${esc(it.url)}">${esc(it.text)}</a>` : esc(it.text);
+  const head = it.label
+    ? `<b>${esc(cap(it.label))}:</b> ${linked}`
+    : numbered
+      ? `${index + 1}. ${linked}`
+      : `• ${linked}`;
 
-  if (it.label) {
-    return `<b>${esc(it.label)}:</b> ${linked}`;
+  if (!it.facts || it.facts.length === 0) {
+    return head;
   }
 
-  return numbered ? `${index + 1}. ${linked}` : `• ${linked}`;
+  const sub = it.facts.map(([label, value]) => `   <b>${esc(cap(label))}:</b> ${esc(String(value))}`);
+
+  return [head, ...sub].join('\n');
 };
 
 // A long explanation (a note, incident details) — as a quote: in Telegram
@@ -260,16 +279,17 @@ const note = (text: string | undefined): string | null => {
  * the card says it nowhere. The caption stands on its own line, because
  * the text itself does not fit in a field: a field holds one line and cuts
  * it.
- */
-/**
- * A quote that needs saying what it is. The heading is a GROUP heading — the
- * same italic-underline every other card uses over a block — not a bold field
- * label: a bold label means `label: value` on one line, and using it here made
- * the session card the only one whose block was titled a third way. The owner
- * read the card and asked where its group was.
+ *
+ * The caption is a bold field label with nothing after the colon, not the
+ * group() heading (italic-underline). It was the group heading first, and
+ * the owner read that and said it did not look like a category — correctly:
+ * a group is a heading over a LIST, and this caption sits over one quote,
+ * never more than one. A bold label with no value on the line is the same
+ * shape `Title:` already has right before a PR's body — the reader has
+ * already seen this exact pattern mean "what follows is quoted text."
  */
 const quoted = (label: string, text: string | undefined): string | null =>
-  text ? `${group(label)}\n${note(text)}` : null;
+  text ? `<b>${esc(cap(label))}:</b>\n${note(text)}` : null;
 
 /**
  * Assembles the card. A blank line here marks a block change, not
@@ -513,18 +533,13 @@ const typeLine = (
 /**
  * What to call the thing that ran. The workflow's own name first — it is the
  * only text here that identifies THIS run. Then the caller's own word for the
- * mechanism (`manual, from the Mac`). Last resort `the run`, and only when a
- * link exists: losing the link to the logs on a red card is the one loss this
- * format cannot afford, and a row that says nothing is still better than a
- * card with nowhere to click. No live sender reaches that last resort — the
- * GitHub Action always fills the workflow name, and the hand-run scripts send
- * no run link at all.
+ * mechanism (`manual, from the Mac`). No third fallback: a row that says
+ * nothing distinctive is worse than not printing a name at all, and
+ * `typeLine` already handles the case with no name — a bare `<b>Deploy</b>`,
+ * still linked when a run URL exists.
  */
-const mechanism = (
-  workflowName: string | undefined,
-  via: string | undefined,
-  runUrl: string | undefined
-): string | undefined => workflowName ?? via;
+const mechanism = (workflowName: string | undefined, via: string | undefined): string | undefined =>
+  workflowName ?? via;
 
 // The name of what ran sits WITH the type line, not eight lines below it.
 // `Deploy: fail` and `by what means it ran` answer one question, and the owner
@@ -543,14 +558,19 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
   const runUrl = e.workflowUrl ?? e.url;
 
   return join([
-    // The name of what shipped the deploy sits on the type line. The outcome
-    // is already said by the icon and the third tag; there is nothing to
-    // repeat in words, and it is the same law a job and a report follow. The
-    // `Via` row is gone: it used to carry this same name one floor below.
-    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via, runUrl), runUrl),
+    // The name of what shipped the deploy sits on the type line, the outcome
+    // in parens beside it — icon and tag alone were judged, live, not to be
+    // enough: a plain 🔴 next to a workflow name still read as "something
+    // happened," not "it failed," on a screen small enough to lose the color.
+    // The `Via` row is gone: it used to carry this same name one floor below.
+    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via), runUrl, e.status === 'fail' ? 'Fail' : 'OK'),
     ...twoBlocks(
       [field('Target', e.target), field('Reason', e.note)],
-      [commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
+      [
+        commitRow(e.commit, e.commitUrl, e.commitTitle),
+        fieldPerson('Author', e.commitAuthor),
+        bodyQuote(e.commitBody)
+      ]
     )
   ]);
 };
@@ -641,23 +661,32 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   ]);
 };
 
-// Same law as the deploy card, one row up: what ran is named beside the type
-// line and carries the link to its run. The label is `Check` and not `Via`
-// because here the name answers WHICH gate spoke — `nightly`, `Quality` —
-// while on a deploy it answers by what means the code was shipped.
+// Same law as the deploy card: what ran joins the type line itself and
+// carries the link to its run — `CI: nightly`, not a separate `Check:`/`Via:`
+// row. There is no separate label here at all: on deploy the mechanism
+// answers by what means the code was shipped, on CI it answers WHICH gate
+// spoke (`nightly`, `Quality`) — but both are the name on the type line.
 const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   const icon = iconFor(e);
   const runUrl = e.workflowUrl ?? e.url;
 
   return join([
-    typeLine(icon, 'CI', mechanism(e.workflowName, undefined, runUrl), runUrl),
-    // `Actor` names who is behind the commit, not who ran the check — it moved
-    // into the Change block, next to the commit it belongs to. It used to sit
-    // with `Reason` in the run block, and the owner read it as a jumble: "commit,
-    // actor, workflow — I don't know, it's all a jumble."
+    typeLine(icon, 'CI', mechanism(e.workflowName, undefined), runUrl, e.status === 'fail' ? 'Fail' : 'OK'),
+    // `Actor` used to be read as "who wrote the commit," and on most runs it
+    // is — `github.actor` for a push IS the person who pushed. It stops being
+    // that on a scheduled run: arvent's nightly rewrites it to whoever is on
+    // duty to fix a red run, which can be someone other than the commit's
+    // author. So Actor answers "who is responsible for this run," `Author`
+    // below the commit answers "who wrote this code" — two different people
+    // on a nightly card, the same person everywhere else.
     ...twoBlocks(
       [field('Reason', e.note)],
-      [fieldTelegram('Actor', e.actor), commitRow(e.commit, e.commitUrl, e.commitTitle), bodyQuote(e.commitBody)]
+      [
+        fieldTelegram('Actor', e.actor),
+        commitRow(e.commit, e.commitUrl, e.commitTitle),
+        fieldPerson('Author', e.commitAuthor),
+        bodyQuote(e.commitBody)
+      ]
     )
   ]);
 };
@@ -677,10 +706,17 @@ const named = (number: number, title: string | undefined): string =>
 // about someone taking issue #312 and asked who, because he never got that far.
 //
 // The description is the news exactly once, when the thing is opened. On
-// assigned, closed, merged or a review verdict it is text he has already read,
-// and it buries the one line he came for.
+// assigned, closed or merged it is text he has already read, and it buries
+// the one line he came for.
+//
+// A review verdict is the one exception: on `approved`/`changes_requested`
+// `body` is not the PR's description any more — the sender puts the
+// REVIEWER'S OWN comment there, which is new text he has not seen. "Verdict:
+// changes_requested, then nothing" was the owner's complaint: a verdict with
+// no comment attached said less than the review itself did.
+const VERDICT: ReadonlySet<string> = new Set(['approved', 'changes_requested']);
 const opening = (action: string, body: string | undefined): string | null =>
-  action === 'opened' ? bodyQuote(body) : null;
+  action === 'opened' || VERDICT.has(action) ? bodyQuote(body) : null;
 
 // The body is what the title stands for — it sits directly under the name,
 // with nothing between them. The people come after, consolidated in one
@@ -691,7 +727,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'PR', named(e.number, e.title), e.url),
     opening(e.action, e.body),
-    e.action === 'opened' && e.body ? '' : null,
+    (e.action === 'opened' || VERDICT.has(e.action)) && e.body ? '' : null,
     fieldPerson('Author', e.author),
     fieldPerson('Reviewer', e.reviewer)
   ]);
@@ -713,13 +749,18 @@ const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
 // log path). It used to go through `field`, which keeps only the first line, so
 // every alarm this package ever sent arrived gutted. It is quoted now, the same
 // shape a commit body takes.
-const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e) =>
-  join([
+const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e) => {
+  const findings = bullets(e.items, false);
+
+  return join([
     typeLine(iconFor(e), 'Incident', e.title, e.url),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
+    findings.length > 0 ? '' : null,
+    ...findings,
     e.logs ? '' : null,
     fieldCode('Log', e.logs)
   ]);
+};
 
 // A session in trouble. Same law as every other card: identifier first, then
 // the facts as fields, then his own words as a quote — never as a field, which

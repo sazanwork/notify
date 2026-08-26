@@ -88,7 +88,7 @@ const TYPES = [
     who: 'analytics-cron.sh, сторожа Alitools',
     lines: [
       ['всегда к сведению; на месте действия — НАЗВАНИЕ отчёта, и оно же ссылка',
-       { type: 'report', ...P, title: 'Analytics for 2026-08-22', period: 'compared with 2026-08-21', url: 'https://x' }]
+       { type: 'report', ...P, title: 'Analytics for 2026-08-22', aside: 'compared with 2026-08-21', url: 'https://x' }]
     ]
   },
   {
@@ -233,13 +233,23 @@ const articles = CARDS.map((c) => {
   // a flat `items` list and a grouped report's items all carry values too, and
   // `stats: [['Added', '+6']]` sailed past it. Every value the card can print
   // is collected here, so the next field cannot quietly opt out.
+  //
+  // `factValues` covers an item's nested `facts` sub-rows (a search query's
+  // Clicks/Position) — found missing by GLM review 2026-08-26: those are
+  // numbers too, and a signed one there was as invisible to this guard as
+  // `stats` used to be. A group is `{ name, items }` in the schema — there is
+  // no `g.lines`, so the old spread there was always an empty array; dropped.
+  const factValues = (items) =>
+    (items ?? []).flatMap((i) => (i.facts ?? []).map(([label, value]) => [label, value]));
+
   const values = [
     ...(c.event?.lines ?? []),
     ...(c.event?.stats ?? []),
     ...(c.event?.items ?? []).map((i) => [i.text ?? '', i.text ?? '']),
+    ...factValues(c.event?.items),
     ...(c.event?.groups ?? []).flatMap((g) => [
-      ...(g.lines ?? []),
-      ...(g.items ?? []).map((i) => [i.text ?? '', i.text ?? ''])
+      ...(g.items ?? []).map((i) => [i.text ?? '', i.text ?? '']),
+      ...factValues(g.items)
     ])
   ];
 
@@ -375,6 +385,13 @@ const articles = CARDS.map((c) => {
   const cls = ICON_CLASS(html);
   const [liveCls, liveText] = c.live;
   const note = c.note ? `<p class="delta"><span>Меняется</span>${c.note}</p>` : '';
+  // The page renders the package's TEXT output — it cannot show a real
+  // Telegram file upload, which travels alongside the caption, not inside
+  // it. Without a marker the owner looked at a text-only bubble and asked
+  // "where's the file?" — there was nothing on the page saying one exists.
+  const attachment = c.event?.filename
+    ? `<p class="delta"><span>📎 Вложение</span>файл <code>${esc(c.event.filename)}</code> едет вместе с этим сообщением как отдельный файл — сама страница показывает только подпись, файл она нарисовать не может.</p>`
+    : '';
   return `<article id="${c.id}">
   <header>
     <p class="no">${c.no}</p>
@@ -390,6 +407,7 @@ const articles = CARDS.map((c) => {
        <h3>Как приходит</h3>
        <div class="bubble ${cls}"><p class="tags">${tags}</p><div class="msg">${body}</div></div>
      </section></div>
+  ${attachment}
   ${note}
 </article>`;
 }).join('\n');

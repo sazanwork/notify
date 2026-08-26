@@ -138,14 +138,15 @@ test('vocabulary: no card draws an icon that is not in the list', () => {
   }
 });
 
-test('type line: the icon stays outside the bold, and no name is invented', () => {
+test('type line: the icon stays outside the bold, no name is invented, the outcome is spelled out', () => {
   const text = render({ type: 'ci', project: 'arvent', status: 'ok' });
   const secondLine = text.split('\n')[1];
 
-  // Nothing named this run, so line 2 is the type and nothing else. It used to
-  // print the status word here — the outcome said a third time, after the icon
-  // and the tag, in the slot reserved for a name.
-  assert.equal(secondLine, '✅ <b>CI</b>');
+  // Nothing named this run, so line 2 is just the type — no made-up name.
+  // The outcome DOES repeat here, in parens, on top of the icon and the tag:
+  // tried icon-and-tag-only first, and on a small screen or a lost color it
+  // read as "something happened," not "it failed" — found live, 26.08.2026.
+  assert.equal(secondLine, '✅ <b>CI</b> (OK)');
 });
 
 test('field: a bold label with a capital letter, the value as plain text', () => {
@@ -467,7 +468,7 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     deploy.split('\n')[1],
-    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a>'
+    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a> (Fail)'
   );
   assert.ok(!deploy.includes('<b>Via:</b>'), 'the Via row carried the name a floor below');
   assert.ok(!deploy.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go');
@@ -480,7 +481,7 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     ci.split('\n')[1],
-    '\u{1F534} <b>CI:</b> <a href="https://x/run">nightly</a>'
+    '\u{1F534} <b>CI:</b> <a href="https://x/run">nightly</a> (Fail)'
   );
   assert.ok(!ci.includes('<b>Check:</b>'), 'CI called its own name by a different word');
   assert.ok(!ci.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go from CI too');
@@ -507,7 +508,7 @@ test('run: a hand deploy names the means and has nothing to open', () => {
     commit: '3f1a882', commitUrl: 'https://x/c', via: 'manual, from the Mac'
   });
 
-  assert.equal(out.split('\n')[1], '\u2705 <b>Deploy:</b> manual, from the Mac');
+  assert.equal(out.split('\n')[1], '\u2705 <b>Deploy:</b> manual, from the Mac (OK)');
   assert.ok(!out.includes('<a href="https://x/run"'), 'a hand deploy has no run');
 });
 
@@ -590,7 +591,7 @@ test('run: a nameless run keeps its link rather than losing it', () => {
   // name `the run`, which named nothing and read like a real workflow.
   assert.equal(
     out.split('\n')[1],
-    '\u{1F534} <a href="https://x/run"><b>Deploy</b></a>',
+    '\u{1F534} <a href="https://x/run"><b>Deploy</b></a> (Fail)',
     'the link to the logs was lost'
   );
 });
@@ -675,12 +676,49 @@ test('card/ci: commit hash links, body quoted under it', () => {
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <a href="https://x/run"><b>CI</b></a>',
+    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
     '',
     '<i><u>Change</u></i>',
     '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>'
+  ].join('\n'));
+});
+
+test('card/ci: commit author links to their GitHub profile, distinct from Actor', () => {
+  const out = render({
+    type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
+    commit: '9b1fc68', commitUrl: 'https://x/c', commitTitle: 'fix: checkout',
+    commitAuthor: 'mikitasazan',
+    actor: '@chelsnebes', workflowUrl: 'https://x/run'
+  });
+
+  assert.equal(out, [
+    '#ci #master #fail',
+    '🔴 <a href="https://x/run"><b>CI</b></a> (Fail)',
+    '',
+    '<i><u>Change</u></i>',
+    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> fix: checkout',
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'
+  ].join('\n'));
+});
+
+test('card/deploy: commit author, with no Actor row — deploy has none', () => {
+  const out = render({
+    type: 'deploy', project: 'playhub', status: 'ok',
+    commit: 'a1b2c3d', commitUrl: 'https://x/c', commitTitle: 'feat: new landing',
+    commitAuthor: 'mikitasazan',
+    via: 'GitHub Actions', workflowUrl: 'https://x/run'
+  });
+
+  assert.equal(out, [
+    '#deploy #playhub #ok',
+    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
+    '',
+    '<i><u>Change</u></i>',
+    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing',
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'
   ].join('\n'));
 });
 
@@ -693,7 +731,7 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <a href="https://x/run"><b>CI</b></a>',
+    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
     '<b>Reason:</b> nightly check of master',
     '',
     '<i><u>Change</u></i>',
@@ -710,7 +748,7 @@ test('card/deploy', () => {
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a>',
+    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing'
@@ -752,6 +790,23 @@ test('card/issue: the assignee is the second row, and the old body is gone', () 
   ].join('\n'));
 });
 
+test('fieldPerson/fieldTelegram: a multi-line login does not put a raw newline inside the href', () => {
+  // Found by Codex/GLM review 2026-08-26: unlike `field`/`fieldLink`, these
+  // two skipped `firstLine`, so a login/handle containing `\n` (only
+  // reachable through `--json`/direct calls — a real GitHub login cannot
+  // have one) put the newline straight into the `href` attribute itself.
+  const person = render({
+    type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 'x',
+    assignee: 'alice\nbob'
+  });
+  const telegram = render({ type: 'ci', project: 'arvent', status: 'fail', actor: '@alice\n@bob' });
+
+  assert.ok(!person.includes('href="https://github.com/alice\nbob"'), 'newline reached the href');
+  assert.ok(person.includes('<b>Assignee:</b> <a href="https://github.com/alice…">alice…</a>'));
+  assert.ok(!telegram.includes('href="https://t.me/alice\n@bob"'), 'newline reached the href');
+  assert.ok(telegram.includes('<b>Actor:</b> <a href="https://t.me/alice…">@alice…</a>'));
+});
+
 test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
   const out = render({
     type: 'pr', project: 'playhub', action: 'opened', number: 294,
@@ -778,6 +833,39 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
   assert.ok(!twoLine.includes('second line'), 'a title is cut at its first line');
 });
 
+test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR description again', () => {
+  const requested = render({
+    type: 'pr', project: 'playhub', action: 'changes_requested', number: 118,
+    title: 'Onboarding: question drafts',
+    body: 'Please rename this variable, it shadows the outer one.',
+    author: 'mikitasazan', reviewer: 'Ilja-Prihach', url: 'https://x/p/118'
+  });
+
+  assert.equal(requested, [
+    '#pr #p118 #info',
+    '📝 <b>PR:</b> <a href="https://x/p/118">#118 Onboarding: question drafts</a>',
+    '<blockquote>Please rename this variable, it shadows the outer one.</blockquote>',
+    '',
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
+    '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
+  ].join('\n'));
+
+  // An approval with no comment attached: no empty quote, no dangling blank line.
+  const approvedSilent = render({
+    type: 'pr', project: 'playhub', action: 'approved', number: 118,
+    title: 'Onboarding: question drafts', reviewer: 'Ilja-Prihach'
+  });
+  assert.ok(!approvedSilent.includes('<blockquote>'), 'no comment means no quote');
+  assert.ok(!approvedSilent.includes('\n\n<b>Reviewer'), 'no comment means no dangling blank line before Reviewer');
+
+  // `assigned`-style stale text stays suppressed: `merged` still shows nothing.
+  const merged = render({
+    type: 'pr', project: 'playhub', action: 'merged', number: 118,
+    title: 'Onboarding: question drafts', body: 'PR description he already read.'
+  });
+  assert.ok(!merged.includes('<blockquote>'), 'merged does not resurrect the PR description');
+});
+
 test('card/incident: every line of the diagnosis survives', () => {
   const out = render({
     type: 'incident', project: 'vault', title: 'Vault needs a fix',
@@ -793,6 +881,30 @@ test('card/incident: every line of the diagnosis survives', () => {
     'лог: ~/Library/Logs/vault.log</blockquote>',
     '',
     '<b>Log:</b> <code>~/Library/Logs/vault.log</code>'
+  ].join('\n'));
+});
+
+test('card/incident: several independent findings become a named list, not one glued blockquote', () => {
+  const out = render({
+    type: 'incident', project: 'vault', title: 'The vault needs repair',
+    items: [
+      { text: 'DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another', group: 'Findings' },
+      { text: 'STALE IN ARCHIVE: ssh-keys.tar.gz.age', group: 'Findings' },
+      { text: 'BAD only one recipient: losing the key loses the whole vault', group: 'Findings' }
+    ],
+    logs: '~/Library/Logs/vault-selfcheck-fail.log'
+  });
+
+  assert.equal(out, [
+    '#incident #the_vault_needs_repair #fail',
+    '🚨 <b>Incident:</b> The vault needs repair',
+    '',
+    '<i><u>Findings</u></i>',
+    '• DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another',
+    '• STALE IN ARCHIVE: ssh-keys.tar.gz.age',
+    '• BAD only one recipient: losing the key loses the whole vault',
+    '',
+    '<b>Log:</b> <code>~/Library/Logs/vault-selfcheck-fail.log</code>'
   ].join('\n'));
 });
 
@@ -911,6 +1023,19 @@ test('clampMessage closes nested tags in the order they were opened', () => {
   assert.equal(wellFormed('<i><u>x</i></u>'), false, 'the nesting check cannot fail');
   assert.equal(wellFormed('<i><u>x</u></i>'), true, 'the nesting check rejects valid markup');
   assert.ok(wellFormed(clamped), 'the clamped body is not well-formed');
+});
+
+test('clampMessage never leaves an <a> tag open when its closing `>` sits past the cut point', () => {
+  // Found by GLM review 2026-08-26: the guard used to search for the closing
+  // `>` across the WHOLE slice up to `limit`, not up to the line-boundary cut
+  // point (`end`). A tag whose `>` landed between `end` and `limit` read as
+  // "closed" and the cut sliced straight through the middle of the `href`
+  // anyway — Telegram answers 400 to the result, the whole card is lost.
+  const filler = 'x'.repeat(2500);
+  const tag = '<a href="https://example.com/aaa\nbbb">link</a>';
+  const clamped = clampMessage(filler + tag + 'z'.repeat(2000), 4000);
+
+  assert.ok(!/<a\b[^>]*<\//.test(clamped), 'an <a> tag was cut open before its own `>`');
 });
 
 
@@ -1033,9 +1158,9 @@ test('card/session: identifier first, his own words quoted, command copyable', (
     '<b>Project:</b> mac-config',
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     '',
-    // A block heading, in the one style every card uses for a block — not a
-    // bold field label, which means `label: value` on a single line.
-    '<i><u>Opened with</u></i>',
+    // A bold field label, nothing after the colon — not the group() heading:
+    // a group means a list, and there is only ever one quote here.
+    '<b>Opened with:</b>',
     '<blockquote>Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»</blockquote>',
     '',
     '<b>To do:</b> stop the alarm for this session',
@@ -1316,21 +1441,68 @@ test('list items: with no group at all the list stays flat, as it did for earlie
   assert.ok(!out.includes('<i><u>'), 'with no groups there must be no headings');
 });
 
+test('list items: an item with facts becomes a nested list — a bullet, then indented sub-rows', () => {
+  const out = render({
+    type: 'report',
+    project: 'playhub',
+    title: 'Weekly analytics',
+    groups: [{
+      name: 'Top search queries',
+      items: [
+        { text: '"online games ru"', facts: [['Clicks', 0], ['Position', 55]] },
+        { text: '"online games russian"', facts: [['Clicks', 0], ['Position', 59]] }
+      ]
+    }]
+  });
+
+  assert.equal(out, [
+    '#report #weekly_analytics #info',
+    'ℹ️ <b>Report:</b> Weekly analytics',
+    '',
+    '<i><u>Top search queries</u></i>',
+    '• &quot;online games ru&quot;',
+    '   <b>Clicks:</b> 0',
+    '   <b>Position:</b> 55',
+    '• &quot;online games russian&quot;',
+    '   <b>Clicks:</b> 0',
+    '   <b>Position:</b> 59'
+  ].join('\n'));
+});
+
+test('list items: a labelled item is capitalized, same as a field and a fact', () => {
+  // Found in review 2026-08-26 (his own bug report, via GLM): `groupItem`
+  // bolded the label but skipped `cap()` — the one label shape on the whole
+  // card that did not follow the "first letter capitalized" rule every field
+  // and every fact already follow.
+  const out = render({
+    type: 'incident', project: 'vault', title: 'The vault needs repair',
+    items: [{ text: 'ssh-keys.tar.gz.age', label: 'stale in archive' }]
+  });
+
+  assert.ok(out.includes('<b>Stale in archive:</b> ssh-keys.tar.gz.age'));
+});
+
 // ── One number, one shape ───────────────────────────────────────────────────
 
-test('trend: both numbers, and an arrow only where there is a second one', () => {
-  // Now first, before second. The owner read `51 ▲5` and asked what the 5 was:
-  // the distance between two numbers, only one of which the card showed.
-  assert.equal(trend(210, 207), '210 / 207 ▲3');
-  assert.equal(trend(202, 207), '202 / 207 ▼5');
+test('trend: both numbers, old on the left, new on the right, an arrow only where there is a second one', () => {
+  // Old first, new second — read left to right as "was, became, by how much".
+  // The owner read `51 ▲5` first and asked what the 5 was: the distance
+  // between two numbers, only one of which the card showed.
+  assert.equal(trend(210, 207), '207 / 210 ▲3');
+  assert.equal(trend(202, 207), '207 / 202 ▼5');
   assert.equal(trend(0, 0), '0 / 0 =');
   // Nothing to compare to: a plain number, never a `+37` that looks like one.
   assert.equal(trend(37), '37');
   assert.equal(trend(37, undefined), '37');
   // The unit belongs to both numbers, and the arrow stands right of the pair.
-  assert.equal(trend(4.4, 3.6, '%'), '4.4% / 3.6% ▲0.8');
+  assert.equal(trend(4.4, 3.6, '%'), '3.6% / 4.4% ▲0.8');
   // Noise in the second decimal is not movement.
   assert.equal(trend(4.42, 4.44, '%'), '4.4% / 4.4% =');
+  // Found by Codex review 2026-08-26: raw values 0.02 apart round to
+  // DIFFERENT printed labels (4.4% vs 4.5%) — `=` next to two different
+  // numbers is a lie the reader can see with their own eyes.
+  assert.equal(trend(4.46, 4.44, '%'), '4.4% / 4.5% ▲0.1');
+  assert.equal(trend(4.44, 4.46, '%'), '4.5% / 4.4% ▼0.1');
   // No sender may print the other dialect: a signed count is not a comparison.
   for (const out of [trend(210, 207), trend(37), trend(0, 0)]) {
     assert.ok(!/[+]/.test(out), `a plus sign came back: ${out}`);

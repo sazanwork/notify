@@ -16,6 +16,7 @@ export const CARDS = [
       commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/playhub/commit/9b1fc68',
       commitTitle: 'feat(catalog): подсказки категорий в поиске',
       commitBody: 'Поиск показывал пустоту, пока не введено три буквы.\nТеперь сразу видно шесть категорий.',
+      commitAuthor: 'mikitasazan',
       via: 'GitHub Actions',
       // The action fills these itself: the run link, and `github.workflow`,
       // which for this file is its `name:` line — "Deploy to Beget".
@@ -36,6 +37,7 @@ export const CARDS = [
       commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/playhub/commit/9b1fc68',
       commitTitle: 'feat(catalog): подсказки категорий в поиске',
       commitBody: 'Поиск показывал пустоту, пока не введено три буквы.',
+      commitAuthor: 'mikitasazan',
       note: 'the run was cancelled AFTER the server deploy had already happened — check production by hand',
       via: 'GitHub Actions',
       workflowUrl: 'https://github.com/sazanwork/playhub/actions/runs/1',
@@ -71,16 +73,16 @@ export const CARDS = [
     // sender prints) and their own arithmetic.
     event: {
       type: 'report', project: 'playhub', key: 'analytics-daily',
-      title: 'Analytics — russkie-igry.ru',
+      title: 'Analytics, daily — russkie-igry.ru',
       aside: '2026-08-23 / 2026-08-22',
       lines: [
-        ['Pages', '1438 / 1687 ▼249', 'Server log'],
+        ['Pages', '1687 / 1438 ▼249', 'Server log'],
         ['Game plays', '26 / 26 =', 'GA4'],
-        ['People', '51 / 46 ▲5', 'Metrica'],
-        ['People', '51 / 38 ▲13', 'GA4'],
+        ['People', '46 / 51 ▲5', 'Metrica'],
+        ['People', '38 / 51 ▲13', 'GA4'],
         ['Clicks', '0 / 0 =', 'Google Search'],
-        ['Impressions', '0 / 1 ▼1', 'Google Search'],
-        ['Visible', '3.5% / 2.3% ▲1.3 of the pages the server counted — the rest are blocked or have no JS', 'Coverage']
+        ['Impressions', '1 / 0 ▼1', 'Google Search'],
+        ['Visible', '2.3% / 3.5% ▲1.3 (of the pages the server counted — the rest are blocked or have no JS)', 'Coverage']
       ],
       url: 'https://github.com/sazanwork/playhub/blob/master/docs/analytics/2026-08-23.md'
     },
@@ -98,7 +100,7 @@ export const CARDS = [
     // single arrow is drawn — which is the rule, not a gap in the example.
     event: {
       type: 'report', project: 'playhub', key: 'analytics-weekly',
-      title: 'Analytics, week — russkie-igry.ru',
+      title: 'Analytics, weekly — russkie-igry.ru',
       aside: '2026-08-17 – 2026-08-23',
       lines: [
         ['Pages', 7639, 'Server log'],
@@ -107,11 +109,11 @@ export const CARDS = [
         ['People (days added up)', 317, 'Metrica'],
         ['Clicks', 0, 'Google Search'],
         ['Impressions', 7, 'Google Search'],
-        ['Visible', '4.5% of the pages the server counted', 'Coverage']],
+        ['Visible', '4.5% (of the pages the server counted)', 'Coverage']],
       url: 'https://github.com/sazanwork/playhub/tree/master/docs/analytics',
       groups: [{ name: 'Top search queries', items: [
-        { label: '"online games ru"', text: '0 clicks, pos. 55' },
-        { label: '"online games russian"', text: '0 clicks, pos. 59' }
+        { text: '"online games ru"', facts: [['Clicks', 0], ['Position', 55]] },
+        { text: '"online games russian"', facts: [['Clicks', 0], ['Position', 59]] }
       ] }]
     },
     note: "Сравнивать было не с чем — предыдущую неделю не читали, и поэтому ни одной стрелки. Это правило, а не пробел в примере."
@@ -127,9 +129,9 @@ export const CARDS = [
     expectTag: '#report #daily_report #info',
     event: {
       type: 'report', project: 'playhub', key: 'daily-report',
-      title: 'Daily report — russkie-igry.ru', url: 'https://russkie-igry.ru', aside: '2026-08-25',
+      title: 'Site digest, daily — russkie-igry.ru', url: 'https://russkie-igry.ru', aside: '2026-08-25',
       lines: [
-        ['Games', '412 / 404 ▲8', 'Catalogue'], ['iOS', '210 / 207 ▲3', 'Catalogue'], ['Android', '202 / 197 ▲5', 'Catalogue'],
+        ['Games', '404 / 412 ▲8', 'Catalogue'], ['iOS', '207 / 210 ▲3', 'Catalogue'], ['Android', '197 / 202 ▲5', 'Catalogue'],
         ['Added this week', 12, 'Catalogue'],
         ['Plays', 37, 'Today'], ['Added', 6, 'Today'], ['Through sync', 6, 'Today'],
       ],
@@ -259,12 +261,13 @@ export const CARDS = [
       type: 'job', project: 'mac-config', key: 'actions-minutes-guard',
       job: 'GitHub Actions minutes watchdog', status: 'disabled',
       note: 'Free minutes are nearly gone: 2013 of 2000. Switched these off so failure emails stop. Will switch them back on myself in the new period.',
+      url: 'https://github.com/organizations/sazanwork/settings/billing',
       items: [
         { text: 'arvent/nightly.yml', url: 'https://github.com/sazanwork/arvent/actions/workflows/nightly.yml' },
         { text: 'one-q/quality.yml', url: 'https://github.com/sazanwork/one-q/actions/workflows/quality.yml' }
       ]
     },
-    note: "Тег #off, а не #fail: сторож выключил прогоны нарочно, это не поломка. Слово «выключено» говорит значок 🚫, поэтому строки State на карточке нет."
+    note: "Тег #off, а не #fail: сторож выключил прогоны нарочно, это не поломка. Слово «выключено» говорит значок 🚫, поэтому строки State на карточке нет. Title теперь тоже ссылка — на страницу расхода минут, а не в никуда: владелец спросил, почему её не было, хотя карточка вся про GitHub Actions."
   },
   {
     id: 'ci', title: 'Ночная проверка кода',
@@ -274,14 +277,33 @@ export const CARDS = [
     expectTag: '#ci #master #ok',
     event: {
       // A scheduled run has no head commit, so the action's `commit-title`
-      // default resolves to nothing and no body is passed. The card carries
-      // the hash and the run link, and that is all it ever carries.
+      // and `commit-author` defaults both resolve to nothing. The card
+      // carries the hash and the run link, and that is all it ever carries.
       type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
       commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/arvent/commit/9b1fc68',
       actor: '@chelsnebes', note: 'nightly master check',
       workflowUrl: 'https://github.com/sazanwork/arvent/actions/runs/1', workflowName: 'nightly'
     },
-    note: "Заголовка коммита здесь нет и быть не может: ночной прогон запускается по расписанию, а не по коммиту. Имя проверки — сама вторая строка, и она же ссылка на прогон. Actor стоит рядом с коммитом, под заголовком «Изменение» — это про автора коммита, а не про то, кто запустил прогон."
+    note: "Коммита здесь нет: ночной прогон идёт по расписанию, а не по пушу. Actor рядом с ним — НЕ автор коммита, а дежурный, который чинит красный прогон. Ниже — обычный CI по пушу, там оба поля на месте и это разные люди."
+  },
+  {
+    id: 'ci-push', title: 'CI, упавший на пуше',
+    forum: 'Game Publisher · One-Q', when: 'коммит в master, гейт (lint/typecheck/тесты) упал',
+    live: ['live', 'работает'],
+    sender: '.github/workflows/quality.yml → sazanwork/notify',
+    expectTag: '#ci #master #fail',
+    event: {
+      // No --commit/--commit-title/--commit-author on this call at all — the
+      // action fills all three from github.event.head_commit, which push
+      // events always carry. Nothing to change in the workflow to get this.
+      type: 'ci', project: 'game-publisher', status: 'fail', branch: 'master',
+      commit: '3f1a882', commitUrl: 'https://github.com/sazanwork/game-publisher/commit/3f1a882',
+      commitTitle: 'fix(import): пропускать игры без обложки',
+      commitAuthor: 'mikitasazan',
+      note: 'type check failed (astro check)',
+      workflowUrl: 'https://github.com/sazanwork/game-publisher/actions/runs/2', workflowName: 'quality'
+    },
+    note: "Коммит и его автор взялись сами — quality.yml их не передаёт, экшен берёт из события пуша. Reason теперь тоже есть: у каждого из пяти шагов гейта свой id, и последний шаг перед уведомлением называет, чей outcome — failure."
   },
   {
     id: 'issue', title: 'Задача на доске',
@@ -342,9 +364,10 @@ export const CARDS = [
       type: 'pr', project: 'arvent', action: 'changes_requested', number: 118,
       url: 'https://github.com/sazanwork/arvent/pull/118',
       title: 'Онбординг: заготовки вопросов',
+      body: 'Переименуй эту переменную, она перекрывает внешнюю с тем же именем.',
       reviewer: 'Ilja-Prihach'
     },
-    note: "Значок 📝 говорит, что ревьюер просит правки, и звука не даёт: это не поломка. Тела нет — ревьюер писал в GitHub, а не в описании PR."
+    note: "Значок 📝 говорит, что просят правки, звука не даёт — не поломка. Цитата — комментарий самого ревьюера, не описание PR ещё раз: раньше сюда по ошибке подставлялось описание, а рендерер его и так глушил — карточка молчала. Источник поправили, и вердикт с правками теперь говорит, что именно исправить."
   },
   {
     id: 'incident', title: 'Авария',
@@ -355,10 +378,14 @@ export const CARDS = [
     event: {
       type: 'incident', project: 'vault', key: 'vault-selfcheck',
       title: 'The vault needs repair',
-      detail: 'DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another\nSTALE IN ARCHIVE: ssh-keys.tar.gz.age\nBAD   only one recipient: losing the key loses the whole vault',
+      items: [
+        { text: 'DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another', group: 'Findings' },
+        { text: 'STALE IN ARCHIVE: ssh-keys.tar.gz.age', group: 'Findings' },
+        { text: 'BAD only one recipient: losing the key loses the whole vault', group: 'Findings' }
+      ],
       logs: '~/Library/Logs/vault-selfcheck-fail-20260824-031500.log'
     },
-    note: "Вторая строка — сам заголовок аварии. Путь к логу стоит своим моноширинным хвостом, а не строкой внутри диагноза: там он был просто словами, и красная карточка читалась как тупик."
+    note: "Три находки были одним --detail, склеенным переводом строки — маркер (BAD/STALE/DIVERGED) в начале каждой строки делал работу заголовка внутри цитаты без единого лейбла. Теперь это именованный список, заголовок печатает пакет, а не текст сам себя подписывает. Путь к логу — свой моноширинный хвост."
   },
   {
     id: 'job-silent', title: 'Задача перестала отчитываться',
@@ -370,9 +397,10 @@ export const CARDS = [
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
       job: 'Yandex game import', status: 'silent', note: 'no report in time',
-      expected: 'at least once every 26h', lastSeen: '23.08 04:12'
+      expected: 'at least once every 26h', lastSeen: '23.08 04:12',
+      url: 'https://russkie-igry.ru'
     },
-    note: "Тег #unknown, а не #fail: задача не отчиталась, и сломалась она или просто не запускалась — пока неизвестно. Молчание — состояние задачи, а не отдельный вид события."
+    note: "Тег #unknown, а не #fail — молчание не значит поломку. Title теперь кликабелен: сторож раньше не передавал ссылку, хотя у этой задачи есть куда вести. У задач с мака ссылки по-прежнему нет — некуда."
   },
   {
     id: 'job-silent-ok', title: 'Задача снова отчитывается',
@@ -384,7 +412,8 @@ export const CARDS = [
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
       job: 'Yandex game import', status: 'ok', note: 'reporting again',
-      expected: 'at least once every 26h', lastSeen: '25.08 04:10'
+      expected: 'at least once every 26h', lastSeen: '25.08 04:10',
+      url: 'https://russkie-igry.ru'
     },
     note: "Тег тот же, что у красной карточки выше, — так выглядит пара «сломалось → починилось»."
   },
