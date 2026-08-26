@@ -732,11 +732,16 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
     fieldPerson('Reviewer', e.reviewer)
   ]);
 
+// Unlike a PR, an issue's `body` means one thing on every action — its own
+// description, never someone else's verdict — so it prints whenever it is
+// there, not only on `opened`. The owner: hiding it on `assigned` read as
+// inconsistent with the same card type showing it moments earlier — his call
+// to keep, 26.08.2026, over the earlier "he already saw it" reasoning.
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'Issue', named(e.number, e.title), e.url),
-    opening(e.action, e.body),
-    e.action === 'opened' && e.body ? '' : null,
+    bodyQuote(e.body),
+    e.body ? '' : null,
     fieldPerson('Author', e.author),
     fieldPerson('Assignee', e.assignee)
   ]);

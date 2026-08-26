@@ -773,8 +773,11 @@ test('card/issue: body arrives — it never did before', () => {
 });
 
 // The whole reason the order was turned around: on `assigned` the one new fact
-// is the person, and it used to be the last row under a 1400-character quote.
-test('card/issue: the assignee is the second row, and the old body is gone', () => {
+// is the person, and the body still shows here too — the owner's call
+// 26.08.2026: hiding it on `assigned` read as the same card type behaving
+// differently depending on what happened, and an issue's body never means
+// anything else, unlike a PR's dual-purpose one.
+test('card/issue: the assignee is the second row, the body still shows on assigned', () => {
   const out = render({
     type: 'issue', project: 'arvent', action: 'assigned', number: 312,
     title: 'Web booking page',
@@ -785,6 +788,8 @@ test('card/issue: the assignee is the second row, and the old body is gone', () 
   assert.equal(out, [
     '#issue #i312 #info',
     '🙋 <b>Issue:</b> <a href="https://x/i/312">#312 Web booking page</a>',
+    '<blockquote>A very long description the owner has already read.</blockquote>',
+    '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
