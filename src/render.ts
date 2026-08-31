@@ -1083,9 +1083,24 @@ const cutMarker = (e: NotifyEvent): string => {
   if (e.path) {
     return '⋯ cut, full text attached';
   }
+  // A bare `⋯ cut` announces a loss and then says nothing about it. The owner
+  // met one on a live PR card (31.08.2026) — a description long enough to be
+  // clamped — and asked what the three dots even referred to. The card had a
+  // `Source` link the whole time: the rest was one tap away and the marker
+  // never said so.
+  //
+  // So the marker NAMES the row that holds the rest, and never repeats its
+  // value: it used to print the log path in full, and the pointer block then
+  // printed the same path again on the very next line.
+  //
+  // `below` is literal, not a figure of speech: the marker closes the clamped
+  // body and the pointer block is appended after it.
   const logs = 'logs' in e ? e.logs : undefined;
+  if (logs) {
+    return '⋯ cut, full text at Log below';
+  }
 
-  return logs ? `⋯ cut, full: <code>${esc(logs)}</code>` : '⋯ cut';
+  return sourceLinks(e).length > 0 ? '⋯ cut, full text at Source below' : '⋯ cut';
 };
 
 /**

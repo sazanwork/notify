@@ -1693,10 +1693,33 @@ test('cut marker: names the log when there is one, and the card still fits (v2.1
     note: long, logs: '~/Library/Logs/validator.log', check: 'config jobs --log validator' });
 
   assert.ok(out.length <= 4096, `over the limit: ${out.length}`);
-  assert.ok(out.includes('⋯ cut, full: <code>~/Library/Logs/validator.log</code>'), 'the marker must name where the full text lives');
+  // The marker NAMES the row, it does not repeat its value: printing the path
+  // here put the same path on two consecutive lines, the marker and `Log:`.
+  assert.ok(out.includes('⋯ cut, full text at Log below'), 'the marker must name where the full text lives');
+  assert.equal((out.match(/~\/Library\/Logs\/validator\.log/g) ?? []).length, 1, 'the log path is printed twice');
   // The pointer block survives the cut — that is the whole point of tail-first assembly.
   assert.ok(out.includes('<b>Check:</b> <code>config jobs --log validator</code>'), 'the cut took the Check row');
   assert.ok(out.includes('<b>Log:</b>'), 'the cut took the Log row');
+});
+
+test('cut marker: with no log, a cut card points at its Source row', () => {
+  // The owner met a bare `⋯ cut` on a live PR card and asked what the three
+  // dots referred to. The card carried a `Source` link the whole time — the
+  // rest was one tap away and the marker never said so.
+  const long = Array.from({ length: 900 }, (_, i) => `описание строки ${i}, довольно длинное`).join(' ');
+  const out = render({ type: 'pr', project: 'arvent', action: 'merged', number: 315,
+    title: 'Лист ожидания', body: long, url: 'https://x/p/315' });
+
+  assert.ok(out.includes('⋯ cut, full text at Source below'));
+  assert.ok(out.includes('<b>Source:</b> <a href="https://x/p/315">#315</a>'));
+  assert.ok(out.length <= 4096, `over the limit: ${out.length}`);
+
+  // Nothing to point at: the marker says only that something was cut, because
+  // promising a source that is not there is worse than saying nothing.
+  const nowhere = render({ type: 'pr', project: 'arvent', action: 'merged', number: 315,
+    title: 'Лист ожидания', body: long });
+  assert.ok(nowhere.includes('⋯ cut'));
+  assert.ok(!nowhere.includes('at Source below'), 'promised a source row that does not exist');
 });
 
 test('cut marker: a caption card announces the attachment as the full text and fits 1024 (v2.1)', () => {
