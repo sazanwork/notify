@@ -728,8 +728,26 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
 // the thing the card is about could not be read without reading three lines.
 // The action is not repeated in words: the icon carries it, and no two actions
 // of one type share an icon.
-const named = (number: number, title: string | undefined): string =>
-  title ? `#${number} ${title}` : `#${number}`;
+// The number left line 2 on 31.08.2026, by the same rule that moved the commit
+// hash the same day: `#347` is a pointer, and every pointer lives in the last
+// block. Line 2 keeps the title, which is what the thing IS; the number comes
+// back as the text of the `Source` link, where it names exactly what opens.
+//
+// With no title there is nothing left to say, so line 2 falls back to the bare
+// type word — `typeLine` already does that on an empty name. The number is not
+// put back here: it would then appear twice on a titled card and once on an
+// untitled one, which is the inconsistency this move exists to remove.
+//
+// With NO url the number stays put, because then the `Source` row does not
+// exist and dropping it here would erase the number from everything a person
+// reads — the card would name a task without saying which. Same law as
+// `fieldLink`: an identifier must not vanish just because the caller passed no
+// address for it.
+const named = (number: number, title: string | undefined, url: string | undefined): string => {
+  if (!title) return url ? '' : `#${number}`;
+
+  return url ? title : `#${number} ${title}`;
+};
 
 // The people come BEFORE the text, and the text comes only when it is the
 // news. An `assigned` card carries one new fact — who took it — and it used to
@@ -761,7 +779,7 @@ const prBody = (action: string, body: string | undefined): string | null =>
 // does the assignee cut apart what should be inseparable?"
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'PR', named(e.number, e.title)),
+    typeLine(iconFor(e), 'PR', named(e.number, e.title, e.url)),
     prBody(e.action, e.body),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
@@ -776,7 +794,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
 // to save — the expandable quote buys the context back without the cost.
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'Issue', named(e.number, e.title)),
+    typeLine(iconFor(e), 'Issue', named(e.number, e.title, e.url)),
     bodyQuote(e.body),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
@@ -1025,7 +1043,11 @@ const sourceLinks = (e: NotifyEvent): string[] => {
   const commitUrl = 'commitUrl' in e ? e.commitUrl : undefined;
   const commit = 'commit' in e ? e.commit : undefined;
 
-  if (run) out.push(link(run, SOURCE_NAME[e.type] ?? 'source'));
+  // A pull request and an issue are named by their number — that is how GitHub
+  // names them and how the owner asks for them out loud. The number used to sit
+  // on line 2 beside the title; here it says exactly what the link opens.
+  const numbered = 'number' in e && typeof e.number === 'number' ? ` #${e.number}` : '';
+  if (run) out.push(link(run, `${SOURCE_NAME[e.type] ?? 'source'}${numbered}`));
   // Without a hash there is no text to put on the link but the word itself,
   // and `commit` alone next to `workflow run` says nothing a reader can use.
   if (commitUrl && commit) out.push(link(commitUrl, `commit ${firstLine(commit)}`));

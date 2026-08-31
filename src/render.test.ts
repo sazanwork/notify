@@ -189,8 +189,10 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
     body: 'разбор 150 коммитов'
   });
 
-  // Number and title are ONE identifier on the type line, the way GitHub writes
-  // it. With no url it is still there, simply not a link.
+  // Line 2 is the title alone. The number is a pointer, so it went down to the
+  // `Source` row on 31.08.2026 — the same move the commit hash made that day.
+  // No url on this one, so there is no `Source` row to hold the number — it
+  // stays on line 2 rather than vanishing from the card altogether.
   assert.equal(issue.split('\n')[1], '🆕 <b>Issue:</b> #322 Коммиты не следуют конвенции');
   assert.ok(!issue.includes('<b>Number:</b>'), 'the Number row came back');
   assert.ok(!issue.includes('<b>Title:</b>'), 'the Title row came back');
@@ -371,6 +373,39 @@ test('issue: the assignee ends up in the message', () => {
 
   assert.match(out, /#128/);
   assert.match(out, /Ilja/);
+});
+
+test('issue/pr: the number is the source link text, and never disappears', () => {
+  // The number moved off line 2 on 31.08.2026 — it is a pointer, and pointers
+  // live in the last block. The trap this test guards: with no url there IS no
+  // last block, and a first pass at the move erased the number from everything
+  // a person reads. The card then named a task without saying which one.
+  const linked = render({
+    type: 'issue', project: 'arvent', action: 'assigned', number: 128,
+    title: 'Waiting list', assignee: 'Ilja', url: 'https://x/i/128'
+  });
+
+  assert.ok(linked.includes('<b>Issue:</b> Waiting list'), 'line 2 is the title alone');
+  assert.ok(linked.includes('<b>Source:</b> <a href="https://x/i/128">issue #128</a>'));
+  // Exactly once as `#128`: in the source row. The instance tag is `#i128`,
+  // a different string, and line 2 no longer carries it at all.
+  assert.equal((linked.match(/#128/g) ?? []).length, 1, 'the number is printed more than once');
+  assert.ok(linked.includes('#i128'), 'the instance tag lost the number');
+
+  const bare = render({
+    type: 'issue', project: 'arvent', action: 'assigned', number: 128,
+    title: 'Waiting list', assignee: 'Ilja'
+  });
+
+  assert.ok(bare.includes('<b>Issue:</b> #128 Waiting list'), 'no url — the number stays on line 2');
+  assert.ok(!bare.includes('<b>Source:</b>'), 'no url means no source row');
+
+  // A pull request is named the same way, with its own noun.
+  const pr = render({
+    type: 'pr', project: 'playhub', action: 'opened', number: 118,
+    title: 'Category hints', url: 'https://x/p/118'
+  });
+  assert.ok(pr.includes('<b>Source:</b> <a href="https://x/p/118">pull request #118</a>'));
 });
 
 test('deploy: with no workflow run, the commit IS the source and the pointer block exists', () => {
@@ -818,12 +853,12 @@ test('card/issue: body arrives — it never did before', () => {
 
   assert.equal(out, [
     '#issue #i322 #info',
-    '🆕 <b>Issue:</b> #322 Commit convention for all repos',
+    '🆕 <b>Issue:</b> Commit convention for all repos',
     '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '',
-    '<b>Source:</b> <a href="https://x/i/322">issue</a>'
+    '<b>Source:</b> <a href="https://x/i/322">issue #322</a>'
   ].join('\n'));
 });
 
@@ -840,13 +875,13 @@ test('card/issue: assigned carries the body too, quoted', () => {
 
   assert.equal(out, [
     '#issue #i312 #info',
-    '🙋 <b>Issue:</b> #312 Web booking page',
+    '🙋 <b>Issue:</b> Web booking page',
     '<blockquote>A description he needs in front of him, not one link away.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
     '',
-    '<b>Source:</b> <a href="https://x/i/312">issue</a>'
+    '<b>Source:</b> <a href="https://x/i/312">issue #312</a>'
   ].join('\n'));
 });
 
@@ -896,12 +931,12 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
 
   assert.equal(out, [
     '#pr #p294 #info',
-    '🆕 <b>PR:</b> #294 Onboarding: question drafts',
+    '🆕 <b>PR:</b> Onboarding: question drafts',
     '<blockquote>PR description here.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
     '',
-    '<b>Source:</b> <a href="https://x/p/294">pull request</a>'
+    '<b>Source:</b> <a href="https://x/p/294">pull request #294</a>'
   ].join('\n'));
 
   // One title is one line, the same for every type. It is the identifier now,
@@ -910,7 +945,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     type: 'pr', project: 'playhub', action: 'opened', number: 1,
     title: 'first line\nsecond line'
   });
-  assert.ok(twoLine.includes('#1 first line'), 'the PR identifier is number plus title');
+  assert.ok(twoLine.includes('<b>PR:</b> #1 first line'), 'no url, so the number stays on line 2');
   assert.ok(!twoLine.includes('second line'), 'a title is cut at its first line');
 });
 
@@ -927,14 +962,14 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
   // the only thing that says so.
   assert.equal(requested, [
     '#pr #p118 #info',
-    '📝 <b>PR:</b> #118 Onboarding: question drafts',
+    '📝 <b>PR:</b> Onboarding: question drafts',
     '<b>Review:</b>',
     '<blockquote>Please rename this variable, it shadows the outer one.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
     '',
-    '<b>Source:</b> <a href="https://x/p/118">pull request</a>'
+    '<b>Source:</b> <a href="https://x/p/118">pull request #118</a>'
   ].join('\n'));
 
   // An approval with no comment attached: no empty quote, no dangling blank line.
