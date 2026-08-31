@@ -386,7 +386,10 @@ test('issue/pr: the number is the source link text, and never disappears', () =>
   });
 
   assert.ok(linked.includes('<b>Issue:</b> Waiting list'), 'line 2 is the title alone');
-  assert.ok(linked.includes('<b>Source:</b> <a href="https://x/i/128">issue #128</a>'));
+  // The link text is the number and nothing else: line 2 already says the
+  // type, so `issue #128` said it twice — the owner cut the word on 31.08.2026.
+  assert.ok(linked.includes('<b>Source:</b> <a href="https://x/i/128">#128</a>'));
+  assert.ok(!linked.includes('issue #128'), 'the type word came back into the link');
   // Exactly once as `#128`: in the source row. The instance tag is `#i128`,
   // a different string, and line 2 no longer carries it at all.
   assert.equal((linked.match(/#128/g) ?? []).length, 1, 'the number is printed more than once');
@@ -400,12 +403,12 @@ test('issue/pr: the number is the source link text, and never disappears', () =>
   assert.ok(bare.includes('<b>Issue:</b> #128 Waiting list'), 'no url — the number stays on line 2');
   assert.ok(!bare.includes('<b>Source:</b>'), 'no url means no source row');
 
-  // A pull request is named the same way, with its own noun.
+  // A pull request is named the same way — by its number alone.
   const pr = render({
     type: 'pr', project: 'playhub', action: 'opened', number: 118,
     title: 'Category hints', url: 'https://x/p/118'
   });
-  assert.ok(pr.includes('<b>Source:</b> <a href="https://x/p/118">pull request #118</a>'));
+  assert.ok(pr.includes('<b>Source:</b> <a href="https://x/p/118">#118</a>'));
 });
 
 test('deploy: with no workflow run, the commit IS the source and the pointer block exists', () => {
@@ -858,7 +861,7 @@ test('card/issue: body arrives — it never did before', () => {
     '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '',
-    '<b>Source:</b> <a href="https://x/i/322">issue #322</a>'
+    '<b>Source:</b> <a href="https://x/i/322">#322</a>'
   ].join('\n'));
 });
 
@@ -881,7 +884,7 @@ test('card/issue: assigned carries the body too, quoted', () => {
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
     '',
-    '<b>Source:</b> <a href="https://x/i/312">issue #312</a>'
+    '<b>Source:</b> <a href="https://x/i/312">#312</a>'
   ].join('\n'));
 });
 
@@ -936,7 +939,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     '',
     '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
     '',
-    '<b>Source:</b> <a href="https://x/p/294">pull request #294</a>'
+    '<b>Source:</b> <a href="https://x/p/294">#294</a>'
   ].join('\n'));
 
   // One title is one line, the same for every type. It is the identifier now,
@@ -969,7 +972,7 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
     '',
-    '<b>Source:</b> <a href="https://x/p/118">pull request #118</a>'
+    '<b>Source:</b> <a href="https://x/p/118">#118</a>'
   ].join('\n'));
 
   // An approval with no comment attached: no empty quote, no dangling blank line.

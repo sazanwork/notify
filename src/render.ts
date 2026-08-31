@@ -1043,11 +1043,16 @@ const sourceLinks = (e: NotifyEvent): string[] => {
   const commitUrl = 'commitUrl' in e ? e.commitUrl : undefined;
   const commit = 'commit' in e ? e.commit : undefined;
 
-  // A pull request and an issue are named by their number — that is how GitHub
-  // names them and how the owner asks for them out loud. The number used to sit
-  // on line 2 beside the title; here it says exactly what the link opens.
-  const numbered = 'number' in e && typeof e.number === 'number' ? ` #${e.number}` : '';
-  if (run) out.push(link(run, `${SOURCE_NAME[e.type] ?? 'source'}${numbered}`));
+  // A pull request and an issue are named by their number and by NOTHING else.
+  // `pull request #118` says the type a second time — line 2 already opens with
+  // `PR:` — and the owner cut it the hour it shipped: "сверху написано PR,
+  // зачем здесь ещё писать PR? Здесь можно просто номер и всё."
+  //
+  // Only these two types have a number, and only for them is the type word
+  // redundant: `workflow run` and `commit 9b1fc68` name things line 2 does NOT,
+  // so they keep their nouns.
+  const numbered = 'number' in e && typeof e.number === 'number' ? `#${e.number}` : null;
+  if (run) out.push(link(run, numbered ?? SOURCE_NAME[e.type] ?? 'source'));
   // Without a hash there is no text to put on the link but the word itself,
   // and `commit` alone next to `workflow run` says nothing a reader can use.
   if (commitUrl && commit) out.push(link(commitUrl, `commit ${firstLine(commit)}`));
