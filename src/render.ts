@@ -284,14 +284,19 @@ const groupItem = (it: Item, index: number, numbered: boolean): string => {
 // part of the heading. Longer than ~400 characters and the quote collapses
 // on its own (`expandable`, Bot API), otherwise a stack trace or a log dump
 // stretches the card across the whole screen.
+// A quote collapses when it would take more than a screenful — by length OR
+// by line count, because five short lines eat as much screen as one long
+// paragraph and the old length-only rule let them through (v2.1).
 const EXPAND_AT = 400;
+const EXPAND_LINES = 5;
 const note = (text: string | undefined): string | null => {
   if (!text) {
     return null;
   }
   const body = esc(text);
+  const long = body.length > EXPAND_AT || body.split('\n').length > EXPAND_LINES;
 
-  return body.length > EXPAND_AT ? `<blockquote expandable>${body}</blockquote>` : `<blockquote>${body}</blockquote>`;
+  return long ? `<blockquote expandable>${body}</blockquote>` : `<blockquote>${body}</blockquote>`;
 };
 
 /**
@@ -738,9 +743,14 @@ const named = (number: number, title: string | undefined): string =>
 // REVIEWER'S OWN comment there, which is new text he has not seen. "Verdict:
 // changes_requested, then nothing" was the owner's complaint: a verdict with
 // no comment attached said less than the review itself did.
+// Same rule as the issue card since 31.08.2026: the body prints on every
+// action, collapsed when long. `VERDICT` stays because it changes what the
+// body MEANS — on approved/changes_requested the sender puts the reviewer's
+// own comment there, not the PR description — and that is what the caption
+// has to say.
 const VERDICT: ReadonlySet<string> = new Set(['approved', 'changes_requested']);
-const opening = (action: string, body: string | undefined): string | null =>
-  action === 'opened' || VERDICT.has(action) ? bodyQuote(body) : null;
+const prBody = (action: string, body: string | undefined): string | null =>
+  VERDICT.has(action) ? quoted('Review', body) : bodyQuote(body);
 
 // The body is what the title stands for — it sits directly under the name,
 // with nothing between them. The people come after, consolidated in one
@@ -750,25 +760,23 @@ const opening = (action: string, body: string | undefined): string | null =>
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'PR', named(e.number, e.title)),
-    opening(e.action, e.body),
-    (e.action === 'opened' || VERDICT.has(e.action)) && e.body ? '' : null,
+    prBody(e.action, e.body),
+    e.body ? '' : null,
     fieldPerson('Author', e.author),
     fieldPerson('Reviewer', e.reviewer)
   ]);
 
-// The issue's body prints ONLY on `opened` — the same law the PR card
-// follows. History of this line: hidden → shown everywhere (the owner's call
-// of 26.08.2026, "inconsistent with the same card showing it moments
-// earlier") → hidden again on 31.08.2026, when the owner, shown the live
-// duplicate ("the full body arrives a second time in one day"), delegated
-// the call ("сделай как лучше по оптимизации и простоте") and approved the
-// short assigned card in the v2.1 mockups. On assigned/closed the card is
-// the one new fact plus the `Source:` link to the full text.
+// The body prints on EVERY action, as a quote that collapses when it is
+// long. The owner settled this on 31.08.2026, after the short assigned card
+// shipped: "если это ишью, то видеть тело ишью… везде, где это может быть
+// полезно, не переходя по ссылке на источник." A collapsed quote costs four
+// lines, which is what the earlier "he already saw it" reasoning was trying
+// to save — the expandable quote buys the context back without the cost.
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
     typeLine(iconFor(e), 'Issue', named(e.number, e.title)),
-    e.action === 'opened' ? bodyQuote(e.body) : null,
-    e.action === 'opened' && e.body ? '' : null,
+    bodyQuote(e.body),
+    e.body ? '' : null,
     fieldPerson('Author', e.author),
     fieldPerson('Assignee', e.assignee)
   ]);

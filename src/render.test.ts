@@ -785,26 +785,46 @@ test('card/issue: body arrives — it never did before', () => {
   ].join('\n'));
 });
 
-// The assigned card is SHORT (v2.1): the body already arrived on `opened`,
-// so here the news is the person plus the `Source:` link to the full text.
-// History: hidden → shown everywhere (owner, 26.08.2026) → hidden again on
-// the owner's 31.08.2026 delegation and mockup approval — see renderIssue.
-test('card/issue: assigned is short — assignee and source, no body repeat', () => {
+// The body prints on EVERY action, quoted — the owner's final call,
+// 31.08.2026: he wants the context without following the Source link. A long
+// body collapses instead of being dropped (see the expandable test below).
+test('card/issue: assigned carries the body too, quoted', () => {
   const out = render({
     type: 'issue', project: 'arvent', action: 'assigned', number: 312,
     title: 'Web booking page',
-    body: 'A very long description the owner has already read.',
+    body: 'A description he needs in front of him, not one link away.',
     author: 'mikitasazan', assignee: 'Ilja-Prihach', url: 'https://x/i/312'
   });
 
   assert.equal(out, [
     '#issue #i312 #info',
     '🙋 <b>Issue:</b> #312 Web booking page',
+    '<blockquote>A description he needs in front of him, not one link away.</blockquote>',
+    '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
     '',
     '<b>Source:</b> <a href="https://x/i/312">issue</a>'
   ].join('\n'));
+});
+
+test('quote: a body longer than a screenful collapses, by length OR by lines', () => {
+  const byLength = render({
+    type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't',
+    body: 'x'.repeat(500)
+  });
+  const byLines = render({
+    type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't',
+    body: 'one\ntwo\nthree\nfour\nfive\nsix'
+  });
+  const short = render({
+    type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't',
+    body: 'two\nlines'
+  });
+
+  assert.ok(byLength.includes('<blockquote expandable>'), 'a long body must collapse');
+  assert.ok(byLines.includes('<blockquote expandable>'), 'six short lines eat a screen too');
+  assert.ok(!short.includes('expandable'), 'a two-line body must not hide itself');
 });
 
 test('fieldPerson/fieldTelegram: a multi-line login does not put a raw newline inside the href', () => {
@@ -860,9 +880,13 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
     author: 'mikitasazan', reviewer: 'Ilja-Prihach', url: 'https://x/p/118'
   });
 
+  // The verdict's quote is CAPTIONED `Review:` — on this action the body is
+  // the reviewer's own comment, not the PR description, and the caption is
+  // the only thing that says so.
   assert.equal(requested, [
     '#pr #p118 #info',
     '📝 <b>PR:</b> #118 Onboarding: question drafts',
+    '<b>Review:</b>',
     '<blockquote>Please rename this variable, it shadows the outer one.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
@@ -879,12 +903,14 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
   assert.ok(!approvedSilent.includes('<blockquote>'), 'no comment means no quote');
   assert.ok(!approvedSilent.includes('\n\n<b>Reviewer'), 'no comment means no dangling blank line before Reviewer');
 
-  // `assigned`-style stale text stays suppressed: `merged` still shows nothing.
+  // Since 31.08.2026 the description shows on every action — the owner wants
+  // the context on the card, not one link away.
   const merged = render({
     type: 'pr', project: 'playhub', action: 'merged', number: 118,
-    title: 'Onboarding: question drafts', body: 'PR description he already read.'
+    title: 'Onboarding: question drafts', body: 'What this PR changed.'
   });
-  assert.ok(!merged.includes('<blockquote>'), 'merged does not resurrect the PR description');
+  assert.ok(merged.includes('<blockquote>What this PR changed.</blockquote>'), 'merged must carry the description too');
+  assert.ok(!merged.includes('<b>Review:</b>'), 'only a verdict captions the quote as a review');
 });
 
 test('card/incident: every line of the diagnosis survives', () => {
