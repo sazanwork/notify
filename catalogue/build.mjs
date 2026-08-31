@@ -164,10 +164,20 @@ const articles = CARDS.map((c) => {
       [...value.matchAll(/(\S+)\s\/\s(\S+)/g)].every(
         (m) => NUMBERISH.test(m[1].replace(/[(),]/g, '')) && NUMBERISH.test(m[2].replace(/[(),]/g, ''))
       );
+    // A row whose every part is a LINK is a list of pointers, not a value
+    // crammed with facts — `Source: workflow run · commit 9b1fc68` is two
+    // places to click, and one label above them reads better than two rows
+    // both saying `Source`. The check stays narrow on purpose: every segment
+    // must be a whole `<a>` and nothing else, so a real value that merely
+    // happens to contain a link is still caught.
+    const allLinks = (raw) =>
+      raw
+        .split(' · ')
+        .every((part) => /^\s*<a href="[^"]*">[^<]*<\/a>\s*$/.test(part));
     for (const line of html.split('\n')) {
       const m = /<b>[^<]+:<\/b>(.*)$/.exec(line);
       const value = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
-      if (m && / · /.test(value)) {
+      if (m && / · /.test(value) && !allLinks(m[1])) {
         throw new Error(
           `card ${c.id}: a field value carries a second separator — split it into two lines: ${line.replace(/<[^>]+>/g, '')}`
         );

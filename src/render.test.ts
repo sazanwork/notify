@@ -166,12 +166,13 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
     commitTitle: 'Онбординг: заготовки вопросов (#294)'
   });
 
-  // One row, like a task and a pull request: the hash carries the link, the
-  // subject stands beside it. `Title:` under it was the same second row the
-  // issue card had already lost.
+  // One row, and it says what the commit DID. The hash is a pointer, so it
+  // stands in the pointer block with `Log`, `Check` and `Source`, not in the
+  // middle of the card — the owner caught the last buried link on 31.08.2026.
+  // `Title:` under it was the same second row the issue card had already lost.
+  assert.ok(ci.includes('<b>Commit:</b> Онбординг: заготовки вопросов (#294)'));
   assert.ok(ci.includes(
-    '<b>Commit:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">9b1fc68</a>'
-    + ' Онбординг: заготовки вопросов (#294)'
+    '<b>Source:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">commit 9b1fc68</a>'
   ));
   assert.ok(!ci.includes('<b>Title:</b>'), 'the Title row came back on the commit');
   // A commit title is a field, not a quote: the quote holds ONLY the body. With
@@ -372,16 +373,57 @@ test('issue: the assignee ends up in the message', () => {
   assert.match(out, /Ilja/);
 });
 
-test('deploy: a commit with a link is clickable, the label is bold, the value is plain', () => {
+test('deploy: with no workflow run, the commit IS the source and the pointer block exists', () => {
+  // A deploy run by hand from the Mac has no workflow run at all, so before
+  // this the card had NO pointer block and its only way back to the source was
+  // a link buried on the hash mid-card. That is the case the owner reported.
   const out = render({
     type: 'deploy',
     project: 'game-publisher',
     status: 'ok',
     commit: 'abc123',
-    commitUrl: 'https://github.com/sazanwork/game-publisher/commit/abc123'
+    commitUrl: 'https://github.com/sazanwork/game-publisher/commit/abc123',
+    commitTitle: 'fix(import): skip games with no cover'
   });
 
-  assert.ok(out.includes('<b>Commit:</b> <a href="https://github.com/sazanwork/game-publisher/commit/abc123">abc123</a>'));
+  assert.ok(out.includes('<b>Commit:</b> fix(import): skip games with no cover'));
+  assert.ok(out.includes(
+    '<b>Source:</b> <a href="https://github.com/sazanwork/game-publisher/commit/abc123">commit abc123</a>'
+  ));
+  // The pointer block is the LAST thing on the card, always.
+  assert.ok(out.trimEnd().endsWith('</a>'), 'the pointer block is not last');
+});
+
+test('deploy: a run and a commit are both sources, on one row, widest first', () => {
+  const out = render({
+    type: 'deploy',
+    project: 'playhub',
+    status: 'ok',
+    commit: 'abc123',
+    commitUrl: 'https://x/c',
+    via: 'GitHub Actions',
+    workflowUrl: 'https://x/run'
+  });
+
+  assert.ok(out.includes(
+    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit abc123</a>'
+  ));
+  // One `Source:` label, never two rows carrying the same word.
+  assert.equal((out.match(/<b>Source:<\/b>/g) ?? []).length, 1);
+});
+
+test('deploy: a commit url with no hash produces no source link at all', () => {
+  // There would be no text to put on it but the bare word `commit`, which
+  // tells the reader nothing they can use.
+  const out = render({
+    type: 'deploy',
+    project: 'game-publisher',
+    status: 'ok',
+    commitUrl: 'https://github.com/sazanwork/game-publisher/commit/abc123',
+    commitTitle: 'fix(import): skip games with no cover'
+  });
+
+  assert.ok(!out.includes('<b>Source:</b>'), 'a source row appeared with nothing to name it');
 });
 
 test('deploy: reason explains a cancel/skip — as the same field, not a quote', () => {
@@ -681,10 +723,10 @@ test('card/ci: commit hash links, body quoted under it', () => {
     '',
     '<i><u>Change</u></i>',
     '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
-    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> Онбординг: заготовки вопросов (#294)',
+    '<b>Commit:</b> Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>',
     '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
+    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit 9b1fc68</a>'
   ].join('\n'));
 });
 
@@ -702,10 +744,10 @@ test('card/ci: commit author links to their GitHub profile, distinct from Actor'
     '',
     '<i><u>Change</u></i>',
     '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
-    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> fix: checkout',
+    '<b>Commit:</b> fix: checkout',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
+    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit 9b1fc68</a>'
   ].join('\n'));
 });
 
@@ -722,10 +764,10 @@ test('card/deploy: commit author, with no Actor row — deploy has none', () => 
     '✅ <b>Deploy:</b> GitHub Actions (OK)',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing',
+    '<b>Commit:</b> feat: new landing',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
+    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit a1b2c3d</a>'
   ].join('\n'));
 });
 
@@ -742,9 +784,9 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
     '<b>Reason:</b> nightly check of master',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
+    '<b>Commit:</b> 9b1fc68',
     '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
+    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit 9b1fc68</a>'
   ].join('\n'));
 });
 
@@ -760,9 +802,9 @@ test('card/deploy', () => {
     '✅ <b>Deploy:</b> GitHub Actions (OK)',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing',
+    '<b>Commit:</b> feat: new landing',
     '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
+    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit a1b2c3d</a>'
   ].join('\n'));
 });
 
@@ -1037,7 +1079,7 @@ test('fieldLink: a multi-line value does not become multi-line link text', () =>
     commitUrl: 'https://x/c'
   });
 
-  assert.ok(out.includes('>ночная проверка master…</a>'), 'link text not trimmed to one line');
+  assert.ok(out.includes('>commit ночная проверка master…</a>'), 'link text not trimmed to one line');
   assert.ok(!out.includes('полная проверка'), 'second line leaked into the link');
 });
 

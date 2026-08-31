@@ -400,16 +400,18 @@ const renderGroup = (g: { name: string; items: Item[] }): string[] => [
  */
 const commitRow = (
   hash: string | undefined,
-  url: string | undefined,
   title: string | undefined
 ): string | null => {
-  const linked = fieldLink('Commit', url, hash);
-
-  if (linked === null || !title) {
-    return linked ?? field('Commit', title);
-  }
-
-  return `${linked} ${esc(firstLine(title))}`;
+  // The title is the content — what the commit DID — so it is what the row
+  // says. The hash is a pointer, and pointers live in the last block with
+  // `Log`, `Check` and `Source`; the owner caught the hash still carrying the
+  // link from the middle of the card (31.08.2026): "source, это hash", and on
+  // a manual deploy that buried link was the card's ONLY way back to its
+  // source while the pointer block sat empty.
+  //
+  // With no title there is nothing to say but the hash, so it stands here as
+  // plain text — the link to it is in the pointer block either way.
+  return field('Commit', title ? firstLine(title) : hash);
 };
 
 const bodyQuote = (body: string | undefined): string | null =>
@@ -594,7 +596,7 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     ...twoBlocks(
       [field('Target', e.target), reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
-        commitRow(e.commit, e.commitUrl, e.commitTitle),
+        commitRow(e.commit, e.commitTitle),
         fieldPerson('Author', e.commitAuthor),
         bodyQuote(e.commitBody)
       ]
@@ -712,7 +714,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
       [reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
         fieldTelegram('Actor', e.actor),
-        commitRow(e.commit, e.commitUrl, e.commitTitle),
+        commitRow(e.commit, e.commitTitle),
         fieldPerson('Author', e.commitAuthor),
         bodyQuote(e.commitBody)
       ]
@@ -1006,13 +1008,38 @@ const sourceUrl = (e: NotifyEvent): string | undefined => {
   return wf ?? url;
 };
 
+const link = (url: string, text: string): string =>
+  `<a href="${esc(firstLine(url))}">${esc(text)}</a>`;
+
+/**
+ * Everything the card can be traced back to, as one `Source:` row.
+ *
+ * A card can have more than one honest source — a deploy through Actions has
+ * both a run and the commit that triggered it — and one label with two links
+ * beside each other reads better than two rows both called `Source`. They are
+ * ordered widest first: the run contains the commit, not the other way round.
+ */
+const sourceLinks = (e: NotifyEvent): string[] => {
+  const out: string[] = [];
+  const run = sourceUrl(e);
+  const commitUrl = 'commitUrl' in e ? e.commitUrl : undefined;
+  const commit = 'commit' in e ? e.commit : undefined;
+
+  if (run) out.push(link(run, SOURCE_NAME[e.type] ?? 'source'));
+  // Without a hash there is no text to put on the link but the word itself,
+  // and `commit` alone next to `workflow run` says nothing a reader can use.
+  if (commitUrl && commit) out.push(link(commitUrl, `commit ${firstLine(commit)}`));
+
+  return out;
+};
+
 const pointerBlock = (e: NotifyEvent): string => {
-  const url = sourceUrl(e);
+  const sources = sourceLinks(e);
   const logs = 'logs' in e ? e.logs : undefined;
   const rows = [
     fieldCode('Log', logs),
     fieldCode('Check', e.check),
-    url ? `<b>Source:</b> <a href="${esc(url)}">${esc(SOURCE_NAME[e.type] ?? 'source')}</a>` : null
+    sources.length > 0 ? `<b>Source:</b> ${sources.join(' · ')}` : null
   ].filter((r): r is string => r !== null);
 
   return rows.length > 0 ? `\n\n${rows.join('\n')}` : '';
