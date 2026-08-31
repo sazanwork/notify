@@ -35,8 +35,12 @@ const NOT_A_NAME = new Set([
 /** The five words the third tag is allowed to be, and there is no sixth. */
 const OUTCOMES = new Set(['ok', 'fail', 'off', 'unknown', 'info']);
 
-/** Labels the template retired. Each one used to say what a neighbour said. */
-const RETIRED = ['Title', 'Number', 'State', 'Via', 'Check', 'Logs', 'Task', 'Id', 'Period'];
+/**
+ * Labels the template retired. Each one used to say what a neighbour said.
+ * `Check` LEFT this list in v2.1: rule S brought it back as the standard
+ * verification-command row. `Logs` stays retired — the new spelling is `Log`.
+ */
+const RETIRED = ['Title', 'Number', 'State', 'Via', 'Logs', 'Task', 'Id', 'Period'];
 
 /**
  * Reads a finished card and returns what is wrong with it, in the owner's
@@ -49,8 +53,23 @@ export const lintCard = (html: string): string[] => {
 
   if (tags.length !== 3 || !tags.every((t) => t.startsWith('#'))) {
     found.push(`line 1 is "${rows[0] ?? ''}" — it must be exactly three tags`);
-  } else if (!OUTCOMES.has(tags[2].slice(1))) {
-    found.push(`the outcome tag is "${tags[2]}" — the vocabulary is ok, fail, off, unknown, info`);
+  } else {
+    if (!OUTCOMES.has(tags[2].slice(1))) {
+      found.push(`the outcome tag is "${tags[2]}" — the vocabulary is ok, fail, off, unknown, info`);
+    }
+    // The charset is checked HERE, not trusted to slug(): slug keeps any
+    // Unicode letter, so a Russian-named job produces a Cyrillic tag with no
+    // complaint anywhere — confirmed against render.ts on 31.08.2026.
+    for (const t of tags) {
+      if (!/^#[a-z0-9_]+$/.test(t)) {
+        found.push(`the tag "${t}" carries characters outside [a-z0-9_] — tags are English, lowercase`);
+      }
+    }
+    // A dated tag groups nothing: every day mints a new one and the filter
+    // the tags exist for never collects two cards.
+    if (/(_|^#)20\d{2}_\d{2}_\d{2}$/.test(tags[1]) || /_20\d{6}$/.test(tags[1])) {
+      found.push(`the instance tag "${tags[1]}" ends in a date — a dated tag groups nothing`);
+    }
   }
 
   if (tags[1] === '#' || tags[1] === '#_') {
@@ -114,18 +133,44 @@ export const lintCard = (html: string): string[] => {
     }
   }
 
-  // A red card must say where to look. Here — and only here — that can be
-  // judged completely: a log row, a command to run, or any address at all,
-  // including the one riding on line 2 where the standard puts it. Read back
-  // from Telegram the addresses are gone, so the same rule there accused a
-  // deploy card whose own second line was the link to the failed run.
-  // `#fail` only. A task that has gone silent is `#unknown`, and it has no log
-  // by definition — it never ran. Demanding one there would be demanding a
-  // thing that cannot exist.
-  const broke = (rows[0] ?? '').includes('#fail');
+  // Rule L (v2.1): everything the SYSTEM says is English. Cyrillic is
+  // allowed only as QUOTED CONTENT — text that exists in Russian outside the
+  // card: a blockquote (commit bodies, issue bodies, an offender's lines),
+  // the text of a link (issue titles in digests), and the title slot on
+  // line 2. Everywhere else — a label, a bare field value, a tag, a command —
+  // it is system text and a fault.
+  const quotedStripped = html
+    .replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/g, '')
+    .replace(/<a href="[^"]*">[^<]*<\/a>/g, '')
+    // A commit's title rides the `Commit:` row after the hash — it is a
+    // commit message, the canonical quoted content.
+    .replace(/^<b>Commit:<\/b>.*$/gm, '')
+    // List items carry content (issue titles in a digest, findings) — the
+    // row's own text is the subject's, not the system's.
+    .replace(/^(?:•|\d+\.) .*$/gm, '')
+    // An item's indented fact rows and a group heading name what the SENDER
+    // groups by; keep them system-English — no exception here.
+    ;
+  const strippedRows = quotedStripped.split('\n');
+  // Line 2's value after the label is the one non-quoted slot allowed to
+  // carry a title written in Russian (issue/PR/report/incident titles).
+  if (strippedRows[1]) {
+    strippedRows[1] = strippedRows[1].replace(/(<b>[^<]+:<\/b>|<b>[^<]+<\/b>).*/, '$1');
+  }
+  if (/[а-яё]/i.test(strippedRows.join('\n'))) {
+    found.push('Cyrillic outside quoted content — system text is English (rule L)');
+  }
 
-  if (broke && !html.includes('<b>Log:</b>') && !html.includes('<b>To do:</b>') && !html.includes('<a href=')) {
-    found.push('a red card with no log, no command and no link — nowhere to look');
+  // Rule S (v2.1): a card that reports trouble must say where to verify it —
+  // a `Check:` command, a `Source:` link, a `To do:` command, or any link at
+  // all. A `Log:` path alone is not enough: a path cannot be tapped, and a
+  // card whose only pointer needs a file manager is a card with no pointer.
+  // `#fail` and `#unknown` both: a silent task has no log, but `config jobs
+  // --log <key>` answers it too.
+  const broke = (rows[0] ?? '').includes('#fail') || (rows[0] ?? '').includes('#unknown');
+
+  if (broke && !html.includes('<b>Check:</b>') && !html.includes('<b>To do:</b>') && !html.includes('<a href=')) {
+    found.push('a trouble card with no check command and no link — nowhere to look (rule S)');
   }
 
   return found;

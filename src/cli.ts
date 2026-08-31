@@ -25,7 +25,9 @@ import { readFileSync } from 'node:fs';
 import type { NotifyEvent, Project } from './events.ts';
 import { KNOWN_FLAGS } from './cli-flags.ts';
 import { render } from './render.ts';
+import { lintCard } from './lint.ts';
 import { notify } from './send.ts';
+import { ROUTES } from './routes.ts';
 import { setupTopic } from './setup.ts';
 
 const log = (msg: string): void => console.error(`[notify] ${msg}`);
@@ -46,6 +48,25 @@ const safe = (v: unknown): string =>
 
 const args = process.argv.slice(2);
 const command = args[0];
+
+// `lint-text` and `routes` exist so the nightly audit asks the PACKAGE
+// instead of keeping its own copy of the rules and the routing table — the
+// copies had already drifted twice.
+if (command === 'lint-text') {
+  // The finished card HTML on stdin; every fault on stdout, one per line.
+  // Empty output means the card obeys the standard. Exit code stays 0 —
+  // the CLI-wide contract.
+  const text = readFileSync(0, 'utf-8').replace(/\n$/, '');
+  for (const fault of lintCard(text)) {
+    process.stdout.write(`${fault}\n`);
+  }
+  process.exit(0);
+}
+
+if (command === 'routes') {
+  process.stdout.write(`${JSON.stringify(ROUTES, null, 2)}\n`);
+  process.exit(0);
+}
 
 if (command === 'setup') {
   const [, chatId, projectKey] = args;
@@ -328,6 +349,8 @@ if (flags.has('json')) {
         command: one('command'),
         commandNote: one('command-note'),
         logs: one('logs'),
+        detail: one('detail'),
+        detailLabel: one('detail-label'),
         workflowUrl: one('workflow-url'),
         workflowName: one('workflow-name'),
         url: one('url')
@@ -458,6 +481,9 @@ if (event) {
   // --path is applicable to any type too, for the same reason --key is.
   event.path = one('path') ?? event.path;
   event.filename = one('filename') ?? event.filename;
+  // --check applies to any type (rule S): the verification command for a
+  // card whose event has no canonical URL.
+  event.check = one('check') ?? event.check;
 }
 
 if (event?.filename && !event.path) {

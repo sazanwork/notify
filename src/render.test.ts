@@ -267,7 +267,7 @@ test('clampMessage cuts long text, the tags stay untouched on the FIRST line', (
 
   assert.ok(clamped.length <= 4096, `length ${clamped.length} goes over the Telegram limit`);
   assert.ok(clamped.startsWith('#incident #x #fail\n'), `the tags did not stay on the first line: ${clamped.slice(0, 40)}`);
-  assert.ok(clamped.includes('…'), 'the cut lost the ellipsis');
+  assert.ok(clamped.includes('⋯ cut'), 'the cut must announce itself with the marker');
 });
 
 test('a giant file title with no --key does not push the caption over 1024', () => {
@@ -468,8 +468,9 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     deploy.split('\n')[1],
-    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a> (Fail)'
+    '\u{1F534} <b>Deploy:</b> Deploy to Beget (Fail)'
   );
+  assert.ok(deploy.includes('<b>Source:</b> <a href="https://x/run">workflow run</a>'), 'the run link must be the Source row');
   assert.ok(!deploy.includes('<b>Via:</b>'), 'the Via row carried the name a floor below');
   assert.ok(!deploy.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go');
 
@@ -481,9 +482,9 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     ci.split('\n')[1],
-    '\u{1F534} <b>CI:</b> <a href="https://x/run">nightly</a> (Fail)'
+    '\u{1F534} <b>CI:</b> nightly (Fail)'
   );
-  assert.ok(!ci.includes('<b>Check:</b>'), 'CI called its own name by a different word');
+  assert.ok(ci.includes('<b>Source:</b> <a href="https://x/run">workflow run</a>'), 'the run link must be the Source row');
   assert.ok(!ci.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go from CI too');
 });
 
@@ -496,8 +497,8 @@ test('run: the workflow name beats the platform as the link text', () => {
     via: 'GitHub Actions', workflowName: 'Deploy to Beget', workflowUrl: 'https://x/run'
   });
 
-  assert.ok(out.includes('>Deploy to Beget</a>'), 'the link must be named after the workflow');
-  assert.ok(!out.includes('>GitHub Actions</a>'), 'the platform is not the name of the run');
+  assert.ok(out.includes('<b>Deploy:</b> Deploy to Beget'), 'the type line must carry the workflow name');
+  assert.ok(!out.includes('<b>Deploy:</b> GitHub Actions'), 'the platform is not the name of the run');
 });
 
 // A hand deploy has no run to open: the type line still says by what means it
@@ -587,11 +588,11 @@ test('run: a nameless run keeps its link rather than losing it', () => {
     commit: 'a1b2c3d', commitUrl: 'https://x/c', url: 'https://x/run'
   });
 
-  // The link survives on the type word itself. It used to be given the made-up
-  // name `the run`, which named nothing and read like a real workflow.
-  assert.equal(
-    out.split('\n')[1],
-    '\u{1F534} <a href="https://x/run"><b>Deploy</b></a> (Fail)',
+  // The link survives in the Source row (v2.1). The type line stays a plain
+  // bare name — the card still does not invent one.
+  assert.equal(out.split('\n')[1], '\u{1F534} <b>Deploy</b> (Fail)');
+  assert.ok(
+    out.includes('<b>Source:</b> <a href="https://x/run">workflow run</a>'),
     'the link to the logs was lost'
   );
 });
@@ -676,12 +677,14 @@ test('card/ci: commit hash links, body quoted under it', () => {
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
+    '✅ <b>CI</b> (OK)',
     '',
     '<i><u>Change</u></i>',
     '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> Онбординг: заготовки вопросов (#294)',
-    '<blockquote>Тело коммита, написанное человеком.</blockquote>'
+    '<blockquote>Тело коммита, написанное человеком.</blockquote>',
+    '',
+    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
   ].join('\n'));
 });
 
@@ -695,12 +698,14 @@ test('card/ci: commit author links to their GitHub profile, distinct from Actor'
 
   assert.equal(out, [
     '#ci #master #fail',
-    '🔴 <a href="https://x/run"><b>CI</b></a> (Fail)',
+    '🔴 <b>CI</b> (Fail)',
     '',
     '<i><u>Change</u></i>',
     '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> fix: checkout',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
+    '',
+    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
   ].join('\n'));
 });
 
@@ -714,11 +719,13 @@ test('card/deploy: commit author, with no Actor row — deploy has none', () => 
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
+    '✅ <b>Deploy:</b> GitHub Actions (OK)',
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
+    '',
+    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
   ].join('\n'));
 });
 
@@ -731,11 +738,13 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
+    '✅ <b>CI</b> (OK)',
     '<b>Reason:</b> nightly check of master',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>'
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>',
+    '',
+    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
   ].join('\n'));
 });
 
@@ -748,10 +757,12 @@ test('card/deploy', () => {
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
+    '✅ <b>Deploy:</b> GitHub Actions (OK)',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing'
+    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> feat: new landing',
+    '',
+    '<b>Source:</b> <a href="https://x/run">workflow run</a>'
   ].join('\n'));
 });
 
@@ -765,19 +776,20 @@ test('card/issue: body arrives — it never did before', () => {
 
   assert.equal(out, [
     '#issue #i322 #info',
-    '🆕 <b>Issue:</b> <a href="https://x/i/322">#322 Commit convention for all repos</a>',
+    '🆕 <b>Issue:</b> #322 Commit convention for all repos',
     '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
+    '',
+    '<b>Source:</b> <a href="https://x/i/322">issue</a>'
   ].join('\n'));
 });
 
-// The whole reason the order was turned around: on `assigned` the one new fact
-// is the person, and the body still shows here too — the owner's call
-// 26.08.2026: hiding it on `assigned` read as the same card type behaving
-// differently depending on what happened, and an issue's body never means
-// anything else, unlike a PR's dual-purpose one.
-test('card/issue: the assignee is the second row, the body still shows on assigned', () => {
+// The assigned card is SHORT (v2.1): the body already arrived on `opened`,
+// so here the news is the person plus the `Source:` link to the full text.
+// History: hidden → shown everywhere (owner, 26.08.2026) → hidden again on
+// the owner's 31.08.2026 delegation and mockup approval — see renderIssue.
+test('card/issue: assigned is short — assignee and source, no body repeat', () => {
   const out = render({
     type: 'issue', project: 'arvent', action: 'assigned', number: 312,
     title: 'Web booking page',
@@ -787,11 +799,11 @@ test('card/issue: the assignee is the second row, the body still shows on assign
 
   assert.equal(out, [
     '#issue #i312 #info',
-    '🙋 <b>Issue:</b> <a href="https://x/i/312">#312 Web booking page</a>',
-    '<blockquote>A very long description the owner has already read.</blockquote>',
-    '',
+    '🙋 <b>Issue:</b> #312 Web booking page',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
-    '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
+    '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
+    '',
+    '<b>Source:</b> <a href="https://x/i/312">issue</a>'
   ].join('\n'));
 });
 
@@ -822,10 +834,12 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
 
   assert.equal(out, [
     '#pr #p294 #info',
-    '🆕 <b>PR:</b> <a href="https://x/p/294">#294 Onboarding: question drafts</a>',
+    '🆕 <b>PR:</b> #294 Onboarding: question drafts',
     '<blockquote>PR description here.</blockquote>',
     '',
-    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
+    '',
+    '<b>Source:</b> <a href="https://x/p/294">pull request</a>'
   ].join('\n'));
 
   // One title is one line, the same for every type. It is the identifier now,
@@ -848,11 +862,13 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
 
   assert.equal(requested, [
     '#pr #p118 #info',
-    '📝 <b>PR:</b> <a href="https://x/p/118">#118 Onboarding: question drafts</a>',
+    '📝 <b>PR:</b> #118 Onboarding: question drafts',
     '<blockquote>Please rename this variable, it shadows the outer one.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
-    '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
+    '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
+    '',
+    '<b>Source:</b> <a href="https://x/p/118">pull request</a>'
   ].join('\n'));
 
   // An approval with no comment attached: no empty quote, no dangling blank line.
@@ -1058,8 +1074,12 @@ test('link/report: the report name is the link, and there is no Details row', ()
   });
 
   assert.ok(
-    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22</a> (compared with 2026-08-21)'),
-    'the report name is not the link, or its brackets are gone'
+    out.includes('ℹ️ <b>Report:</b> Analytics for 2026-08-22 (compared with 2026-08-21)'),
+    'the report name lost its brackets'
+  );
+  assert.ok(
+    out.includes('<b>Source:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">report</a>'),
+    'the report link must live in the Source row'
   );
   assert.ok(
     !out.includes('<b>Period:</b>'),
@@ -1077,7 +1097,8 @@ test('link/report with groups: same rule', () => {
     url: 'https://x/board'
   });
 
-  assert.ok(out.includes('<b>Report:</b> <a href="https://x/board">Board</a>'), 'grouped report lost its link');
+  assert.ok(out.includes('<b>Report:</b> Board'), 'grouped report lost its name');
+  assert.ok(out.includes('<b>Source:</b> <a href="https://x/board">report</a>'), 'grouped report lost its Source link');
   assert.ok(!out.includes('Details'), 'the Details row came back in the grouped report');
 });
 
@@ -1088,9 +1109,10 @@ test('link/job: the task name is the link, not a trailing Workflow: open', () =>
     url: 'https://github.com/sazanwork/playhub/actions/runs/42'
   });
 
+  assert.ok(out.includes('<b>Job:</b> Yandex game import'), 'the task name left the type line');
   assert.ok(
-    out.includes('<b>Job:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">Yandex game import</a>'),
-    'the task name is not the link'
+    out.includes('<b>Source:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">workflow run</a>'),
+    'the run link must live in the Source row'
   );
   assert.ok(!out.includes('>open</a>'), 'the bare Workflow: open row came back');
 });
@@ -1101,10 +1123,9 @@ test('link/job: the workflow row is gone — it was line 2 written twice', () =>
     url: 'https://x/run', workflowName: 'validate-games.yml', workflowUrl: 'https://x/wf'
   });
 
-  assert.ok(out.includes('<b>Job:</b> <a href="https://x/wf">Game validator</a>'), 'task lost its link');
-  // The row pointed at `workflowUrl ?? url` — the address line 2 already
-  // carries — and it stood below the `To do:` command, past the end of what
-  // the card is meant to say.
+  assert.ok(out.includes('<b>Job:</b> Game validator'), 'task lost its name');
+  // `workflowUrl` beats `url` in the Source row, exactly as it did on line 2.
+  assert.ok(out.includes('<b>Source:</b> <a href="https://x/wf">workflow run</a>'), 'Source must prefer workflowUrl');
   assert.ok(!out.includes('<b>Workflow:</b>'), 'the duplicate destination came back');
 });
 
@@ -1115,9 +1136,10 @@ test('link/incident: the title is the link', () => {
   });
 
   assert.ok(
-    out.includes('🚨 <b>Incident:</b> <a href="https://x/run">The vault needs repair</a>'),
-    'the incident title is not the type line, or not the link'
+    out.includes('🚨 <b>Incident:</b> The vault needs repair'),
+    'the incident title is not the type line'
   );
+  assert.ok(out.includes('<b>Source:</b> <a href="https://x/run">details</a>'), 'the incident lost its Source link');
   assert.ok(!out.includes('<b>Title:</b>'), 'the Title row came back on the incident');
   assert.ok(!out.includes('>open</a>'), 'the bare open link came back on the incident');
 });
@@ -1345,7 +1367,7 @@ test('sound: a review asking for edits does not ring', () => {
  * instead: one marker, no extra lines. The invariant the test protects is that
  * the line is findable — marked, monospaced, and last.
  */
-test('action: the line he must run is marked, copyable, and last', () => {
+test('action: the line he must run is marked and copyable; the pointer block is last (v2.1)', () => {
   const out = render({
     type: 'job', project: 'mac-config', job: 'Config checks', status: 'fail',
     note: 'red: test-update-all', logs: '/Users/x/Library/Logs/update-all.log',
@@ -1354,15 +1376,16 @@ test('action: the line he must run is marked, copyable, and last', () => {
   });
   const lines = out.split('\n').filter(Boolean);
 
-  assert.ok(lines.at(-1)?.startsWith('<code>'), `the action is not the last line: ${lines.at(-1)}`);
   assert.ok(out.includes('<b>To do:</b> rerun the suite and read the log'),
     'a command must never travel without saying what it does');
   // The command has no marker of its own, and must not have one: the
   // monospaced line under `To do:` IS the command — Telegram makes it copyable on tap.
   assert.ok(!out.includes('▶'), 'the command grew a marker back');
-  assert.equal(lines.at(-1), '<code>bash ~/bin/update-all --tests-only</code>',
-    'the last line must be the command itself and nothing else');
   assert.ok(out.includes('<code>bash ~/bin/update-all --tests-only</code>'), 'the command lost its copyable box');
+  // Where to verify is the card's LAST block now (rule S): the Log path
+  // moved out of the body so a cut can never take it.
+  assert.equal(lines.at(-1), '<b>Log:</b> <code>/Users/x/Library/Logs/update-all.log</code>',
+    'the pointer block must close the card');
 });
 
 /**
@@ -1541,4 +1564,40 @@ test('tags: the third tag follows the icon, and off is not fail', () => {
   assert.deepEqual([...words].sort(), ['fail', 'info', 'off', 'ok', 'unknown']);
   assert.notEqual(OUTCOME_TAG[ICON.off], OUTCOME_TAG[ICON.red], 'off is filed as a failure again');
   assert.notEqual(OUTCOME_TAG[ICON.unknown], OUTCOME_TAG[ICON.red], 'silence is filed as a failure again');
+});
+
+test('reason: one line stays a field, several lines become a captioned quote — nothing is cut silently (v2.1)', () => {
+  const short = render({ type: 'job', project: 'playhub', job: 'Backups', status: 'fail',
+    note: 'connect timed out', check: 'config jobs --log backups' });
+
+  assert.ok(short.includes('<b>Reason:</b> connect timed out'), 'a one-line reason must stay inline');
+  assert.ok(!short.includes('<blockquote>connect'), 'a one-line reason must not become a quote');
+
+  const long = render({ type: 'job', project: 'playhub', job: 'Backups', status: 'fail',
+    note: 'scp: connect to host timed out\nretry 2/3 failed, giving up\nlast good backup: 29.08',
+    check: 'config jobs --log backups' });
+
+  assert.ok(long.includes('<b>Reason:</b>\n<blockquote>scp: connect to host timed out\nretry 2/3 failed, giving up\nlast good backup: 29.08</blockquote>'),
+    `every line of the reason must survive:\n${long}`);
+});
+
+test('cut marker: names the log when there is one, and the card still fits (v2.1)', () => {
+  const long = Array.from({ length: 800 }, (_, i) => `finding number ${i} with some length to it`).join('\n');
+  const out = render({ type: 'job', project: 'playhub', job: 'Validator', status: 'fail',
+    note: long, logs: '~/Library/Logs/validator.log', check: 'config jobs --log validator' });
+
+  assert.ok(out.length <= 4096, `over the limit: ${out.length}`);
+  assert.ok(out.includes('⋯ cut, full: <code>~/Library/Logs/validator.log</code>'), 'the marker must name where the full text lives');
+  // The pointer block survives the cut — that is the whole point of tail-first assembly.
+  assert.ok(out.includes('<b>Check:</b> <code>config jobs --log validator</code>'), 'the cut took the Check row');
+  assert.ok(out.includes('<b>Log:</b>'), 'the cut took the Log row');
+});
+
+test('cut marker: a caption card announces the attachment as the full text and fits 1024 (v2.1)', () => {
+  const long = Array.from({ length: 200 }, (_, i) => `line ${i}`).join('\n');
+  const out = render({ type: 'report', project: 'arvent', title: 'Full dialogues',
+    lines: [['Total', 42]], path: '/tmp/x.txt', aside: long });
+
+  assert.ok(out.length <= 1024, `caption over the limit: ${out.length}`);
+  assert.ok(out.includes('⋯ cut, full text attached'), 'a caption cut must point at the attachment');
 });

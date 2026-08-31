@@ -56,7 +56,7 @@ export const esc = (v: unknown): string =>
  *    Telegram replies `400 can't parse entities`, and we treat a 4xx as a
  *    permanent error and do not retry — the message disappeared for good.
  */
-export const clampMessage = (text: string, limit = 4000): string => {
+export const clampMessage = (text: string, limit = 4000, marker = '…'): string => {
   if (text.length <= limit) {
     return text;
   }
@@ -116,7 +116,12 @@ export const clampMessage = (text: string, limit = 4000): string => {
     .map((t) => `</${t}>`)
     .join('');
 
-  return `${body}${tail}\n…`;
+  // The marker ANNOUNCES the cut instead of hiding it (v2.1): the caller
+  // reserves the marker's length out of `limit` before calling, so the
+  // marker itself can never be the thing that pushes the message over
+  // Telegram's hard cap — a free addition on top of 4000/4096 plus a long
+  // path was measured to earn a 400, and a 4xx is never retried.
+  return `${body}${tail}\n${marker}`;
 };
 
 // Only the first line: a field is single-line by contract (commit, branch,
@@ -141,6 +146,23 @@ const firstLine = (value: string | number): string | number => {
  */
 const field = (label: string, value: string | number | null | undefined): string | null =>
   value === undefined || value === null || value === '' ? null : `<b>${esc(cap(label))}:</b> ${esc(firstLine(value))}`;
+
+/**
+ * A Reason-shaped field: one line stays an ordinary field, several lines
+ * become a captioned quote — NOTHING is cut to the first line any more.
+ * `field`'s silent `firstLine` on a multi-line reason was the v1 contract,
+ * and it gutted every card whose failure did not fit one line (scp retries,
+ * a three-line diagnosis): the owner saw `Connection timed…` and nothing
+ * else. Confirmed live on four cards in the 14-day sweep, fixed in v2.1.
+ */
+const reason = (label: string, value: string | number | null | undefined): string | null => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const text = String(value);
+
+  return text.includes('\n') ? quoted(label, text) : field(label, text);
+};
 
 /**
  * An identifier field (`commit:`/`pr:`/`issue:`): the value is a link if
@@ -555,7 +577,6 @@ const mechanism = (workflowName: string | undefined, via: string | undefined): s
 // unlinked, because a hand deploy has no run to open.
 const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => {
   const icon = iconFor(e);
-  const runUrl = e.workflowUrl ?? e.url;
 
   return join([
     // The name of what shipped the deploy sits on the type line, the outcome
@@ -563,9 +584,10 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     // enough: a plain 🔴 next to a workflow name still read as "something
     // happened," not "it failed," on a screen small enough to lose the color.
     // The `Via` row is gone: it used to carry this same name one floor below.
-    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via), runUrl, e.status === 'fail' ? 'Fail' : 'OK'),
+    // The run URL is gone from this line too — it is the `Source:` row now.
+    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via), undefined, e.status === 'fail' ? 'Fail' : 'OK'),
     ...twoBlocks(
-      [field('Target', e.target), field('Reason', e.note)],
+      [field('Target', e.target), reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
         commitRow(e.commit, e.commitUrl, e.commitTitle),
         fieldPerson('Author', e.commitAuthor),
@@ -604,27 +626,30 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   // catalogue page defines both marks.
 
   return join([
-    typeLine(icon, 'Job', e.job, e.workflowUrl ?? e.url, e.aside),
-    field('Reason', e.note),
+    // The URL moved off the type line into the `Source:` row of the pointer
+    // block (v2.1, rule S): the owner asked for a pointer he can SEE, and a
+    // link riding invisibly on the name is not one.
+    typeLine(icon, 'Job', e.job, undefined, e.aside),
+    reason('Reason', e.note),
+    field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
     // The timetable is a different subject from this event: how often the task
     // owes a sign of life and when it last gave one. It stood in a bare run
     // under `Reason:` and read as more of the same. `Last run` when the task
     // is alive, `Last seen` when it is not — one timestamp, two questions.
     ...schedule(e.expected, e.lastSeen, e.status === 'silent' ? 'Last seen' : 'Last run'),
     ...labelled(e.stats),
+    e.detail ? '' : null,
+    quoted(e.detailLabel ?? 'Detail', e.detail),
     hasItems ? '' : null,
     // Heading ONLY for `disabled`. It used to print for any job carrying a
     // list, so playhub's daily card of newly published games was headed
     // "Disabled workflows".
     disabledList ? group('Disabled workflows') : null,
     ...(hasItems ? bullets(e.items, disabledList) : []),
-    e.command || e.logs ? '' : null,
-    fieldCode('Log', e.logs),
+    e.command ? '' : null,
     ...fieldRun(e.command, e.commandNote)
-    // No trailing `Workflow:` row. It pointed at `workflowUrl ?? url` — the
-    // exact address line 2 already carries — so it was one destination
-    // written twice, and it stood BELOW the `To do:` command, which is the
-    // last thing the card is supposed to say.
+    // `Log:` left this body for the pointer block that `render` appends to
+    // every card — the block a cut can never take.
   ]);
 };
 
@@ -638,7 +663,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     const numbers = labelled(e.lines);
 
     return join([
-      typeLine(iconFor(e), 'Report', e.title, e.url, e.aside),
+      typeLine(iconFor(e), 'Report', e.title, undefined, e.aside),
       // Rows with no group of their own sit flush against the header instead of
       // forming a separate slab under a blank line. `labelled` puts the blank
       // line before the first group itself, so there is none here.
@@ -651,9 +676,8 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   const items = bullets(e.items, false);
 
   return join([
-    // Both analytics jobs send a link to the day's snapshot in docs/. It used to
-    // hang off a trailing `Details: open` row; now it is the report's own name.
-    typeLine(iconFor(e), 'Report', e.title, e.url, e.aside),
+    // The day's snapshot link is the `Source:` row now, same as every URL.
+    typeLine(iconFor(e), 'Report', e.title, undefined, e.aside),
     // Flush against the header — see the branch above.
     ...labelled(e.lines),
     items.length > 0 ? '' : null,
@@ -668,10 +692,10 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
 // spoke (`nightly`, `Quality`) — but both are the name on the type line.
 const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   const icon = iconFor(e);
-  const runUrl = e.workflowUrl ?? e.url;
 
   return join([
-    typeLine(icon, 'CI', mechanism(e.workflowName, undefined), runUrl, e.status === 'fail' ? 'Fail' : 'OK'),
+    // The run URL is the `Source:` row now, not an invisible link on the name.
+    typeLine(icon, 'CI', mechanism(e.workflowName, undefined), undefined, e.status === 'fail' ? 'Fail' : 'OK'),
     // `Actor` used to be read as "who wrote the commit," and on most runs it
     // is — `github.actor` for a push IS the person who pushed. It stops being
     // that on a scheduled run: arvent's nightly rewrites it to whoever is on
@@ -680,7 +704,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
     // below the commit answers "who wrote this code" — two different people
     // on a nightly card, the same person everywhere else.
     ...twoBlocks(
-      [field('Reason', e.note)],
+      [reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
         fieldTelegram('Actor', e.actor),
         commitRow(e.commit, e.commitUrl, e.commitTitle),
@@ -725,23 +749,26 @@ const opening = (action: string, body: string | undefined): string | null =>
 // does the assignee cut apart what should be inseparable?"
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'PR', named(e.number, e.title), e.url),
+    typeLine(iconFor(e), 'PR', named(e.number, e.title)),
     opening(e.action, e.body),
     (e.action === 'opened' || VERDICT.has(e.action)) && e.body ? '' : null,
     fieldPerson('Author', e.author),
     fieldPerson('Reviewer', e.reviewer)
   ]);
 
-// Unlike a PR, an issue's `body` means one thing on every action — its own
-// description, never someone else's verdict — so it prints whenever it is
-// there, not only on `opened`. The owner: hiding it on `assigned` read as
-// inconsistent with the same card type showing it moments earlier — his call
-// to keep, 26.08.2026, over the earlier "he already saw it" reasoning.
+// The issue's body prints ONLY on `opened` — the same law the PR card
+// follows. History of this line: hidden → shown everywhere (the owner's call
+// of 26.08.2026, "inconsistent with the same card showing it moments
+// earlier") → hidden again on 31.08.2026, when the owner, shown the live
+// duplicate ("the full body arrives a second time in one day"), delegated
+// the call ("сделай как лучше по оптимизации и простоте") and approved the
+// short assigned card in the v2.1 mockups. On assigned/closed the card is
+// the one new fact plus the `Source:` link to the full text.
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'Issue', named(e.number, e.title), e.url),
-    bodyQuote(e.body),
-    e.body ? '' : null,
+    typeLine(iconFor(e), 'Issue', named(e.number, e.title)),
+    e.action === 'opened' ? bodyQuote(e.body) : null,
+    e.action === 'opened' && e.body ? '' : null,
     fieldPerson('Author', e.author),
     fieldPerson('Assignee', e.assignee)
   ]);
@@ -758,12 +785,12 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
   const findings = bullets(e.items, false);
 
   return join([
-    typeLine(iconFor(e), 'Incident', e.title, e.url),
+    typeLine(iconFor(e), 'Incident', e.title),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
+    field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
     findings.length > 0 ? '' : null,
-    ...findings,
-    e.logs ? '' : null,
-    fieldCode('Log', e.logs)
+    ...findings
+    // `Log:` moved to the pointer block `render` appends — see renderJob.
   ]);
 };
 
@@ -782,7 +809,8 @@ const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =
     // opened a block that had no heading. Facts about the session touch the
     // line that names it, the way they do on every job card.
     field('Project', e.workdir),
-    field('Reason', e.reason),
+    reason('Reason', e.reason),
+    field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
     e.opened ? '' : null,
     quoted('Opened with', e.opened),
     e.command ? '' : null,
@@ -945,11 +973,68 @@ const tagsLine = (e: NotifyEvent): string =>
 
 
 /**
+ * Rule S (v2.1): the card's last block says where to verify it. `Source:` is
+ * a hyperlink when the event has a canonical URL; `Check:` is a local
+ * command; `Log:` is a path and only ever an ADDITION — a path cannot be
+ * tapped, only copied. The link text is a short English noun naming what
+ * opens, never the click.
+ */
+const SOURCE_NAME: Record<NotifyEvent['type'], string> = {
+  deploy: 'workflow run',
+  ci: 'workflow run',
+  job: 'workflow run',
+  report: 'report',
+  pr: 'pull request',
+  issue: 'issue',
+  incident: 'details',
+  session: 'details',
+  heartbeat_miss: 'details'
+};
+
+const sourceUrl = (e: NotifyEvent): string | undefined => {
+  const wf = 'workflowUrl' in e ? e.workflowUrl : undefined;
+  const url = 'url' in e ? e.url : undefined;
+
+  return wf ?? url;
+};
+
+const pointerBlock = (e: NotifyEvent): string => {
+  const url = sourceUrl(e);
+  const logs = 'logs' in e ? e.logs : undefined;
+  const rows = [
+    fieldCode('Log', logs),
+    fieldCode('Check', e.check),
+    url ? `<b>Source:</b> <a href="${esc(url)}">${esc(SOURCE_NAME[e.type] ?? 'source')}</a>` : null
+  ].filter((r): r is string => r !== null);
+
+  return rows.length > 0 ? `\n\n${rows.join('\n')}` : '';
+};
+
+/**
+ * The line that stands in for what the cut removed. It rides INSIDE the
+ * budget (the caller subtracts its length before clamping), so announcing
+ * the cut can never itself overflow the limit — with an attachment the
+ * limit is 1024, and the old flat 40-character margin did not fit a marker
+ * plus a path.
+ */
+const cutMarker = (e: NotifyEvent): string => {
+  if (e.path) {
+    return '⋯ cut, full text attached';
+  }
+  const logs = 'logs' in e ? e.logs : undefined;
+
+  return logs ? `⋯ cut, full: <code>${esc(logs)}</code>` : '⋯ cut';
+};
+
+/**
  * Renders an event into finished HTML text, cut to Telegram's limit.
- * Tags are the FIRST line, added before the cut (not after, as before):
- * they carry both the human filter and the parser's machine key — a card
- * cut without them would be not only unclickable but invisible to the
- * parser on exactly the longest, meaning the most important, messages.
+ *
+ * Assembly is TAIL-FIRST (v2.1): the parts that must survive any cut — the
+ * tag line (the human filter and the parser's machine key), the pointer
+ * block (`Log`/`Check`/`Source`) and the cut marker — are measured before
+ * the body is clamped, and the body gets what is left. Under the old order
+ * the pointer was part of the body, so the longest cards lost exactly the
+ * line saying where to look.
  */
 export const render = (e: NotifyEvent): string => {
   const renderer = RENDERERS[e.type] as Renderer<typeof e> | undefined;
@@ -962,12 +1047,15 @@ export const render = (e: NotifyEvent): string => {
   }
 
   const tags = tagsLine(e);
-  // clampMessage can go past the passed limit for the tail of closing tags
-  // and the ellipsis — minus 40 leaves it that margin. Messages already have
-  // their own margin (4000 against Telegram's 4096); for a caption the 1024
-  // limit is the real one. A card with an attachment is a caption, so the
-  // budget is chosen by `path`.
-  const budget = Math.max(64, e.path ? 1024 - tags.length - 40 : 4000 - tags.length - 1);
+  const pointer = pointerBlock(e);
+  const marker = cutMarker(e);
+  // clampMessage can go past the passed limit for the tail of closing tags —
+  // minus 40 leaves it that margin. Messages already have their own margin
+  // (4000 against Telegram's 4096); for a caption the 1024 limit is the real
+  // one. A card with an attachment is a caption, so the budget is chosen by
+  // `path`.
+  const limit = e.path ? 1024 : 4000;
+  const budget = Math.max(64, limit - tags.length - pointer.length - marker.length - 42);
 
-  return `${tags}\n${clampMessage(renderer(e), budget)}`;
+  return `${tags}\n${clampMessage(renderer(e), budget, marker)}${pointer}`;
 };

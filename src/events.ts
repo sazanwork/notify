@@ -42,6 +42,18 @@ type Keyed = {
   path?: string;
   /** The file's name in the chat; defaults to the name from `path`. */
   filename?: string;
+  /**
+   * The verification command — `Check:` in the card's last block, monospaced
+   * and tap-to-copy. The standard (v2.1, rule S) wants every card to say
+   * where to verify it: a `Source:` link when the event has a canonical URL,
+   * this command when the event is local. Usually `config jobs --log <key>`.
+   */
+  check?: string;
+  /**
+   * Set by the send-side suppression, never by a caller: which day of the
+   * same unresolved failure this is. Renders as `Still red: day N`.
+   */
+  stillRed?: number;
 };
 
 /**
@@ -180,8 +192,20 @@ export type NotifyEvent = Keyed &
        * A local log path — monospaced, not a link, same as on an incident.
        * It used to be glued onto the end of the reason sentence behind a
        * colon, which is what made a red card read as one long run-on line.
+       * Under rule S it is an ADDITION to `check`/a link, never the card's
+       * only pointer — a path cannot be tapped, only copied.
        */
       logs?: string;
+      /**
+       * A multi-line quoted block with its own caption (`detailLabel`) — the
+       * shape the watchdog uses to show the offending card's first lines
+       * under `Offender:`. Generic on purpose: any job with a verbatim
+       * excerpt to show (someone else's text, not the sender's own words)
+       * uses this instead of stuffing it into `note`.
+       */
+      detail?: string;
+      /** The caption over `detail`; defaults to `Detail`. */
+      detailLabel?: string;
       workflowUrl?: string;
       /** The run's name, for the link's visible text. Without it, the type line itself becomes the link. */
       workflowName?: string;

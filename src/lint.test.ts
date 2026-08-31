@@ -11,6 +11,7 @@ const good = render({
   status: 'fail',
   note: 'the source answered 502',
   logs: '~/Library/Logs/daily-import.log',
+  check: 'config jobs --log daily-import',
   key: 'daily-import'
 });
 
@@ -66,33 +67,86 @@ test('lint: "all good" quoted inside a body is not a card saying it', () => {
   assert.deepEqual(lintCard(quoting), []);
 });
 
-test('lint: a red card must say where to look, a silent one need not', () => {
+test('lint: a trouble card must say where to verify — a Log path alone is not enough (rule S)', () => {
   const deadEnd = render({
     type: 'incident', project: 'vault', title: 'The vault needs repair',
     detail: 'one recipient only — losing the key loses the whole vault'
   });
 
-  assert.match(lintCard(deadEnd)[0], /nowhere to look/);
+  assert.match(lintCard(deadEnd).join('\n'), /nowhere to look/);
 
-  // The same card with the log it should have carried all along.
-  const withLog = render({
+  // A Log path alone stays a fault: a path cannot be tapped, only copied.
+  const logOnly = render({
     type: 'incident', project: 'vault', title: 'The vault needs repair',
     detail: 'one recipient only — losing the key loses the whole vault',
     logs: '~/Library/Logs/vault-selfcheck.log'
   });
 
-  assert.deepEqual(lintCard(withLog), []);
+  assert.match(lintCard(logOnly).join('\n'), /nowhere to look/);
 
-  // A task that has gone quiet is `#unknown`, and it has no log because it
-  // never ran. Asking for one would be asking for a thing that cannot exist.
+  // A Check command answers it.
+  const withCheck = render({
+    type: 'incident', project: 'vault', title: 'The vault needs repair',
+    detail: 'one recipient only — losing the key loses the whole vault',
+    logs: '~/Library/Logs/vault-selfcheck.log',
+    check: 'config jobs --log vault-selfcheck'
+  });
+
+  assert.deepEqual(lintCard(withCheck), []);
+
+  // A silent task never ran and has no log — but `config jobs --log <key>`
+  // answers it too, so `#unknown` demands a pointer the same way `#fail` does.
   const quiet = render({
     type: 'job', project: 'playhub', job: 'Yandex game import',
     status: 'silent', expected: 'at least once every 26h'
   });
 
-  assert.deepEqual(lintCard(quiet), []);
+  assert.match(lintCard(quiet).join('\n'), /nowhere to look/);
+
+  const quietWithCheck = render({
+    type: 'job', project: 'playhub', job: 'Yandex game import',
+    status: 'silent', expected: 'at least once every 26h',
+    check: 'config jobs --log yandex-import'
+  });
+
+  assert.deepEqual(lintCard(quietWithCheck), []);
 });
 
 test('lint: an empty instance tag groups nothing', () => {
-  assert.match(lintCard('#session # #fail\n🚨 <b>Session</b>')[0], /instance tag is empty/);
+  assert.match(lintCard('#session # #fail\n🚨 <b>Session</b>').join('\n'), /instance tag is empty/);
+});
+
+test('lint: tags are lowercase [a-z0-9_], and a dated tag groups nothing (v2.1)', () => {
+  assert.match(
+    lintCard('#job #аналитика #fail\n🔴 <b>Job:</b> X\n<b>Check:</b> <code>x</code>').join('\n'),
+    /outside \[a-z0-9_\]/
+  );
+  assert.match(
+    lintCard('#report #analytics_2026_08_21 #info\nℹ️ <b>Report:</b> X').join('\n'),
+    /ends in a date/
+  );
+});
+
+test('lint: Cyrillic outside quoted content is a fault; quoted content is free (rule L)', () => {
+  // System text in Russian — a fault.
+  assert.match(
+    lintCard('#job #x #fail\n🔴 <b>Job:</b> X\n<b>Reason:</b> сеть упала\n<b>Check:</b> <code>x</code>').join('\n'),
+    /rule L/
+  );
+  // A commit body in a blockquote, an issue title on line 2, a Russian link
+  // text — all quoted content, all allowed.
+  const quoting =
+    '#issue #i1 #info\n🆕 <b>Issue:</b> #1 Кнопочная запись\n<blockquote>Тело задачи по-русски.</blockquote>\n<b>Source:</b> <a href="https://x/i/1">issue</a>';
+
+  assert.deepEqual(lintCard(quoting), []);
+});
+
+test('lint: the Check row is back in the vocabulary, Logs stays retired (v2.1)', () => {
+  const withCheck = '#job #x #fail\n🔴 <b>Job:</b> X\n<b>Check:</b> <code>config jobs --log x</code>';
+
+  assert.deepEqual(lintCard(withCheck), []);
+  assert.match(
+    lintCard('#job #x #fail\n🔴 <b>Job:</b> X\n<b>Logs:</b> <code>/x</code>\n<b>Check:</b> <code>x</code>').join('\n'),
+    /"Logs:" is back/
+  );
 });

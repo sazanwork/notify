@@ -213,7 +213,8 @@ export const CARDS = [
       type: 'job', project: 'mac-config', key: 'config-sync',
       job: 'Config sync', status: 'fail',
       note: 'git push refused: the remote branch holds a commit that is not here',
-      logs: '/Users/chelsnebes/Library/Logs/config-sync.log'
+      logs: '/Users/chelsnebes/Library/Logs/config-sync.log',
+      check: 'config jobs --log config-sync'
     },
     note: "Красная карточка задачи всегда говорит, куда смотреть: launchd пишет каждую задачу в свой файл, и отправитель подставляет его сам. Локальный файл ссылкой быть не может — он моноширинный, чтобы скопировать одним тапом."
   },
@@ -229,7 +230,8 @@ export const CARDS = [
       job: 'Server backups', status: 'fail',
       note: 're-downloading from the server did not help, there is nothing to roll back to',
       stats: [['Fresh', 10, 'Copies on the Mac'], ['Broken', 1, 'Copies on the Mac']],
-      logs: '/Users/chelsnebes/.claude/logs/vps-backups.log'
+      logs: '/Users/chelsnebes/.claude/logs/vps-backups.log',
+      check: 'config jobs --log vps-backups'
     },
     note: "Было одной строкой: «fresh copies: 10, broken: 1 — re-downloading…». Счётчики стали своими строками, путь к логу — моноширинным."
   },
@@ -246,7 +248,8 @@ export const CARDS = [
       note: '2 checks are red',
       items: [{ text: 'test-update-all', group: 'Red checks' },
         { text: 'check-notify-flags', group: 'Red checks' }],
-      logs: '/Users/chelsnebes/Library/Logs/update-all.log'
+      logs: '/Users/chelsnebes/Library/Logs/update-all.log',
+      check: 'config jobs --log config-tests'
     },
     note: "Список красных проверок идёт под своим заголовком, а не голым перечнем под ничем."
   },
@@ -383,7 +386,8 @@ export const CARDS = [
         { text: 'STALE IN ARCHIVE: ssh-keys.tar.gz.age', group: 'Findings' },
         { text: 'BAD only one recipient: losing the key loses the whole vault', group: 'Findings' }
       ],
-      logs: '~/Library/Logs/vault-selfcheck-fail-20260824-031500.log'
+      logs: '~/Library/Logs/vault-selfcheck-fail-20260824-031500.log',
+      check: 'config jobs --log vault-selfcheck'
     },
     note: "Три находки были одним --detail, склеенным переводом строки — маркер (BAD/STALE/DIVERGED) в начале каждой строки делал работу заголовка внутри цитаты без единого лейбла. Теперь это именованный список, заголовок печатает пакет, а не текст сам себя подписывает. Путь к логу — свой моноширинный хвост."
   },
