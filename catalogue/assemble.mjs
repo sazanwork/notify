@@ -47,7 +47,14 @@ const plural = (n, one, few, many) => {
   return many;
 };
 
-const page = `${at('head.html')}
+// A MACHINE-READABLE stamp, and the only thing a guard may read. The prose
+// stamp below it is for the owner and is rewritten whenever the wording
+// improves; two guards used to parse that prose for a version, and both were
+// wrong within the hour — one captured the Russian date `31.08.2026`, the
+// other refused a version that ended a sentence. A guard that goes red for the
+// wrong reason teaches the next session to ignore it.
+const page = `<!-- notify-catalogue version=${VERSION} -->
+${at('head.html')}
 <div class="wrap">
   <div class="lede">
     <h1>Что придёт в Telegram</h1>
