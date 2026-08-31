@@ -111,7 +111,22 @@ test('dedupe: an unreachable state directory fails OPEN', () => {
   assert.equal(dedupe(fail('backups')).action, 'send');
 });
 
-test('watchdog: its own card passes the lint it enforces', () => {
+test('watchdog: its own card passes the lint it enforces, even over a Russian-speaking offender', () => {
+  // The offender writes system text in Russian — so the fault MESSAGE quotes
+  // Russian, which is what used to fail the watchdog's own lint.
+  const russian = render({
+    type: 'job', project: 'mac-config', job: 'GitHub board sync',
+    status: 'fail', note: 'сеть не отвечает'
+  });
+  const russianFaults = lintCard(russian);
+
+  assert.ok(russianFaults.length > 0, 'the Russian offender must be at fault for this test to prove anything');
+  assert.deepEqual(
+    lintCard(render(brokenCardEvent({ type: 'job', project: 'mac-config', job: 'x', status: 'fail' }, russianFaults, russian))),
+    [],
+    'the watchdog broke its own standard reporting a Russian offender'
+  );
+
   const offender = render({
     type: 'job',
     project: 'mac-config',

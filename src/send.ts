@@ -512,7 +512,13 @@ export const brokenCardEvent = (e: NotifyEvent, faults: string[], offenderHtml: 
     project: 'mac-config',
     job: 'notify: a card broke the standard',
     status: 'fail',
-    note: `${String(e.type)} card for ${String(e.project)}: ${faults.join('; ')}`,
+    // The faults go in the LIST, not in Reason: a fault message quotes the
+    // offending text verbatim ("the tag #аналитика carries…"), and quoted
+    // text inside a system field is exactly what rule L forbids — the
+    // watchdog was failing its own lint on any Russian-speaking offender
+    // (caught live by its own journal, 31.08.2026).
+    note: `a ${String(e.type)} card for ${String(e.project)} broke ${faults.length} rule(s)`,
+    items: faults.map((f) => ({ text: f, group: 'Faults' })),
     detail: offender || undefined,
     detailLabel: 'Offender',
     check: 'config jobs --log notify-broken',
