@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ICON, severity, type NotifyEvent } from './events.ts';
-import { render, eventKey, clampMessage, OUTCOME_TAG } from './render.ts';
+import { render, eventKey, clampMessage, markdownToTelegram, OUTCOME_TAG } from './render.ts';
 import { trend } from './trend.ts';
 
 const XSS = '<script>alert(1)</script>';
@@ -166,14 +166,15 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
     commitTitle: 'Онбординг: заготовки вопросов (#294)'
   });
 
-  // One row, and it says what the commit DID. The hash is a pointer, so it
-  // stands in the pointer block with `Log`, `Check` and `Source`, not in the
-  // middle of the card — the owner caught the last buried link on 31.08.2026.
-  // `Title:` under it was the same second row the issue card had already lost.
-  assert.ok(ci.includes('<b>Commit:</b> Онбординг: заготовки вопросов (#294)'));
+  // One row: the hash is the link, the title stands beside it. The hash spent
+  // 31.08–03.09.2026 as plain text here with its link parked in a `Source:`
+  // row at the bottom, printed a second time — the owner: "хэш можно сделать
+  // кликабельным". `Title:` under it was the same second row the issue card
+  // had already lost.
   assert.ok(ci.includes(
-    '<b>Source:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">commit 9b1fc68</a>'
+    '<b>Commit:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">9b1fc68</a> · Онбординг: заготовки вопросов (#294)'
   ));
+  assert.ok(!ci.includes('<b>Source:</b>'), 'the Source row is gone — the link is on the hash');
   assert.ok(!ci.includes('<b>Title:</b>'), 'the Title row came back on the commit');
   // A commit title is a field, not a quote: the quote holds ONLY the body. With
   // no body there is no quote.
@@ -189,14 +190,13 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
     body: 'разбор 150 коммитов'
   });
 
-  // Line 2 is the title alone. The number is a pointer, so it went down to the
-  // `Source` row on 31.08.2026 — the same move the commit hash made that day.
-  // No url on this one, so there is no `Source` row to hold the number — it
-  // stays on line 2 rather than vanishing from the card altogether.
-  assert.equal(issue.split('\n')[1], '🆕 <b>Issue:</b> #322 Коммиты не следуют конвенции');
+  // Line 2 is `Issue #322 · title`: the number first, the title after a middle
+  // dot (03.09.2026). No url on this one, so the number is plain text — it
+  // stays rather than vanishing from the card altogether.
+  assert.equal(issue.split('\n')[1], '🆕 <b>Issue</b> #322 · Коммиты не следуют конвенции');
   assert.ok(!issue.includes('<b>Number:</b>'), 'the Number row came back');
   assert.ok(!issue.includes('<b>Title:</b>'), 'the Title row came back');
-  assert.equal((issue.match(/<b>Issue:<\/b>/g) ?? []).length, 1, 'the type label must not repeat');
+  assert.equal((issue.match(/<b>Issue<\/b>/g) ?? []).length, 1, 'the type label must not repeat');
   assert.ok(issue.includes('<blockquote>разбор 150 коммитов</blockquote>'));
 });
 
@@ -375,23 +375,22 @@ test('issue: the assignee ends up in the message', () => {
   assert.match(out, /Ilja/);
 });
 
-test('issue/pr: the number is the source link text, and never disappears', () => {
-  // The number moved off line 2 on 31.08.2026 — it is a pointer, and pointers
-  // live in the last block. The trap this test guards: with no url there IS no
-  // last block, and a first pass at the move erased the number from everything
-  // a person reads. The card then named a task without saying which one.
+test('issue/pr: the number is the link on line 2, first, and never disappears', () => {
+  // 03.09.2026: the number came back up from the `Source` row to line 2 and
+  // became the link there — `Issue <a>#128</a> · Waiting list`. The owner:
+  // "номер перенести в title и сделать кликабельным … и разделить их как-то с
+  // title". With no url the number is plain, but it is never erased: the card
+  // must not name a task without saying which one.
   const linked = render({
     type: 'issue', project: 'arvent', action: 'assigned', number: 128,
     title: 'Waiting list', assignee: 'Ilja', url: 'https://x/i/128'
   });
 
-  assert.ok(linked.includes('<b>Issue:</b> Waiting list'), 'line 2 is the title alone');
-  // The link text is the number and nothing else: line 2 already says the
-  // type, so `issue #128` said it twice — the owner cut the word on 31.08.2026.
-  assert.ok(linked.includes('<b>Source:</b> <a href="https://x/i/128">#128</a>'));
+  assert.equal(linked.split('\n')[1], '🙋 <b>Issue</b> <a href="https://x/i/128">#128</a> · Waiting list');
+  assert.ok(!linked.includes('<b>Source:</b>'), 'the Source row is gone');
   assert.ok(!linked.includes('issue #128'), 'the type word came back into the link');
-  // Exactly once as `#128`: in the source row. The instance tag is `#i128`,
-  // a different string, and line 2 no longer carries it at all.
+  // Exactly once as `#128`: on line 2. The instance tag is `#i128`, a
+  // different string.
   assert.equal((linked.match(/#128/g) ?? []).length, 1, 'the number is printed more than once');
   assert.ok(linked.includes('#i128'), 'the instance tag lost the number');
 
@@ -400,21 +399,22 @@ test('issue/pr: the number is the source link text, and never disappears', () =>
     title: 'Waiting list', assignee: 'Ilja'
   });
 
-  assert.ok(bare.includes('<b>Issue:</b> #128 Waiting list'), 'no url — the number stays on line 2');
-  assert.ok(!bare.includes('<b>Source:</b>'), 'no url means no source row');
+  assert.equal(bare.split('\n')[1], '🙋 <b>Issue</b> #128 · Waiting list', 'no url — the number stays, plain');
+  assert.ok(!bare.includes('href="https://x/i/128"'), 'a link to the issue appeared out of nowhere');
 
-  // A pull request is named the same way — by its number alone.
+  // A pull request is named the same way. No title: the line ends at the number.
   const pr = render({
     type: 'pr', project: 'playhub', action: 'opened', number: 118,
     title: 'Category hints', url: 'https://x/p/118'
   });
-  assert.ok(pr.includes('<b>Source:</b> <a href="https://x/p/118">#118</a>'));
+  assert.equal(pr.split('\n')[1], '🆕 <b>PR</b> <a href="https://x/p/118">#118</a> · Category hints');
+  const untitled = render({ type: 'pr', project: 'playhub', action: 'opened', number: 118, title: '', url: 'https://x/p/118' });
+  assert.equal(untitled.split('\n')[1], '🆕 <b>PR</b> <a href="https://x/p/118">#118</a>');
 });
 
-test('deploy: with no workflow run, the commit IS the source and the pointer block exists', () => {
-  // A deploy run by hand from the Mac has no workflow run at all, so before
-  // this the card had NO pointer block and its only way back to the source was
-  // a link buried on the hash mid-card. That is the case the owner reported.
+test('deploy: with no workflow run, the commit hash is the only link, and it is on the Commit row', () => {
+  // A deploy run by hand from the Mac has no workflow run at all: the hash is
+  // the card's one way back to its source, and it is clickable where it stands.
   const out = render({
     type: 'deploy',
     project: 'game-publisher',
@@ -424,15 +424,14 @@ test('deploy: with no workflow run, the commit IS the source and the pointer blo
     commitTitle: 'fix(import): skip games with no cover'
   });
 
-  assert.ok(out.includes('<b>Commit:</b> fix(import): skip games with no cover'));
   assert.ok(out.includes(
-    '<b>Source:</b> <a href="https://github.com/sazanwork/game-publisher/commit/abc123">commit abc123</a>'
+    '<b>Commit:</b> <a href="https://github.com/sazanwork/game-publisher/commit/abc123">abc123</a> · fix(import): skip games with no cover'
   ));
-  // The pointer block is the LAST thing on the card, always.
-  assert.ok(out.trimEnd().endsWith('</a>'), 'the pointer block is not last');
+  assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
+  assert.equal((out.match(/abc123/g) ?? []).length, 2, 'the hash is in the href and in the text, nowhere else');
 });
 
-test('deploy: a run and a commit are both sources, on one row, widest first', () => {
+test('deploy: the run link is on the name, the commit link on the hash — no Source row', () => {
   const out = render({
     type: 'deploy',
     project: 'playhub',
@@ -443,14 +442,13 @@ test('deploy: a run and a commit are both sources, on one row, widest first', ()
     workflowUrl: 'https://x/run'
   });
 
-  assert.ok(out.includes(
-    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit abc123</a>'
-  ));
-  // One `Source:` label, never two rows carrying the same word.
-  assert.equal((out.match(/<b>Source:<\/b>/g) ?? []).length, 1);
+  assert.equal(out.split('\n')[1], '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)');
+  assert.ok(out.includes('<b>Commit:</b> <a href="https://x/c">abc123</a>'));
+  assert.ok(!out.includes('<b>Source:</b>'));
+  assert.ok(!out.includes('workflow run'), 'the two words that named nothing are gone');
 });
 
-test('deploy: a commit url with no hash produces no source link at all', () => {
+test('deploy: a commit url with no hash produces no link at all', () => {
   // There would be no text to put on it but the bare word `commit`, which
   // tells the reader nothing they can use.
   const out = render({
@@ -461,7 +459,8 @@ test('deploy: a commit url with no hash produces no source link at all', () => {
     commitTitle: 'fix(import): skip games with no cover'
   });
 
-  assert.ok(!out.includes('<b>Source:</b>'), 'a source row appeared with nothing to name it');
+  assert.ok(!out.includes('<a href'), 'a link appeared with nothing to name it');
+  assert.ok(out.includes('<b>Commit:</b> fix(import): skip games with no cover'));
 });
 
 test('deploy: reason explains a cancel/skip — as the same field, not a quote', () => {
@@ -548,9 +547,9 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     deploy.split('\n')[1],
-    '\u{1F534} <b>Deploy:</b> Deploy to Beget (Fail)'
+    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a> (Fail)'
   );
-  assert.ok(deploy.includes('<b>Source:</b> <a href="https://x/run">workflow run</a>'), 'the run link must be the Source row');
+  assert.ok(!deploy.includes('<b>Source:</b>'), 'the run link rides on the name, not in a Source row');
   assert.ok(!deploy.includes('<b>Via:</b>'), 'the Via row carried the name a floor below');
   assert.ok(!deploy.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go');
 
@@ -562,9 +561,9 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     ci.split('\n')[1],
-    '\u{1F534} <b>CI:</b> nightly (Fail)'
+    '\u{1F534} <b>CI:</b> <a href="https://x/run">nightly</a> (Fail)'
   );
-  assert.ok(ci.includes('<b>Source:</b> <a href="https://x/run">workflow run</a>'), 'the run link must be the Source row');
+  assert.ok(!ci.includes('<b>Source:</b>'), 'the run link rides on the name on CI too');
   assert.ok(!ci.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go from CI too');
 });
 
@@ -577,8 +576,8 @@ test('run: the workflow name beats the platform as the link text', () => {
     via: 'GitHub Actions', workflowName: 'Deploy to Beget', workflowUrl: 'https://x/run'
   });
 
-  assert.ok(out.includes('<b>Deploy:</b> Deploy to Beget'), 'the type line must carry the workflow name');
-  assert.ok(!out.includes('<b>Deploy:</b> GitHub Actions'), 'the platform is not the name of the run');
+  assert.ok(out.includes('<b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a>'), 'the type line must carry the workflow name, linked');
+  assert.ok(!out.includes('>GitHub Actions</a>'), 'the platform is not the name of the run');
 });
 
 // A hand deploy has no run to open: the type line still says by what means it
@@ -601,7 +600,7 @@ test('run: a hand deploy names the means and has nothing to open', () => {
 test('blocks: run facts touch the name, the commit keeps its heading', () => {
   const both = render({
     type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
-    commit: '9b1fc68', commitUrl: 'https://x/c', actor: '@chelsnebes',
+    commit: '9b1fc68', commitUrl: 'https://x/c', actor: '@ilja',
     note: '3 tests failed', workflowUrl: 'https://x/run', workflowName: 'nightly'
   });
   const rows = both.split('\n');
@@ -610,7 +609,7 @@ test('blocks: run facts touch the name, the commit keeps its heading', () => {
   assert.equal(rows[2], '<b>Reason:</b> 3 tests failed');
   assert.equal(rows[3], '');
   assert.equal(rows[4], '<i><u>Change</u></i>');
-  assert.equal(rows[5], '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>');
+  assert.equal(rows[5], '<b>Actor:</b> <a href="https://t.me/ilja">@ilja</a>');
 
   // A green deploy: no reason to give, so the card is only name plus commit.
   const one = render({
@@ -668,13 +667,9 @@ test('run: a nameless run keeps its link rather than losing it', () => {
     commit: 'a1b2c3d', commitUrl: 'https://x/c', url: 'https://x/run'
   });
 
-  // The link survives in the Source row (v2.1). The type line stays a plain
-  // bare name — the card still does not invent one.
-  assert.equal(out.split('\n')[1], '\u{1F534} <b>Deploy</b> (Fail)');
-  assert.ok(
-    out.includes('<b>Source:</b> <a href="https://x/run">workflow run</a>'),
-    'the link to the logs was lost'
-  );
+  // The link rides on the bare type word. The card still does not invent a name.
+  assert.equal(out.split('\n')[1], '\u{1F534} <a href="https://x/run"><b>Deploy</b></a> (Fail)');
+  assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
 });
 
 test('severity: job disabled rings like fail, heartbeat recovered stays quiet like success', () => {
@@ -755,16 +750,15 @@ test('card/ci: commit hash links, body quoted under it', () => {
     actor: '@chelsnebes', workflowUrl: 'https://x/run'
   });
 
+  // The actor is the owner himself, so the row is not printed (03.09.2026): a
+  // people row that names the reader is not news.
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <b>CI</b> (OK)',
+    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
     '',
     '<i><u>Change</u></i>',
-    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
-    '<b>Commit:</b> Онбординг: заготовки вопросов (#294)',
-    '<blockquote>Тело коммита, написанное человеком.</blockquote>',
-    '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit 9b1fc68</a>'
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · Онбординг: заготовки вопросов (#294)',
+    '<blockquote>Тело коммита, написанное человеком.</blockquote>'
   ].join('\n'));
 });
 
@@ -772,20 +766,18 @@ test('card/ci: commit author links to their GitHub profile, distinct from Actor'
   const out = render({
     type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
     commit: '9b1fc68', commitUrl: 'https://x/c', commitTitle: 'fix: checkout',
-    commitAuthor: 'mikitasazan',
-    actor: '@chelsnebes', workflowUrl: 'https://x/run'
+    commitAuthor: 'Ilja-Prihach',
+    actor: '@ilja_tg', workflowUrl: 'https://x/run'
   });
 
   assert.equal(out, [
     '#ci #master #fail',
-    '🔴 <b>CI</b> (Fail)',
+    '🔴 <a href="https://x/run"><b>CI</b></a> (Fail)',
     '',
     '<i><u>Change</u></i>',
-    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
-    '<b>Commit:</b> fix: checkout',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
-    '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit 9b1fc68</a>'
+    '<b>Actor:</b> <a href="https://t.me/ilja_tg">@ilja_tg</a>',
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · fix: checkout',
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 });
 
@@ -793,20 +785,30 @@ test('card/deploy: commit author, with no Actor row — deploy has none', () => 
   const out = render({
     type: 'deploy', project: 'playhub', status: 'ok',
     commit: 'a1b2c3d', commitUrl: 'https://x/c', commitTitle: 'feat: new landing',
-    commitAuthor: 'mikitasazan',
+    commitAuthor: 'Ilja-Prihach',
     via: 'GitHub Actions', workflowUrl: 'https://x/run'
   });
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> GitHub Actions (OK)',
+    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> feat: new landing',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
-    '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit a1b2c3d</a>'
+    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> · feat: new landing',
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
+});
+
+test('people rows: the owner himself is never printed — Author, Assignee, Reviewer, Actor', () => {
+  const pr = render({
+    type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 'x',
+    author: 'mikitasazan', reviewer: 'Ilja-Prihach', url: 'https://x/p/1'
+  });
+  assert.ok(!pr.includes('<b>Author:</b>'), 'the owner as author is not news');
+  assert.ok(pr.includes('<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'));
+
+  const ci = render({ type: 'ci', project: 'arvent', status: 'ok', actor: '@chelsnebes', commit: 'a', commitUrl: 'https://x/c' });
+  assert.ok(!ci.includes('<b>Actor:</b>'), 'the owner as actor is not news');
 });
 
 test('card/ci scheduled: a run with no commit body still says why it ran', () => {
@@ -818,13 +820,11 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <b>CI</b> (OK)',
+    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
     '<b>Reason:</b> nightly check of master',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> 9b1fc68',
-    '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit 9b1fc68</a>'
+    '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>'
   ].join('\n'));
 });
 
@@ -837,12 +837,10 @@ test('card/deploy', () => {
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> GitHub Actions (OK)',
+    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
     '',
     '<i><u>Change</u></i>',
-    '<b>Commit:</b> feat: new landing',
-    '',
-    '<b>Source:</b> <a href="https://x/run">workflow run</a> · <a href="https://x/c">commit a1b2c3d</a>'
+    '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> · feat: new landing'
   ].join('\n'));
 });
 
@@ -851,17 +849,15 @@ test('card/issue: body arrives — it never did before', () => {
     type: 'issue', project: 'mac-config', action: 'opened', number: 322,
     title: 'Commit convention for all repos',
     body: 'Тело задачи с GitHub, как его написал человек.',
-    author: 'mikitasazan', url: 'https://x/i/322'
+    author: 'Ilja-Prihach', url: 'https://x/i/322'
   });
 
   assert.equal(out, [
     '#issue #i322 #info',
-    '🆕 <b>Issue:</b> Commit convention for all repos',
+    '🆕 <b>Issue</b> <a href="https://x/i/322">#322</a> · Commit convention for all repos',
     '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
-    '',
-    '<b>Source:</b> <a href="https://x/i/322">#322</a>'
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 });
 
@@ -878,13 +874,10 @@ test('card/issue: assigned carries the body too, quoted', () => {
 
   assert.equal(out, [
     '#issue #i312 #info',
-    '🙋 <b>Issue:</b> Web booking page',
+    '🙋 <b>Issue</b> <a href="https://x/i/312">#312</a> · Web booking page',
     '<blockquote>A description he needs in front of him, not one link away.</blockquote>',
     '',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
-    '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
-    '',
-    '<b>Source:</b> <a href="https://x/i/312">#312</a>'
+    '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 });
 
@@ -934,12 +927,10 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
 
   assert.equal(out, [
     '#pr #p294 #info',
-    '🆕 <b>PR:</b> Onboarding: question drafts',
+    '🆕 <b>PR</b> <a href="https://x/p/294">#294</a> · Onboarding: question drafts',
     '<blockquote>PR description here.</blockquote>',
     '',
-    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
-    '',
-    '<b>Source:</b> <a href="https://x/p/294">#294</a>'
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 
   // One title is one line, the same for every type. It is the identifier now,
@@ -948,7 +939,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     type: 'pr', project: 'playhub', action: 'opened', number: 1,
     title: 'first line\nsecond line'
   });
-  assert.ok(twoLine.includes('<b>PR:</b> #1 first line'), 'no url, so the number stays on line 2');
+  assert.ok(twoLine.includes('<b>PR</b> #1 · first line…'), 'no url, so the number stays on line 2');
   assert.ok(!twoLine.includes('second line'), 'a title is cut at its first line');
 });
 
@@ -965,14 +956,11 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
   // the only thing that says so.
   assert.equal(requested, [
     '#pr #p118 #info',
-    '📝 <b>PR:</b> Onboarding: question drafts',
+    '📝 <b>PR</b> <a href="https://x/p/118">#118</a> · Onboarding: question drafts',
     '<b>Review:</b>',
     '<blockquote>Please rename this variable, it shadows the outer one.</blockquote>',
     '',
-    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
-    '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
-    '',
-    '<b>Source:</b> <a href="https://x/p/118">#118</a>'
+    '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 
   // An approval with no comment attached: no empty quote, no dangling blank line.
@@ -983,14 +971,64 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
   assert.ok(!approvedSilent.includes('<blockquote>'), 'no comment means no quote');
   assert.ok(!approvedSilent.includes('\n\n<b>Reviewer'), 'no comment means no dangling blank line before Reviewer');
 
-  // Since 31.08.2026 the description shows on every action — the owner wants
-  // the context on the card, not one link away.
+  // The description shows on every action (31.08.2026) — but on merged and
+  // closed only its FIRST section (03.09.2026): the whole text was already read
+  // when the PR was opened, and a merged card of 67 lines was the "wall of
+  // text" the owner complained about.
   const merged = render({
     type: 'pr', project: 'playhub', action: 'merged', number: 118,
     title: 'Onboarding: question drafts', body: 'What this PR changed.'
   });
   assert.ok(merged.includes('<blockquote>What this PR changed.</blockquote>'), 'merged must carry the description too');
   assert.ok(!merged.includes('<b>Review:</b>'), 'only a verdict captions the quote as a review');
+
+  const sectioned = '## Что меняется\n\nКнопка стала синей.\n\n## Как проверял\n\nnpm test — зелёный.\n\nCloses #5';
+  const mergedLong = render({ type: 'pr', project: 'playhub', action: 'merged', number: 118, title: 't', body: sectioned });
+  assert.ok(mergedLong.includes('<b>Что меняется</b>\n\nКнопка стала синей.'), 'the first section stays');
+  assert.ok(!mergedLong.includes('Как проверял'), 'the second section is cut on merged');
+  const openedLong = render({ type: 'pr', project: 'playhub', action: 'opened', number: 118, title: 't', body: sectioned });
+  assert.ok(openedLong.includes('<b>Как проверял</b>'), 'opened keeps the whole body');
+  assert.ok(!openedLong.includes('Closes #5'), 'GitHub bookkeeping lines are dropped');
+});
+
+test('markdown: a GitHub body is translated into Telegram markup, never pasted raw', () => {
+  const body = [
+    '<!-- Название PR — заголовок squash-коммита -->',
+    '## Скриншоты приёмки',
+    '',
+    '![after 375](https://github.com/x/releases/download/a/after-375.png)',
+    'См. [funnel.ts:300](web/src/server/bot/tools/funnel.ts:300) и [доску](https://x/board).',
+    '',
+    '| Что | Значение |',
+    '|---|---|',
+    '| Пилюля | y 675–719 |',
+    '',
+    '**Сцена.** Барбер `стрижёт` <всех> & обучает.',
+    '',
+    '```',
+    'no   :: Вашу карточку я удалила.',
+    '```',
+    '',
+    '',
+    '',
+    'Closes #405'
+  ].join('\n');
+  const out = markdownToTelegram(body);
+
+  assert.ok(!out.includes('&lt;!--'), 'the template comment must be dropped');
+  assert.ok(out.includes('<b>Скриншоты приёмки</b>'), 'a heading becomes a bold line');
+  assert.ok(out.includes('<a href="https://github.com/x/releases/download/a/after-375.png">after 375</a>'), 'an image is a link named by its alt');
+  assert.ok(out.includes('См. funnel.ts:300 и <a href="https://x/board">доску</a>.'), 'a repo path keeps only its text, a real url is a link');
+  assert.ok(out.includes('Что · Значение\nПилюля · y 675–719'), 'a table is rows of cells, the rule line is gone');
+  assert.ok(out.includes('<b>Сцена.</b> Барбер <code>стрижёт</code> &lt;всех&gt; &amp; обучает.'), 'bold and code, everything else escaped');
+  assert.ok(out.includes('<pre>no   :: Вашу карточку я удалила.</pre>'), 'a fenced block is pre');
+  assert.ok(!out.includes('Closes #405'), 'Closes lines are dropped');
+  assert.ok(!out.includes('\n\n\n'), 'blank runs collapse');
+
+  // The whole thing survives the clamp with its tags balanced.
+  const card = render({ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't', body: body.repeat(40), url: 'https://x/i/1' });
+  assert.ok(card.length <= 4096);
+  assert.ok(card.includes('<blockquote expandable>'), 'a long body collapses');
 });
 
 test('card/incident: every line of the diagnosis survives', () => {
@@ -1117,7 +1155,7 @@ test('fieldLink: a multi-line value does not become multi-line link text', () =>
     commitUrl: 'https://x/c'
   });
 
-  assert.ok(out.includes('>commit ночная проверка master…</a>'), 'link text not trimmed to one line');
+  assert.ok(out.includes('>ночная проверка master…</a>'), 'link text not trimmed to one line');
   assert.ok(!out.includes('полная проверка'), 'second line leaked into the link');
 });
 
@@ -1180,13 +1218,10 @@ test('link/report: the report name is the link, and there is no Details row', ()
   });
 
   assert.ok(
-    out.includes('ℹ️ <b>Report:</b> Analytics for 2026-08-22 (compared with 2026-08-21)'),
-    'the report name lost its brackets'
+    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22</a> (compared with 2026-08-21)'),
+    'the report name is the link and keeps its brackets'
   );
-  assert.ok(
-    out.includes('<b>Source:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">report</a>'),
-    'the report link must live in the Source row'
-  );
+  assert.ok(!out.includes('<b>Source:</b>'), '`Source: report` under a card headed Report named nothing');
   assert.ok(
     !out.includes('<b>Period:</b>'),
     'what the report covers must ride on the name, not take a row of its own'
@@ -1203,8 +1238,8 @@ test('link/report with groups: same rule', () => {
     url: 'https://x/board'
   });
 
-  assert.ok(out.includes('<b>Report:</b> Board'), 'grouped report lost its name');
-  assert.ok(out.includes('<b>Source:</b> <a href="https://x/board">report</a>'), 'grouped report lost its Source link');
+  assert.ok(out.includes('<b>Report:</b> <a href="https://x/board">Board</a>'), 'grouped report lost its name or its link');
+  assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
   assert.ok(!out.includes('Details'), 'the Details row came back in the grouped report');
 });
 
@@ -1215,11 +1250,11 @@ test('link/job: the task name is the link, not a trailing Workflow: open', () =>
     url: 'https://github.com/sazanwork/playhub/actions/runs/42'
   });
 
-  assert.ok(out.includes('<b>Job:</b> Yandex game import'), 'the task name left the type line');
   assert.ok(
-    out.includes('<b>Source:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">workflow run</a>'),
-    'the run link must live in the Source row'
+    out.includes('<b>Job:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">Yandex game import</a>'),
+    'the task name is the link'
   );
+  assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
   assert.ok(!out.includes('>open</a>'), 'the bare Workflow: open row came back');
 });
 
@@ -1229,9 +1264,8 @@ test('link/job: the workflow row is gone — it was line 2 written twice', () =>
     url: 'https://x/run', workflowName: 'validate-games.yml', workflowUrl: 'https://x/wf'
   });
 
-  assert.ok(out.includes('<b>Job:</b> Game validator'), 'task lost its name');
-  // `workflowUrl` beats `url` in the Source row, exactly as it did on line 2.
-  assert.ok(out.includes('<b>Source:</b> <a href="https://x/wf">workflow run</a>'), 'Source must prefer workflowUrl');
+  // `workflowUrl` beats `url` on the name.
+  assert.ok(out.includes('<b>Job:</b> <a href="https://x/wf">Game validator</a>'), 'the name must link to workflowUrl');
   assert.ok(!out.includes('<b>Workflow:</b>'), 'the duplicate destination came back');
 });
 
@@ -1242,10 +1276,10 @@ test('link/incident: the title is the link', () => {
   });
 
   assert.ok(
-    out.includes('🚨 <b>Incident:</b> The vault needs repair'),
-    'the incident title is not the type line'
+    out.includes('🚨 <b>Incident:</b> <a href="https://x/run">The vault needs repair</a>'),
+    'the incident title is the link on the type line'
   );
-  assert.ok(out.includes('<b>Source:</b> <a href="https://x/run">details</a>'), 'the incident lost its Source link');
+  assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
   assert.ok(!out.includes('<b>Title:</b>'), 'the Title row came back on the incident');
   assert.ok(!out.includes('>open</a>'), 'the bare open link came back on the incident');
 });
@@ -1583,8 +1617,8 @@ test('list items: an item with facts becomes a nested list — a bullet, then in
     groups: [{
       name: 'Top search queries',
       items: [
-        { text: '"online games ru"', facts: [['Clicks', 0], ['Position', 55]] },
-        { text: '"online games russian"', facts: [['Clicks', 0], ['Position', 59]] }
+        { text: '"online games ru"', facts: [['Clicks', 2], ['Position', 55]] },
+        { text: '"online games russian"', facts: [['Clicks', 1], ['Position', 59]] }
       ]
     }]
   });
@@ -1595,10 +1629,10 @@ test('list items: an item with facts becomes a nested list — a bullet, then in
     '',
     '<i><u>Top search queries</u></i>',
     '• &quot;online games ru&quot;',
-    '   <b>Clicks:</b> 0',
+    '   <b>Clicks:</b> 2',
     '   <b>Position:</b> 55',
     '• &quot;online games russian&quot;',
-    '   <b>Clicks:</b> 0',
+    '   <b>Clicks:</b> 1',
     '   <b>Position:</b> 59'
   ].join('\n'));
 });
@@ -1702,24 +1736,60 @@ test('cut marker: names the log when there is one, and the card still fits (v2.1
   assert.ok(out.includes('<b>Log:</b>'), 'the cut took the Log row');
 });
 
-test('cut marker: with no log, a cut card points at its Source row', () => {
+test('cut marker: with no log, a cut card points at the link on line 2', () => {
   // The owner met a bare `⋯ cut` on a live PR card and asked what the three
-  // dots referred to. The card carried a `Source` link the whole time — the
-  // rest was one tap away and the marker never said so.
+  // dots referred to. The card carried a link the whole time — the rest was
+  // one tap away and the marker never said so.
   const long = Array.from({ length: 900 }, (_, i) => `описание строки ${i}, довольно длинное`).join(' ');
   const out = render({ type: 'pr', project: 'arvent', action: 'merged', number: 315,
     title: 'Лист ожидания', body: long, url: 'https://x/p/315' });
 
-  assert.ok(out.includes('⋯ cut, full text at Source below'));
-  assert.ok(out.includes('<b>Source:</b> <a href="https://x/p/315">#315</a>'));
+  assert.ok(out.includes('⋯ cut, full text behind the link on line 2'));
+  assert.ok(out.includes('<a href="https://x/p/315">#315</a>'));
   assert.ok(out.length <= 4096, `over the limit: ${out.length}`);
 
   // Nothing to point at: the marker says only that something was cut, because
-  // promising a source that is not there is worse than saying nothing.
+  // promising a link that is not there is worse than saying nothing.
   const nowhere = render({ type: 'pr', project: 'arvent', action: 'merged', number: 315,
     title: 'Лист ожидания', body: long });
   assert.ok(nowhere.includes('⋯ cut'));
-  assert.ok(!nowhere.includes('at Source below'), 'promised a source row that does not exist');
+  assert.ok(!nowhere.includes('behind the link'), 'promised a link that does not exist');
+});
+
+test('zero rows: a zero that did not move is not printed, and a group left empty loses its heading', () => {
+  const report = render({
+    type: 'report', project: 'game-publisher', title: 'Analytics, daily',
+    lines: [
+      ['People', '190 / 215 ▼25', 'Server log'],
+      ['Game plays', '0 / 0 =', 'GA4'],
+      ['People', '0 / 0 =', 'GA4'],
+      ['Clicks', '0 / 0 =', 'Google Search'],
+      ['Impressions', '3 / 1 ▲2', 'Google Search'],
+      ['Visible', '0% / 0% =', 'Coverage']
+    ]
+  });
+
+  assert.ok(report.includes('<b>People:</b> 190 / 215 ▼25'));
+  assert.ok(report.includes('<b>Impressions:</b> 3 / 1 ▲2'));
+  assert.ok(!report.includes('0 / 0 ='), 'a zero against a zero says nothing');
+  assert.ok(!report.includes('<i><u>GA4</u></i>'), 'a group with no rows left has no heading');
+  assert.ok(!report.includes('<i><u>Coverage</u></i>'));
+  assert.ok(report.includes('<i><u>Google Search</u></i>'), 'a group with one live row keeps its heading');
+
+  const job = render({
+    type: 'job', project: 'playhub', job: 'Game liveness check', status: 'ok',
+    stats: [['Checked', 1326], ['404 during scan', 0], ['Confirmed dead', 0], ['Featured lost', '0 / 3 ▼3']]
+  });
+  assert.ok(job.includes('<b>Checked:</b> 1326'));
+  assert.ok(!job.includes('404 during scan'), 'a bare zero is silence');
+  assert.ok(job.includes('<b>Featured lost:</b> 0 / 3 ▼3'), 'a zero that CHANGED is news');
+
+  const facts = render({
+    type: 'report', project: 'playhub', title: 'Analytics',
+    groups: [{ name: 'Top search queries', items: [{ text: '"russian game online"', facts: [['Clicks', 0], ['Position', 65]] }] }]
+  });
+  assert.ok(!facts.includes('<b>Clicks:</b> 0'), 'a zero fact under an item is silence too');
+  assert.ok(facts.includes('<b>Position:</b> 65'));
 });
 
 test('cut marker: a caption card announces the attachment as the full text and fits 1024 (v2.1)', () => {

@@ -100,7 +100,7 @@ export const clampMessage = (text: string, limit = 4000, marker = '…'): string
   // bug (25.08.2026), so now the order comes from the text itself: the last
   // one opened is the first one closed.
   const open: string[] = [];
-  const tagRe = /<(\/?)(b|a|i|u|code|blockquote)[ >]/g;
+  const tagRe = /<(\/?)(b|a|i|u|code|pre|blockquote)[ >]/g;
   for (let m = tagRe.exec(body); m !== null; m = tagRe.exec(body)) {
     if (m[1] === '/') {
       const at = open.lastIndexOf(m[2]);
@@ -191,6 +191,15 @@ const fieldCode = (label: string, value: string | undefined): string | null =>
   value ? `<b>${esc(cap(label))}:</b> <code>${esc(value)}</code>` : null;
 
 /**
+ * The owner himself, under the two names the senders know him by. A people
+ * row that names the reader is not news: on the 49 PR and issue cards of the
+ * week of 25.08.2026 `Author:` was him on every one, and the single row that
+ * ever said something was `Assignee: Ilja-Prihach`. So a person row is printed
+ * only when the person is someone else (03.09.2026).
+ */
+const OWNER = { github: 'mikitasazan', telegram: 'chelsnebes' } as const;
+
+/**
  * A person field — Author, Assignee, Reviewer. Every one of them is a
  * GitHub login (`github-cards.py` reads it off `.user.login`/`.assignee.login`
  * on the GitHub API object), and every GitHub login is a profile at one fixed
@@ -207,6 +216,9 @@ const fieldPerson = (label: string, login: string | undefined): string | null =>
     return null;
   }
   const oneLine = firstLine(login) as string;
+  if (oneLine.toLowerCase() === OWNER.github) {
+    return null;
+  }
   return `<b>${esc(cap(label))}:</b> <a href="https://github.com/${esc(oneLine)}">${esc(oneLine)}</a>`;
 };
 
@@ -224,7 +236,11 @@ const fieldTelegram = (label: string, handle: string | undefined): string | null
     return null;
   }
   const oneLine = firstLine(handle) as string;
-  return `<b>${esc(cap(label))}:</b> <a href="https://t.me/${esc(oneLine.replace(/^@/, ''))}">${esc(oneLine)}</a>`;
+  const bare = oneLine.replace(/^@/, '');
+  if (bare.toLowerCase() === OWNER.telegram) {
+    return null;
+  }
+  return `<b>${esc(cap(label))}:</b> <a href="https://t.me/${esc(bare)}">${esc(oneLine)}</a>`;
 };
 
 /**
@@ -274,10 +290,23 @@ const groupItem = (it: Item, index: number, numbered: boolean): string => {
     return head;
   }
 
-  const sub = it.facts.map(([label, value]) => `   <b>${esc(cap(label))}:</b> ${esc(String(value))}`);
+  const sub = it.facts
+    .filter(([, value]) => !isZeroStill(value))
+    .map(([label, value]) => `   <b>${esc(cap(label))}:</b> ${esc(String(value))}`);
 
   return [head, ...sub].join('\n');
 };
+
+/**
+ * A zero that did not move says nothing. On game-publisher six of the eight
+ * analytics rows read `0 / 0 =` every single day, and the liveness check
+ * printed six rows of `0` nine days running (25.08–03.09.2026). The owner:
+ * silence is the report. So a row whose value is a bare `0`, or a zero
+ * compared with a zero, is not printed — and a group left with no rows loses
+ * its heading too. A zero that CHANGED (`0 / 3 ▼3`) still prints: that is news.
+ */
+const isZeroStill = (value: string | number): boolean =>
+  /^\s*0(?:[.,]0+)?\s*%?\s*(?:\/\s*0(?:[.,]0+)?\s*%?\s*=?\s*)?$/.test(String(value));
 
 // A long explanation (a note, incident details) — as a quote: in Telegram
 // that is a bar on the left and a light indent, reading as "details," not as
@@ -289,14 +318,125 @@ const groupItem = (it: Item, index: number, numbered: boolean): string => {
 // paragraph and the old length-only rule let them through (v2.1).
 const EXPAND_AT = 400;
 const EXPAND_LINES = 5;
-const note = (text: string | undefined): string | null => {
-  if (!text) {
-    return null;
-  }
-  const body = esc(text);
+/** The quote itself, over text that is ALREADY safe HTML. */
+const quoteHtml = (body: string): string => {
   const long = body.length > EXPAND_AT || body.split('\n').length > EXPAND_LINES;
 
   return long ? `<blockquote expandable>${body}</blockquote>` : `<blockquote>${body}</blockquote>`;
+};
+const note = (text: string | undefined): string | null => (text ? quoteHtml(esc(text)) : null);
+
+/**
+ * GitHub Markdown, read in Telegram. A PR or issue body arrives as the author
+ * wrote it for GitHub, and Telegram knows none of it: `## Как проверял` stood
+ * as two hash signs, a screenshot as `![after 375](https://…png)` in full, the
+ * PR template's HTML comment as a paragraph, a table as a fence of bars. On
+ * the 49 PR and issue cards of the week of 25.08.2026 that was the "wall of
+ * text" the owner read. So the body is translated, not pasted (03.09.2026):
+ *
+ *   - a comment `<!-- … -->` is the template talking to the author — dropped;
+ *   - `## Heading` → bold line; `**x**` → bold; `` `x` `` → code; a fenced
+ *     block → `<pre>`;
+ *   - an image `![alt](https://…)` → a link named by its alt (or `image`);
+ *     a link `[text](https://…)` → a link; a link to a repo path (no scheme)
+ *     keeps only its text — the address would not open from a phone anyway;
+ *   - a table: the `|---|` rule is dropped, a row's cells are joined by ` · `;
+ *   - `Closes #N` / `Fixes #N` lines are GitHub's own bookkeeping — dropped;
+ *   - runs of blank lines collapse to one.
+ *
+ * Everything is escaped FIRST, then the markup is added on the escaped text:
+ * the patterns contain no `<>&"`, so nothing the author typed can become a tag.
+ */
+export const markdownToTelegram = (text: string): string => {
+  const stripped = text.replace(/<!--[\s\S]*?-->/g, '');
+  const out: string[] = [];
+  let fence: string[] | null = null;
+
+  for (const raw of stripped.split('\n')) {
+    const line = esc(raw);
+
+    if (/^\s*```/.test(line)) {
+      if (fence) {
+        out.push(`<pre>${fence.join('\n')}</pre>`);
+        fence = null;
+      } else {
+        fence = [];
+      }
+      continue;
+    }
+    if (fence) {
+      fence.push(line);
+      continue;
+    }
+    if (/^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(line)) {
+      continue; // a table's header rule
+    }
+    if (/^\s*(closes|fixes|resolves)\s+#\d+\s*$/i.test(line)) {
+      continue;
+    }
+
+    let row = line;
+    const heading = row.match(/^\s*#{1,6}\s+(.*?)\s*#*\s*$/);
+    if (heading) {
+      row = `<b>${heading[1]}</b>`;
+    } else if (/^\s*\|.*\|\s*$/.test(row)) {
+      row = row
+        .trim()
+        .slice(1, -1)
+        .split('|')
+        .map((c) => c.trim())
+        .filter((c) => c !== '')
+        .join(' · ');
+    }
+    row = row
+      .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_, alt: string, url: string) => `<a href="${url}">${alt.trim() || 'image'}</a>`)
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    out.push(row);
+  }
+  if (fence) {
+    out.push(`<pre>${fence.join('\n')}</pre>`);
+  }
+
+  return out
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
+/**
+ * The first section of a Markdown body: everything up to the SECOND `## `
+ * heading. On a merged or closed card the body is text he has already read
+ * when the thing was opened; the section that says what changed for the user
+ * is enough, the rest is one tap away behind the number.
+ */
+const firstSection = (text: string): string => {
+  const lines = text.replace(/<!--[\s\S]*?-->/g, '').split('\n');
+  let headings = 0;
+  const kept: string[] = [];
+  for (const line of lines) {
+    if (/^\s*#{1,6}\s+/.test(line)) {
+      headings += 1;
+      if (headings === 2) {
+        break;
+      }
+    }
+    kept.push(line);
+  }
+
+  return kept.join('\n');
+};
+
+/** A quoted Markdown body — translated, and optionally cut to its first section. */
+const markdownQuote = (body: string | undefined, whole: boolean): string | null => {
+  if (!body) {
+    return null;
+  }
+  const html = markdownToTelegram(whole ? body : firstSection(body));
+
+  return html ? quoteHtml(html) : null;
 };
 
 /**
@@ -400,22 +540,27 @@ const renderGroup = (g: { name: string; items: Item[] }): string[] => [
  */
 const commitRow = (
   hash: string | undefined,
+  url: string | undefined,
   title: string | undefined
 ): string | null => {
-  // The title is the content — what the commit DID — so it is what the row
-  // says. The hash is a pointer, and pointers live in the last block with
-  // `Log`, `Check` and `Source`; the owner caught the hash still carrying the
-  // link from the middle of the card (31.08.2026): "source, это hash", and on
-  // a manual deploy that buried link was the card's ONLY way back to its
-  // source while the pointer block sat empty.
-  //
-  // With no title there is nothing to say but the hash, so it stands here as
-  // plain text — the link to it is in the pointer block either way.
-  return field('Commit', title ? firstLine(title) : hash);
+  // The hash IS the link, and the title stands beside it: `Commit: <a>9b1fc68</a>
+  // · feat: …`. The hash spent two days (31.08–03.09.2026) as plain text in the
+  // middle of the card with its link parked in a `Source:` row at the bottom,
+  // where the same hash was printed a second time. The owner: "хэш можно
+  // сделать кликабельным" — a pointer is clickable where it stands, and the
+  // separate row that repeated it is gone.
+  if (!hash && !title) {
+    return null;
+  }
+  const head = hash ? (url ? `<a href="${esc(firstLine(url))}">${esc(firstLine(hash))}</a>` : esc(firstLine(hash))) : '';
+  const name = title ? esc(firstLine(title)) : '';
+  const value = head && name ? `${head} · ${name}` : head || name;
+
+  return `<b>Commit:</b> ${value}`;
 };
 
 const bodyQuote = (body: string | undefined): string | null =>
-  body ? note(body) : null;
+  body ? markdownQuote(body, true) : null;
 
 /**
  * Labelled rows, sorted into the groups the sender itself named.
@@ -436,7 +581,7 @@ const bodyQuote = (body: string | undefined): string | null =>
  * about the card itself, not about any one of its subjects.
  */
 const labelled = (rows: Array<[string, string | number, string?]> | undefined): string[] => {
-  const list = rows ?? [];
+  const list = (rows ?? []).filter(([, value]) => !isZeroStill(value));
   const names = [...new Set(list.map(([, , g]) => g).filter((g): g is string => !!g))];
 
   if (names.length === 0) {
@@ -591,12 +736,14 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     // enough: a plain 🔴 next to a workflow name still read as "something
     // happened," not "it failed," on a screen small enough to lose the color.
     // The `Via` row is gone: it used to carry this same name one floor below.
-    // The run URL is gone from this line too — it is the `Source:` row now.
-    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via), undefined, e.status === 'fail' ? 'Fail' : 'OK'),
+    // The run URL rides on the name (03.09.2026): the thing you read is the
+    // thing you tap. It spent three days in a `Source:` row at the bottom, and
+    // the owner asked what that row was for when the name was right there.
+    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via), sourceUrl(e), e.status === 'fail' ? 'Fail' : 'OK'),
     ...twoBlocks(
       [field('Target', e.target), reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
-        commitRow(e.commit, e.commitTitle),
+        commitRow(e.commit, e.commitUrl, e.commitTitle),
         fieldPerson('Author', e.commitAuthor),
         bodyQuote(e.commitBody)
       ]
@@ -633,10 +780,10 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   // catalogue page defines both marks.
 
   return join([
-    // The URL moved off the type line into the `Source:` row of the pointer
-    // block (v2.1, rule S): the owner asked for a pointer he can SEE, and a
-    // link riding invisibly on the name is not one.
-    typeLine(icon, 'Job', e.job, undefined, e.aside),
+    // The URL is on the name (03.09.2026). It went down to a `Source:` row in
+    // v2.1 so the pointer could be SEEN — and came back, because the row's
+    // only text was `workflow run`, the same two words on every card.
+    typeLine(icon, 'Job', e.job, sourceUrl(e), e.aside),
     reason('Reason', e.note),
     field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
     // The timetable is a different subject from this event: how often the task
@@ -670,7 +817,7 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
     const numbers = labelled(e.lines);
 
     return join([
-      typeLine(iconFor(e), 'Report', e.title, undefined, e.aside),
+      typeLine(iconFor(e), 'Report', e.title, e.url, e.aside),
       // Rows with no group of their own sit flush against the header instead of
       // forming a separate slab under a blank line. `labelled` puts the blank
       // line before the first group itself, so there is none here.
@@ -683,8 +830,9 @@ const renderReport: Renderer<Extract<NotifyEvent, { type: 'report' }>> = (e) => 
   const items = bullets(e.items, false);
 
   return join([
-    // The day's snapshot link is the `Source:` row now, same as every URL.
-    typeLine(iconFor(e), 'Report', e.title, undefined, e.aside),
+    // The day's snapshot link is on the title — `Source: report` under a card
+    // headed Report named nothing.
+    typeLine(iconFor(e), 'Report', e.title, e.url, e.aside),
     // Flush against the header — see the branch above.
     ...labelled(e.lines),
     items.length > 0 ? '' : null,
@@ -701,8 +849,8 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   const icon = iconFor(e);
 
   return join([
-    // The run URL is the `Source:` row now, not an invisible link on the name.
-    typeLine(icon, 'CI', mechanism(e.workflowName, undefined), undefined, e.status === 'fail' ? 'Fail' : 'OK'),
+    // The run URL is on the gate's name — `CI: <a>nightly</a>` — since 03.09.2026.
+    typeLine(icon, 'CI', mechanism(e.workflowName, undefined), sourceUrl(e), e.status === 'fail' ? 'Fail' : 'OK'),
     // `Actor` used to be read as "who wrote the commit," and on most runs it
     // is — `github.actor` for a push IS the person who pushed. It stops being
     // that on a scheduled run: arvent's nightly rewrites it to whoever is on
@@ -714,7 +862,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
       [reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
         fieldTelegram('Actor', e.actor),
-        commitRow(e.commit, e.commitTitle),
+        commitRow(e.commit, e.commitUrl, e.commitTitle),
         fieldPerson('Author', e.commitAuthor),
         bodyQuote(e.commitBody)
       ]
@@ -743,10 +891,29 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
 // reads — the card would name a task without saying which. Same law as
 // `fieldLink`: an identifier must not vanish just because the caller passed no
 // address for it.
-const named = (number: number, title: string | undefined, url: string | undefined): string => {
-  if (!title) return url ? '' : `#${number}`;
+/**
+ * Line 2 of a pull request or an issue, since 03.09.2026:
+ *
+ *   🎉 <b>PR</b> <a>#414</a> · title
+ *
+ * The number is the link and it stands FIRST, right after the type word; the
+ * title follows a middle dot. The owner asked for exactly this: "номер
+ * перенести в title и сделать кликабельным … и разделить их как-то с
+ * title". The number had spent three days at the bottom as `Source: #414`,
+ * twenty lines under a title that could not be tapped. With no url the number
+ * still prints, plain. With no title the line ends at the number.
+ */
+const numberedLine = (
+  icon: string,
+  type: string,
+  number: number,
+  title: string | undefined,
+  url: string | undefined
+): string => {
+  const id = url ? `<a href="${esc(firstLine(url))}">#${number}</a>` : `#${number}`;
+  const name = title?.trim() ? ` · ${esc(firstLine(title.trim()))}` : '';
 
-  return url ? title : `#${number} ${title}`;
+  return `${icon} <b>${esc(type)}</b> ${id}${name}`;
 };
 
 // The people come BEFORE the text, and the text comes only when it is the
@@ -769,8 +936,18 @@ const named = (number: number, title: string | undefined, url: string | undefine
 // own comment there, not the PR description — and that is what the caption
 // has to say.
 const VERDICT: ReadonlySet<string> = new Set(['approved', 'changes_requested']);
-const prBody = (action: string, body: string | undefined): string | null =>
-  VERDICT.has(action) ? quoted('Review', body) : bodyQuote(body);
+// The whole body is news exactly once — when the thing is opened, or when the
+// text is a reviewer's own comment. On merged and closed the card keeps the
+// first section only (what changed for the user); the rest is one tap away
+// behind the number. Every body is Markdown from GitHub and is translated.
+const prBody = (action: string, body: string | undefined): string | null => {
+  if (VERDICT.has(action)) {
+    const html = markdownQuote(body, true);
+    return html ? `<b>Review:</b>\n${html}` : null;
+  }
+
+  return markdownQuote(body, action === 'opened');
+};
 
 // The body is what the title stands for — it sits directly under the name,
 // with nothing between them. The people come after, consolidated in one
@@ -779,7 +956,7 @@ const prBody = (action: string, body: string | undefined): string | null =>
 // does the assignee cut apart what should be inseparable?"
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'PR', named(e.number, e.title, e.url)),
+    numberedLine(iconFor(e), 'PR', e.number, e.title, e.url),
     prBody(e.action, e.body),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
@@ -792,10 +969,12 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
 // полезно, не переходя по ссылке на источник." A collapsed quote costs four
 // lines, which is what the earlier "he already saw it" reasoning was trying
 // to save — the expandable quote buys the context back without the cost.
+// Whole on opened and assigned (the text is still the news, or the person who
+// took it needs the whole brief); the first section on closed — see prBody.
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
-    typeLine(iconFor(e), 'Issue', named(e.number, e.title, e.url)),
-    bodyQuote(e.body),
+    numberedLine(iconFor(e), 'Issue', e.number, e.title, e.url),
+    markdownQuote(e.body, e.action !== 'closed'),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
     fieldPerson('Assignee', e.assignee)
@@ -813,7 +992,7 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
   const findings = bullets(e.items, false);
 
   return join([
-    typeLine(iconFor(e), 'Incident', e.title),
+    typeLine(iconFor(e), 'Incident', e.title, e.url),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
     field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
     findings.length > 0 ? '' : null,
@@ -1001,24 +1180,17 @@ const tagsLine = (e: NotifyEvent): string =>
 
 
 /**
- * Rule S (v2.1): the card's last block says where to verify it. `Source:` is
- * a hyperlink when the event has a canonical URL; `Check:` is a local
- * command; `Log:` is a path and only ever an ADDITION — a path cannot be
- * tapped, only copied. The link text is a short English noun naming what
- * opens, never the click.
+ * Rule S (v2.1, amended 03.09.2026): the card says where to verify it. A
+ * link rides on the NAME of the thing on line 2 (the run, the report, the
+ * number of a PR or an issue) and on the commit hash; the last block keeps
+ * only what is not a link — `Check:` is a local command, `Log:` is a path,
+ * and a path cannot be tapped, only copied.
+ *
+ * The `Source:` row that held the links from 31.08 to 03.09 is gone: its text
+ * was `workflow run` on every deploy, `report` under every report, and a
+ * number twenty lines below the title it belonged to. The owner: "Зачем это
+ * всё? … Если ссылка подразумевается, она должна лежать сразу в title."
  */
-const SOURCE_NAME: Record<NotifyEvent['type'], string> = {
-  deploy: 'workflow run',
-  ci: 'workflow run',
-  job: 'workflow run',
-  report: 'report',
-  pr: 'pull request',
-  issue: 'issue',
-  incident: 'details',
-  session: 'details',
-  heartbeat_miss: 'details'
-};
-
 const sourceUrl = (e: NotifyEvent): string | undefined => {
   const wf = 'workflowUrl' in e ? e.workflowUrl : undefined;
   const url = 'url' in e ? e.url : undefined;
@@ -1026,48 +1198,9 @@ const sourceUrl = (e: NotifyEvent): string | undefined => {
   return wf ?? url;
 };
 
-const link = (url: string, text: string): string =>
-  `<a href="${esc(firstLine(url))}">${esc(text)}</a>`;
-
-/**
- * Everything the card can be traced back to, as one `Source:` row.
- *
- * A card can have more than one honest source — a deploy through Actions has
- * both a run and the commit that triggered it — and one label with two links
- * beside each other reads better than two rows both called `Source`. They are
- * ordered widest first: the run contains the commit, not the other way round.
- */
-const sourceLinks = (e: NotifyEvent): string[] => {
-  const out: string[] = [];
-  const run = sourceUrl(e);
-  const commitUrl = 'commitUrl' in e ? e.commitUrl : undefined;
-  const commit = 'commit' in e ? e.commit : undefined;
-
-  // A pull request and an issue are named by their number and by NOTHING else.
-  // `pull request #118` says the type a second time — line 2 already opens with
-  // `PR:` — and the owner cut it the hour it shipped: "сверху написано PR,
-  // зачем здесь ещё писать PR? Здесь можно просто номер и всё."
-  //
-  // Only these two types have a number, and only for them is the type word
-  // redundant: `workflow run` and `commit 9b1fc68` name things line 2 does NOT,
-  // so they keep their nouns.
-  const numbered = 'number' in e && typeof e.number === 'number' ? `#${e.number}` : null;
-  if (run) out.push(link(run, numbered ?? SOURCE_NAME[e.type] ?? 'source'));
-  // Without a hash there is no text to put on the link but the word itself,
-  // and `commit` alone next to `workflow run` says nothing a reader can use.
-  if (commitUrl && commit) out.push(link(commitUrl, `commit ${firstLine(commit)}`));
-
-  return out;
-};
-
 const pointerBlock = (e: NotifyEvent): string => {
-  const sources = sourceLinks(e);
   const logs = 'logs' in e ? e.logs : undefined;
-  const rows = [
-    fieldCode('Log', logs),
-    fieldCode('Check', e.check),
-    sources.length > 0 ? `<b>Source:</b> ${sources.join(' · ')}` : null
-  ].filter((r): r is string => r !== null);
+  const rows = [fieldCode('Log', logs), fieldCode('Check', e.check)].filter((r): r is string => r !== null);
 
   return rows.length > 0 ? `\n\n${rows.join('\n')}` : '';
 };
@@ -1089,18 +1222,19 @@ const cutMarker = (e: NotifyEvent): string => {
   // `Source` link the whole time: the rest was one tap away and the marker
   // never said so.
   //
-  // So the marker NAMES the row that holds the rest, and never repeats its
+  // So the marker NAMES the place that holds the rest, and never repeats its
   // value: it used to print the log path in full, and the pointer block then
   // printed the same path again on the very next line.
   //
   // `below` is literal, not a figure of speech: the marker closes the clamped
-  // body and the pointer block is appended after it.
+  // body and the pointer block is appended after it. `line 2` is literal too:
+  // since 03.09.2026 the link lives on the name there.
   const logs = 'logs' in e ? e.logs : undefined;
   if (logs) {
     return '⋯ cut, full text at Log below';
   }
 
-  return sourceLinks(e).length > 0 ? '⋯ cut, full text at Source below' : '⋯ cut';
+  return sourceUrl(e) ? '⋯ cut, full text behind the link on line 2' : '⋯ cut';
 };
 
 /**

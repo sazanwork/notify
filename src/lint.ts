@@ -161,9 +161,9 @@ export const lintCard = (html: string): string[] => {
     found.push('Cyrillic outside quoted content — system text is English (rule L)');
   }
 
-  // Rule S (v2.1): a card that reports trouble must say where to verify it —
-  // a `Check:` command, a `Source:` link, a `To do:` command, or any link at
-  // all. A `Log:` path alone is not enough: a path cannot be tapped, and a
+  // Rule S (v2.1, amended 03.09.2026): a card that reports trouble must say
+  // where to verify it — a `Check:` command, a `To do:` command, or any link
+  // at all (the link now rides on the name on line 2, not on a `Source:` row). A `Log:` path alone is not enough: a path cannot be tapped, and a
   // card whose only pointer needs a file manager is a card with no pointer.
   // `#fail` and `#unknown` both: a silent task has no log, but `config jobs
   // --log <key>` answers it too.

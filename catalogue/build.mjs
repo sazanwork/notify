@@ -174,10 +174,15 @@ const articles = CARDS.map((c) => {
       raw
         .split(' · ')
         .every((part) => /^\s*<a href="[^"]*">[^<]*<\/a>\s*$/.test(part));
+    // A pointer and its name on one row — `Commit: <a>9b1fc68</a> · feat: …`
+    // (03.09.2026) — is the one shape where the dot joins two halves of ONE
+    // fact, the same way `PR #414 · title` does on line 2: the hash is the
+    // link, the title says what it did. Exactly one link first, then the name.
+    const pointerThenName = (raw) => /^\s*<a href="[^"]*">[^<]*<\/a> · [^\n]+$/.test(raw) && !/ · .* · /.test(raw);
     for (const line of html.split('\n')) {
       const m = /<b>[^<]+:<\/b>(.*)$/.exec(line);
       const value = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
-      if (m && / · /.test(value) && !allLinks(m[1])) {
+      if (m && / · /.test(value) && !allLinks(m[1]) && !pointerThenName(m[1])) {
         throw new Error(
           `card ${c.id}: a field value carries a second separator — split it into two lines: ${line.replace(/<[^>]+>/g, '')}`
         );

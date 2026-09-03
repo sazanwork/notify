@@ -1,5 +1,13 @@
 # Card format — final, approved by owner on 20.08.2026
 
+> Amended 03.09.2026 (v1.15.0): links ride on the NAME on line 2 (run, report,
+> job) and on the commit hash; a PR/issue line 2 is `PR #414 · title` with the
+> number as the link; the `Source:` row is gone, the last block keeps only
+> `Check:` and `Log:`. GitHub Markdown bodies are translated to Telegram
+> markup; merged/closed cards keep the body's first section only. A person row
+> naming the owner himself is not printed. A zero that did not move is not
+> printed. The tables below describe the 20.08 shape and are kept as history.
+
 **Status: approved in Telegram and live in `render.ts` since 1.4.0.** Live-tested
 across ~15 rounds in the "Mac-config" Ops forum (chat_id `-1004442522004`,
 message_thread_id `2`), messages 169–182, each round checked against the
