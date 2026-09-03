@@ -770,9 +770,12 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     ...twoBlocks(
       [field('Target', e.target), reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
+        // The body sits straight under the commit line, the people below it —
+        // the same shape as a PR or an issue. With `Author:` wedged between
+        // the two, the quote read as the author's words (03.09.2026).
         commitRow(e.commit, e.commitUrl, e.commitTitle),
-        fieldPerson('Author', e.commitAuthor),
-        bodyQuote(e.commitBody)
+        bodyQuote(e.commitBody),
+        fieldPerson('Author', e.commitAuthor)
       ]
     )
   ]);
@@ -915,10 +918,13 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
     ...twoBlocks(
       [reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
-        fieldTelegram('Actor', e.actor),
+        // Commit line, its body, then the people — same shape as deploy, PR
+        // and issue; a people row between a title and its quote makes the
+        // quote read as that person's words.
         commitRow(e.commit, e.commitUrl, e.commitTitle),
+        bodyQuote(e.commitBody),
         fieldPerson('Author', e.commitAuthor),
-        bodyQuote(e.commitBody)
+        fieldTelegram('Actor', e.actor)
       ]
     )
   ]);

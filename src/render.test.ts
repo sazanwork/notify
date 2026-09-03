@@ -610,7 +610,8 @@ test('blocks: run facts touch the name, the commit keeps its heading', () => {
   assert.equal(rows[2], '<b>Reason:</b> 3 tests failed');
   assert.equal(rows[3], '');
   assert.equal(rows[4], '<i><u>Change</u></i>');
-  assert.equal(rows[5], '<b>Actor:</b> <a href="https://t.me/ilja">@ilja</a>');
+  assert.equal(rows[5], '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>');
+  assert.equal(rows[6], '<b>Actor:</b> <a href="https://t.me/ilja">@ilja</a>');
 
   // A green deploy: no reason to give, so the card is only name plus commit.
   const one = render({
@@ -806,9 +807,9 @@ test('card/ci: commit hash links, body quoted under it', () => {
     '✅ <a href="https://x/run"><b>CI (OK)</b></a>',
     '',
     '<i><u>Change</u></i>',
-    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · Онбординг: заготовки вопросов (#294)',
-    '<blockquote>Тело коммита, написанное человеком.</blockquote>'
+    '<blockquote>Тело коммита, написанное человеком.</blockquote>',
+    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>'
   ].join('\n'));
 });
 
@@ -825,9 +826,9 @@ test('card/ci: commit author links to their GitHub profile, distinct from Actor'
     '🔴 <a href="https://x/run"><b>CI (Fail)</b></a>',
     '',
     '<i><u>Change</u></i>',
-    '<b>Actor:</b> <a href="https://t.me/ilja_tg">@ilja_tg</a>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · fix: checkout',
-    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
+    '<b>Actor:</b> <a href="https://t.me/ilja_tg">@ilja_tg</a>'
   ].join('\n'));
 });
 
