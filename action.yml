@@ -73,8 +73,12 @@ inputs:
   commit-body:
     required: false
   commit-author:
-    description: 'GitHub-логин автора коммита — по умолчанию github.event.head_commit.author.username. Пусто на прогонах по расписанию: у события schedule нет head_commit.'
+    description: 'GitHub-логин автора коммита — по умолчанию github.event.head_commit.author.username. На прогонах по расписанию head_commit нет — тогда экшен сам читает коммит через API (см. token).'
     default: ${{ github.event.head_commit.author.username }}
+    required: false
+  token:
+    description: 'Токен для чтения коммита через GitHub API, когда у события нет head_commit (schedule, workflow_dispatch). По умолчанию github.token — его хватает для своего репозитория.'
+    default: ${{ github.token }}
     required: false
   workflow-url:
     description: 'Ссылка на прогон — по умолчанию текущий'
@@ -145,6 +149,10 @@ runs:
         IN_RECOVERED: ${{ inputs.recovered }}
         GH_REF_NAME: ${{ github.ref_name }}
         GH_ACTOR: ${{ github.actor }}
+        GH_TOKEN_IN: ${{ inputs.token }}
+        GH_API: ${{ github.api_url }}
+        GH_REPO: ${{ github.repository }}
+        GH_SHA: ${{ github.sha }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
         set -uo pipefail
@@ -193,6 +201,31 @@ runs:
         add --body     "$IN_BODY"
         add --logs     "$IN_LOGS"
         [ "$IN_RECOVERED" = "true" ] && ARGS+=(--recovered)
+
+        # A scheduled or hand-started run has no `head_commit` in its event, so
+        # the title, body and author defaults above arrive empty and the card
+        # showed a bare hash — every arvent nightly card since 18.08.2026, and
+        # the owner asked on 03.09 why the commit body was missing here when
+        # every push card had one. The commit is read through the API instead
+        # (`github.token` reaches the run's own repository); a failed read
+        # leaves the fields empty, as before, never breaks the card.
+        if [ -z "$IN_COMMIT_TITLE" ] && [ -n "$GH_TOKEN_IN" ] && [ -n "$GH_SHA" ]; then
+          COMMIT_JSON=$(curl -sS --max-time 10 -H "Authorization: Bearer $GH_TOKEN_IN" \
+            -H "Accept: application/vnd.github+json" "$GH_API/repos/$GH_REPO/commits/$GH_SHA" 2>/dev/null || true)
+          if [ -n "$COMMIT_JSON" ]; then
+            IN_COMMIT_TITLE=$(printf '%s' "$COMMIT_JSON" | node -e '
+              let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
+                try { const j=JSON.parse(s); process.stdout.write(j.commit?.message ?? ""); } catch {}
+              });')
+            FETCHED_AUTHOR=$(printf '%s' "$COMMIT_JSON" | node -e '
+              let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
+                try { const j=JSON.parse(s); process.stdout.write(j.author?.login ?? ""); } catch {}
+              });')
+            if [ -z "$IN_COMMIT_AUTHOR" ] && [ -n "$FETCHED_AUTHOR" ]; then
+              add --commit-author "$FETCHED_AUTHOR"
+            fi
+          fi
+        fi
 
         # github.event.head_commit.message несёт subject+body одним
         # многострочным полем — commit-title/commit-body у пакета раздельные.
