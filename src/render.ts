@@ -690,7 +690,7 @@ type Renderer<E extends NotifyEvent> = (e: E) => string;
 // the action text becomes the link: `Report: <a>Analytics for 12.08</a>`.
 // `aside` is the one qualifier an identifier needs to be readable on its own —
 // which day a report covers, which day its arrows are measured against. It
-// rides in brackets ON the type line instead of taking a row of its own,
+// rides in brackets on the TYPE WORD instead of taking a row of its own,
 // because a row of its own reads as another fact about the subject rather than
 // as part of the name.
 const typeLine = (
@@ -704,7 +704,13 @@ const typeLine = (
   // template prints the word "null". That is how line 2 of a card became
   // `ℹ️ null` — reachable through `--json` and through a direct call from JS,
   // where there are no types.
-  const tail = aside ? ` (${esc(aside)})` : '';
+  // The qualifier sits ON the type word, before the colon — `Deploy (OK):`,
+  // `Report (20.08):` — never after the name. After the name it read as a
+  // remark about the title («Deploy to Beget (OK)») rather than about the
+  // event, and the owner asked on 03.09.2026 why the outcome trailed the
+  // title at all. `field`/`fieldLink` escape the label, so the raw aside is
+  // safe to fold into it.
+  const label = aside ? `${cap(type)} (${aside})` : type;
   const name = action?.trim();
 
   // No name: the card must not invent one. It used to write the word `open`
@@ -715,13 +721,13 @@ const typeLine = (
   // something else instead. The type word itself takes the link, so nothing
   // clickable is lost and nothing false is said.
   if (!name) {
-    const bare = `<b>${esc(cap(type))}</b>`;
-    return `${icon} ${url ? `<a href="${esc(url)}">${bare}</a>` : bare}${tail}`;
+    const bare = `<b>${esc(cap(label))}</b>`;
+    return `${icon} ${url ? `<a href="${esc(url)}">${bare}</a>` : bare}`;
   }
 
-  const line = url ? fieldLink(type, url, name) : field(type, name);
+  const line = url ? fieldLink(label, url, name) : field(label, name);
 
-  return line === null ? `${icon} <b>${esc(cap(type))}</b>${tail}` : `${icon} ${line}${tail}`;
+  return line === null ? `${icon} <b>${esc(cap(label))}</b>` : `${icon} ${line}`;
 };
 
 // `workflowUrl ?? url`: half the senders send the run link under the name

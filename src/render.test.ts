@@ -147,7 +147,7 @@ test('type line: the icon stays outside the bold, no name is invented, the outco
   // The outcome DOES repeat here, in parens, on top of the icon and the tag:
   // tried icon-and-tag-only first, and on a small screen or a lost color it
   // read as "something happened," not "it failed" — found live, 26.08.2026.
-  assert.equal(secondLine, '✅ <b>CI</b> (OK)');
+  assert.equal(secondLine, '✅ <b>CI (OK)</b>');
 });
 
 test('field: a bold label with a capital letter, the value as plain text', () => {
@@ -443,7 +443,7 @@ test('deploy: the run link is on the name, the commit link on the hash — no So
     workflowUrl: 'https://x/run'
   });
 
-  assert.equal(out.split('\n')[1], '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)');
+  assert.equal(out.split('\n')[1], '✅ <b>Deploy (OK):</b> <a href="https://x/run">GitHub Actions</a>');
   assert.ok(out.includes('<b>Commit:</b> <a href="https://x/c">abc123</a>'));
   assert.ok(!out.includes('<b>Source:</b>'));
   assert.ok(!out.includes('workflow run'), 'the two words that named nothing are gone');
@@ -548,7 +548,7 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     deploy.split('\n')[1],
-    '\u{1F534} <b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a> (Fail)'
+    '\u{1F534} <b>Deploy (Fail):</b> <a href="https://x/run">Deploy to Beget</a>'
   );
   assert.ok(!deploy.includes('<b>Source:</b>'), 'the run link rides on the name, not in a Source row');
   assert.ok(!deploy.includes('<b>Via:</b>'), 'the Via row carried the name a floor below');
@@ -562,7 +562,7 @@ test('run: what ran is the type line itself and carries the link', () => {
 
   assert.equal(
     ci.split('\n')[1],
-    '\u{1F534} <b>CI:</b> <a href="https://x/run">nightly</a> (Fail)'
+    '\u{1F534} <b>CI (Fail):</b> <a href="https://x/run">nightly</a>'
   );
   assert.ok(!ci.includes('<b>Source:</b>'), 'the run link rides on the name on CI too');
   assert.ok(!ci.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go from CI too');
@@ -577,7 +577,7 @@ test('run: the workflow name beats the platform as the link text', () => {
     via: 'GitHub Actions', workflowName: 'Deploy to Beget', workflowUrl: 'https://x/run'
   });
 
-  assert.ok(out.includes('<b>Deploy:</b> <a href="https://x/run">Deploy to Beget</a>'), 'the type line must carry the workflow name, linked');
+  assert.ok(out.includes('<b>Deploy (OK):</b> <a href="https://x/run">Deploy to Beget</a>'), 'the type line must carry the workflow name, linked');
   assert.ok(!out.includes('>GitHub Actions</a>'), 'the platform is not the name of the run');
 });
 
@@ -589,7 +589,7 @@ test('run: a hand deploy names the means and has nothing to open', () => {
     commit: '3f1a882', commitUrl: 'https://x/c', via: 'manual, from the Mac'
   });
 
-  assert.equal(out.split('\n')[1], '\u2705 <b>Deploy:</b> manual, from the Mac (OK)');
+  assert.equal(out.split('\n')[1], '\u2705 <b>Deploy (OK):</b> manual, from the Mac');
   assert.ok(!out.includes('<a href="https://x/run"'), 'a hand deploy has no run');
 });
 
@@ -669,7 +669,7 @@ test('run: a nameless run keeps its link rather than losing it', () => {
   });
 
   // The link rides on the bare type word. The card still does not invent a name.
-  assert.equal(out.split('\n')[1], '\u{1F534} <a href="https://x/run"><b>Deploy</b></a> (Fail)');
+  assert.equal(out.split('\n')[1], '\u{1F534} <a href="https://x/run"><b>Deploy (Fail)</b></a>');
   assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
 });
 
@@ -755,7 +755,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
   // people row that names the reader is not news.
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
+    '✅ <a href="https://x/run"><b>CI (OK)</b></a>',
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · Онбординг: заготовки вопросов (#294)',
@@ -773,7 +773,7 @@ test('card/ci: commit author links to their GitHub profile, distinct from Actor'
 
   assert.equal(out, [
     '#ci #master #fail',
-    '🔴 <a href="https://x/run"><b>CI</b></a> (Fail)',
+    '🔴 <a href="https://x/run"><b>CI (Fail)</b></a>',
     '',
     '<i><u>Change</u></i>',
     '<b>Actor:</b> <a href="https://t.me/ilja_tg">@ilja_tg</a>',
@@ -792,7 +792,7 @@ test('card/deploy: commit author, with no Actor row — deploy has none', () => 
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
+    '✅ <b>Deploy (OK):</b> <a href="https://x/run">GitHub Actions</a>',
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> · feat: new landing',
@@ -821,7 +821,7 @@ test('card/ci scheduled: a run with no commit body still says why it ran', () =>
 
   assert.equal(out, [
     '#ci #master #ok',
-    '✅ <a href="https://x/run"><b>CI</b></a> (OK)',
+    '✅ <a href="https://x/run"><b>CI (OK)</b></a>',
     '<b>Reason:</b> nightly check of master',
     '',
     '<i><u>Change</u></i>',
@@ -838,7 +838,7 @@ test('card/deploy', () => {
 
   assert.equal(out, [
     '#deploy #playhub #ok',
-    '✅ <b>Deploy:</b> <a href="https://x/run">GitHub Actions</a> (OK)',
+    '✅ <b>Deploy (OK):</b> <a href="https://x/run">GitHub Actions</a>',
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">a1b2c3d</a> · feat: new landing'
@@ -1119,7 +1119,7 @@ test('card/report', () => {
 
   assert.equal(out, [
     '#report #analytics #info',
-    'ℹ️ <b>Report:</b> Analytics (compared to 23.08)',
+    'ℹ️ <b>Report (compared to 23.08):</b> Analytics',
     // Ungrouped rows stand flush against the header: they are facts about the
     // report itself.
     '<b>Pageviews (server):</b> 1284',
@@ -1140,7 +1140,7 @@ test('report: what it covers rides in brackets on the name itself', () => {
   });
   const rows = out.split('\n');
 
-  assert.equal(rows[1], 'ℹ️ <b>Report:</b> russkie-igry.ru (2026-08-25)');
+  assert.equal(rows[1], 'ℹ️ <b>Report (2026-08-25):</b> russkie-igry.ru');
   assert.ok(!out.includes('<b>Period:</b>'), 'the Period row came back');
   assert.equal(rows[2], '');
   assert.ok(rows.includes('<i><u>Catalogue</u></i>'));
@@ -1219,7 +1219,7 @@ test('link/report: the report name is the link, and there is no Details row', ()
   });
 
   assert.ok(
-    out.includes('ℹ️ <b>Report:</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22</a> (compared with 2026-08-21)'),
+    out.includes('ℹ️ <b>Report (compared with 2026-08-21):</b> <a href="https://github.com/sazanwork/game-publisher/blob/master/docs/analytics/2026-08-22.md">Analytics for 2026-08-22</a>'),
     'the report name is the link and keeps its brackets'
   );
   assert.ok(!out.includes('<b>Source:</b>'), '`Source: report` under a card headed Report named nothing');
