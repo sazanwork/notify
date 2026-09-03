@@ -279,15 +279,20 @@ export const CARDS = [
     sender: '.github/workflows/nightly.yml',
     expectTag: '#ci #master #ok',
     event: {
-      // A scheduled run has no head commit, so the action's `commit-title`
-      // and `commit-author` defaults both resolve to nothing. The card
-      // carries the hash and the run link, and that is all it ever carries.
+      // A scheduled run has no head commit in its event, so since 1.15.1 the
+      // action reads the commit through the GitHub API: title, body and
+      // author reach the card exactly as on a push. The author is the owner
+      // here, so no Author row is printed — a people row naming the reader
+      // is not news.
       type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
       commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/arvent/commit/9b1fc68',
+      commitTitle: 'fix(bot): confirm with a button before wiping client data',
+      commitBody: 'A typo in the chat used to wipe the client without asking.\nNow the bot shows a button, and the wipe happens only after it.',
+      commitAuthor: 'mikitasazan',
       actor: '@chelsnebes', note: 'nightly master check',
       workflowUrl: 'https://github.com/sazanwork/arvent/actions/runs/1', workflowName: 'nightly'
     },
-    note: "Коммита здесь нет: ночной прогон идёт по расписанию, а не по пушу. Actor рядом с ним — НЕ автор коммита, а дежурный, который чинит красный прогон. Ниже — обычный CI по пушу, там оба поля на месте и это разные люди."
+    note: "Ночной прогон идёт по расписанию, коммита в событии нет — экшен с 1.15.1 сам берёт заголовок, тело и автора через API GitHub. Reason здесь говорит только «ночная проверка»: это слабое место отправителя, а не карточки."
   },
   {
     id: 'ci-push', title: 'CI, упавший на пуше',
@@ -302,6 +307,7 @@ export const CARDS = [
       type: 'ci', project: 'game-publisher', status: 'fail', branch: 'master',
       commit: '3f1a882', commitUrl: 'https://github.com/sazanwork/game-publisher/commit/3f1a882',
       commitTitle: 'fix(import): пропускать игры без обложки',
+      commitBody: 'Импорт падал на игре без картинки и ронял весь прогон.\nТеперь такая игра пропускается, а её id уходит в лог.',
       commitAuthor: 'mikitasazan',
       note: 'type check failed (astro check)',
       workflowUrl: 'https://github.com/sazanwork/game-publisher/actions/runs/2', workflowName: 'quality'
