@@ -191,13 +191,14 @@ const fieldCode = (label: string, value: string | undefined): string | null =>
   value ? `<b>${esc(cap(label))}:</b> <code>${esc(value)}</code>` : null;
 
 /**
- * The owner himself, under the two names the senders know him by. A people
- * row that names the reader is not news: on the 49 PR and issue cards of the
- * week of 25.08.2026 `Author:` was him on every one, and the single row that
- * ever said something was `Assignee: Ilja-Prihach`. So a person row is printed
- * only when the person is someone else (03.09.2026).
+ * People rows are printed ALWAYS, the owner included. They used to be
+ * suppressed when the login/handle was his own (`mikitasazan`/`chelsnebes`),
+ * on the theory that a row naming the reader is not news. In practice a card
+ * whose people rows vanish only for him reads as a card with a hole: he saw
+ * Issue #322 and PR #118 with no `Author:` at all and asked where the people
+ * had gone. Every card now carries the same set of rows, so an absent row
+ * means an empty field and nothing else (03.09.2026).
  */
-const OWNER = { github: 'mikitasazan', telegram: 'chelsnebes' } as const;
 
 /**
  * A person field — Author, Assignee, Reviewer. Every one of them is a
@@ -216,9 +217,6 @@ const fieldPerson = (label: string, login: string | undefined): string | null =>
     return null;
   }
   const oneLine = firstLine(login) as string;
-  if (oneLine.toLowerCase() === OWNER.github) {
-    return null;
-  }
   return `<b>${esc(cap(label))}:</b> <a href="https://github.com/${esc(oneLine)}">${esc(oneLine)}</a>`;
 };
 
@@ -237,9 +235,6 @@ const fieldTelegram = (label: string, handle: string | undefined): string | null
   }
   const oneLine = firstLine(handle) as string;
   const bare = oneLine.replace(/^@/, '');
-  if (bare.toLowerCase() === OWNER.telegram) {
-    return null;
-  }
   return `<b>${esc(cap(label))}:</b> <a href="https://t.me/${esc(bare)}">${esc(oneLine)}</a>`;
 };
 
@@ -795,6 +790,29 @@ const schedule = (
   return rows.length > 0 ? ['', group('Schedule'), ...rows] : [];
 };
 
+/**
+ * `via` for display. The three words the senders actually use get an explicit
+ * spelling — `vps` upper-cased whole would read as a shout, `VPS` lower-cased
+ * as a typo — and anything else just gets its first letter raised, so a word
+ * nobody foresaw still prints as a word rather than being dropped.
+ */
+const VIA_NAMES: Record<string, string> = { mac: 'Mac', vps: 'VPS', actions: 'Actions' };
+
+const viaName = (via: string): string =>
+  VIA_NAMES[via.trim().toLowerCase()] ?? via.trim().charAt(0).toUpperCase() + via.trim().slice(1);
+
+/**
+ * The bracket on the type word: where it ran, then the qualifier the name
+ * needs — `Job (Mac, reporting again):`. Both are part of the NAME of the
+ * event, so both ride in the one bracket rather than taking rows.
+ */
+const jobAside = (via: string | undefined, aside: string | undefined): string | undefined => {
+  const parts = [via?.trim() ? viaName(via) : null, aside?.trim() ? aside.trim() : null].filter(
+    (p): p is string => p !== null
+  );
+  return parts.length > 0 ? parts.join(', ') : undefined;
+};
+
 const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   const icon = iconFor(e);
   const hasItems = (e.items ?? []).length > 0;
@@ -815,8 +833,12 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // The URL is on the name (03.09.2026). It went down to a `Source:` row in
     // v2.1 so the pointer could be SEEN — and came back, because the row's
     // only text was `workflow run`, the same two words on every card.
-    typeLine(icon, 'Job', e.job, sourceUrl(e), e.aside),
+    typeLine(icon, 'Job', e.job, sourceUrl(e), jobAside(e.via, e.aside)),
     reason('Reason', e.note),
+    // How long the run took, in the sender's own words. It sits under the
+    // reason and above the timetable: the reason says what happened, this
+    // says what it cost, and only then comes when it is due again.
+    field('Took', e.duration),
     field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
     // The timetable is a different subject from this event: how often the task
     // owes a sign of life and when it last gave one. It stood in a bare run

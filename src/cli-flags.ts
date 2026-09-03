@@ -16,7 +16,7 @@ export const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   'expected', 'filename', 'item',
   'item-group', 'job', 'key', 'last-seen', 'line', 'logs', 'note',
   'aside', 'number', 'path', 'period', 'project', 'reviewer', 'stat', 'status',
-  'target', 'title', 'url', 'via', 'workflow-name', 'workflow-url',
+  'target', 'title', 'took', 'url', 'via', 'workflow-name', 'workflow-url',
   // Flags with no value. They live here too, so parsing and the list do not drift apart.
   'json', 'recovered', 'dry-run'
 ]);

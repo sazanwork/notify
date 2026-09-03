@@ -704,6 +704,54 @@ test('card/job fail: task name is on the card, not only in the tag', () => {
   ].join('\n'));
 });
 
+// A job used to say only its name. The Mac's launchd, a VPS cron, GitHub
+// Actions and the silence watchdog all arrived under one bare `#job` tag and
+// only memory told them apart. `via` puts the place in the bracket on the type
+// word — the same slot the outcome takes on Deploy and CI (03.09.2026).
+test('card/job: the bracket on the type word says where it ran, and how long it took gets a row', () => {
+  const mac = render({
+    type: 'job', project: 'mac-config', key: 'config-sync',
+    job: 'config sync', status: 'fail', via: 'mac',
+    note: 'symlink missing'
+  });
+
+  assert.equal(mac, [
+    '#job #config_sync #fail',
+    '🔴 <b>Job (Mac):</b> config sync',
+    '<b>Reason:</b> symlink missing'
+  ].join('\n'));
+
+  // `via` and `aside` share the one bracket: both are part of the NAME of the
+  // event, and neither earns a row of its own.
+  const vps = render({
+    type: 'job', project: 'playhub', key: 'daily-import',
+    job: 'Game import', status: 'ok', via: 'vps', aside: 'reporting again',
+    duration: '4m 12s'
+  });
+
+  assert.equal(vps, [
+    '#job #daily_import #ok',
+    '✅ <b>Job (VPS, reporting again):</b> Game import',
+    '<b>Took:</b> 4m 12s'
+  ].join('\n'));
+
+  // A word nobody foresaw still prints, with its first letter raised.
+  const actions = render({
+    type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok', via: 'actions'
+  });
+  assert.ok(actions.includes('<b>Job (Actions):</b> J'), actions);
+
+  const other = render({
+    type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok', via: 'hetzner'
+  });
+  assert.ok(other.includes('<b>Job (Hetzner):</b> J'), other);
+
+  // Neither field present: the card is exactly what it was before.
+  const bare = render({ type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok' });
+  assert.equal(bare, ['#job #k #ok', '✅ <b>Job:</b> J'].join('\n'));
+  assert.ok(!bare.includes('Took'), 'a job that does not measure itself says nothing about time');
+});
+
 test('card/job with items: no "Disabled workflows" heading unless disabled', () => {
   const out = render({
     type: 'job', project: 'playhub', key: 'daily-import',
@@ -751,13 +799,14 @@ test('card/ci: commit hash links, body quoted under it', () => {
     actor: '@chelsnebes', workflowUrl: 'https://x/run'
   });
 
-  // The actor is the owner himself, so the row is not printed (03.09.2026): a
-  // people row that names the reader is not news.
+  // The actor is the owner himself and the row is printed all the same
+  // (03.09.2026): the card carries the same rows whoever the person is.
   assert.equal(out, [
     '#ci #master #ok',
     '✅ <a href="https://x/run"><b>CI (OK)</b></a>',
     '',
     '<i><u>Change</u></i>',
+    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · Онбординг: заготовки вопросов (#294)',
     '<blockquote>Тело коммита, написанное человеком.</blockquote>'
   ].join('\n'));
@@ -800,16 +849,44 @@ test('card/deploy: commit author, with no Actor row — deploy has none', () => 
   ].join('\n'));
 });
 
-test('people rows: the owner himself is never printed — Author, Assignee, Reviewer, Actor', () => {
+// The owner used to be filtered out of every people row. A card whose people
+// rows vanish only for him reads as a card with a hole — he saw Issue #322 and
+// PR #118 with no Author at all and asked where the people had gone
+// (03.09.2026). Same set of rows on every card; an absent row now means an
+// empty field.
+test('people rows: the owner is printed like anyone else — Author, Assignee, Reviewer, Actor', () => {
   const pr = render({
     type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 'x',
     author: 'mikitasazan', reviewer: 'Ilja-Prihach', url: 'https://x/p/1'
   });
-  assert.ok(!pr.includes('<b>Author:</b>'), 'the owner as author is not news');
+  assert.ok(
+    pr.includes('<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'),
+    'the owner as author is printed, with the same link as anyone else'
+  );
   assert.ok(pr.includes('<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'));
 
+  const issue = render({
+    type: 'issue', project: 'arvent', action: 'assigned', number: 322, title: 'x',
+    author: 'Ilja-Prihach', assignee: 'mikitasazan', url: 'https://x/i/322'
+  });
+  assert.ok(
+    issue.includes('<b>Assignee:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>'),
+    'the owner as assignee is printed'
+  );
+
   const ci = render({ type: 'ci', project: 'arvent', status: 'ok', actor: '@chelsnebes', commit: 'a', commitUrl: 'https://x/c' });
-  assert.ok(!ci.includes('<b>Actor:</b>'), 'the owner as actor is not news');
+  assert.ok(
+    ci.includes('<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>'),
+    'the owner as actor is printed, linked to Telegram'
+  );
+
+  // The suppression was case-insensitive, so an upper-case spelling proves the
+  // filter is gone rather than merely missed.
+  const deploy = render({
+    type: 'deploy', project: 'arvent', status: 'ok', commit: 'a', commitUrl: 'https://x/c',
+    commitAuthor: 'MikitaSazan'
+  });
+  assert.ok(deploy.includes('<b>Author:</b> <a href="https://github.com/MikitaSazan">MikitaSazan</a>'));
 });
 
 test('card/ci scheduled: a run with no commit body still says why it ran', () => {
@@ -878,6 +955,7 @@ test('card/issue: assigned carries the body too, quoted', () => {
     '🙋 <b>Issue</b> <a href="https://x/i/312">#312</a> · Web booking page',
     '<blockquote>A description he needs in front of him, not one link away.</blockquote>',
     '',
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Assignee:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 });
@@ -961,6 +1039,7 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
     '<b>Review:</b>',
     '<blockquote>Please rename this variable, it shadows the outer one.</blockquote>',
     '',
+    '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
     '<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 

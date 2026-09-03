@@ -4,9 +4,11 @@
 > job) and on the commit hash; a PR/issue line 2 is `PR #414 · title` with the
 > number as the link; the `Source:` row is gone, the last block keeps only
 > `Check:` and `Log:`. GitHub Markdown bodies are translated to Telegram
-> markup; merged/closed cards keep the body's first section only. A person row
-> naming the owner himself is not printed. A zero that did not move is not
-> printed. The tables below describe the 20.08 shape and are kept as history.
+> markup; merged/closed cards keep the body's first section only. Person rows
+> are printed always, the owner included — the same set of rows on every card,
+> so an absent row means an empty field. A job says where it ran in the bracket
+> on its type word (`Job (Mac):`) and how long it took in a `Took:` row. A zero
+> that did not move is not printed. The tables below describe the 20.08 shape and are kept as history.
 
 **Status: approved in Telegram and live in `render.ts` since 1.4.0.** Live-tested
 across ~15 rounds in the "Mac-config" Ops forum (chat_id `-1004442522004`,

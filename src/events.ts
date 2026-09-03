@@ -156,6 +156,24 @@ export type NotifyEvent = Keyed &
        * finishes the name.
        */
       aside?: string;
+      /**
+       * WHERE the job ran, one word from the sender: `mac` (launchd on this
+       * Mac), `vps` (a cron on the server), `actions` (GitHub Actions). Any
+       * other word is passed through and capitalised. It is printed in the
+       * bracket ON the type word — `Job (Mac): config sync` — the same slot
+       * the outcome takes on Deploy and CI. Until now the Mac's launchd, a
+       * VPS cron, GitHub Actions and the silence watchdog all arrived under
+       * one bare `#job` tag and only memory told them apart; deploy has said
+       * «via GitHub Actions» from the start, and job now does too
+       * (03.09.2026).
+       */
+      via?: string;
+      /**
+       * How long the run took, in the sender's own words: `4m 12s`, `38s`.
+       * Printed as a `Took:` row right under the reason. Absent — no row:
+       * a job that does not measure itself must not be made to say `0s`.
+       */
+      duration?: string;
       /** How often the task owes a check-in — for `silent` and for recovering from it. */
       expected?: string;
       /** When it was last seen. */

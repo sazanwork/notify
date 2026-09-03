@@ -11,7 +11,7 @@
  * is no scenario where a deploy should fail because a message did not send.
  *
  *   notify deploy   --project playhub --status ok --commit "msg" [--commit-url "..."] --url "..."
- *   notify job      --project playhub --job "Game import" --status ok --stat "added=5"
+ *   notify job      --project playhub --job "Game import" --status ok --stat "added=5" [--via vps] [--took "4m 12s"]
  *   notify report   --project playhub --title "Daily summary" --line "Games=1284"
  *   notify ci       --project arvent  --status fail --branch master --actor saz_sam
  *   notify pr       --project arvent  --action opened --number 142 --title "..."
@@ -341,6 +341,11 @@ if (flags.has('json')) {
         job: one('job') ?? '(no name)',
         status: jobStatus(),
         aside: one('aside'),
+        // Where it ran and how long it took: `--via mac`, `--took '4m 12s'`.
+        // `--took` fills `duration` — the flag is the sender's word for the
+        // question ("how long did it take?"), the field is the card's.
+        via: one('via'),
+        duration: one('took'),
         expected: one('expected'),
         lastSeen: one('last-seen'),
         stats: pairs('stat'),

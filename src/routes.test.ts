@@ -92,6 +92,17 @@ test('--dry-run prints the card to stdout and sends nothing', () => {
   assert.doesNotMatch(stderr, /sent|skipped|failed/, 'a dry run must not give a verdict');
 });
 
+test('--via and --took reach the job card', () => {
+  // `--took` fills `duration`: the flag is the sender's word for the question,
+  // the field is the card's.
+  const { code, stdout } = runCli('job', '--project=mac-config', '--job=config sync',
+    '--status=fail', '--via=mac', '--took=4m 12s', '--note=symlink missing', '--dry-run');
+
+  assert.equal(code, 0);
+  assert.ok(stdout.includes('<b>Job (Mac):</b> config sync'), stdout);
+  assert.ok(stdout.includes('<b>Took:</b> 4m 12s'), stdout);
+});
+
 test('a flag with no value is an explicit error, not href="true"', () => {
   const { code, stderr } = runCli('deploy', '--project', 'playhub', '--status', 'ok', '--url');
 

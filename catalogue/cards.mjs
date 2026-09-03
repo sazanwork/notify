@@ -190,7 +190,7 @@ export const CARDS = [
     expectTag: '#job #daily_import #ok',
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
-      job: 'Yandex game import', status: 'ok',
+      job: 'Yandex game import', status: 'ok', via: 'vps', duration: '6m 41s',
       items: [
         { text: 'Cut the Rope', url: 'https://russkie-igry.ru/ru/game/cut-the-rope/', group: 'New today' },
         { text: 'Vex 7', url: 'https://russkie-igry.ru/ru/game/vex-7/', group: 'New today' },
@@ -211,7 +211,7 @@ export const CARDS = [
     expectTag: '#job #config_sync #fail',
     event: {
       type: 'job', project: 'mac-config', key: 'config-sync',
-      job: 'Config sync', status: 'fail',
+      job: 'Config sync', status: 'fail', via: 'mac',
       note: 'git push refused: the remote branch holds a commit that is not here',
       logs: '/Users/chelsnebes/Library/Logs/config-sync.log',
       check: 'config jobs --log config-sync'
@@ -227,7 +227,7 @@ export const CARDS = [
     expectTag: '#job #vps_backups #fail',
     event: {
       type: 'job', project: 'mac-config', key: 'vps-backups',
-      job: 'Server backups', status: 'fail',
+      job: 'Server backups', status: 'fail', via: 'mac',
       note: 're-downloading from the server did not help, there is nothing to roll back to',
       stats: [['Fresh', 10, 'Copies on the Mac'], ['Broken', 1, 'Copies on the Mac']],
       logs: '/Users/chelsnebes/.claude/logs/vps-backups.log',
@@ -244,7 +244,7 @@ export const CARDS = [
     expectTag: '#job #config_tests #fail',
     event: {
       type: 'job', project: 'mac-config', key: 'config-tests',
-      job: 'Config checks', status: 'fail',
+      job: 'Config checks', status: 'fail', via: 'mac',
       note: '2 checks are red',
       items: [{ text: 'test-update-all', group: 'Red checks' },
         { text: 'check-notify-flags', group: 'Red checks' }],
@@ -262,7 +262,7 @@ export const CARDS = [
     expectTag: '#job #actions_minutes_guard #off',
     event: {
       type: 'job', project: 'mac-config', key: 'actions-minutes-guard',
-      job: 'GitHub Actions minutes watchdog', status: 'disabled',
+      job: 'GitHub Actions minutes watchdog', status: 'disabled', via: 'mac',
       note: 'Free minutes are nearly gone: 2013 of 2000. Switched these off so failure emails stop. Will switch them back on myself in the new period.',
       url: 'https://github.com/organizations/sazanwork/settings/billing',
       items: [
@@ -282,8 +282,8 @@ export const CARDS = [
       // A scheduled run has no head commit in its event, so since 1.15.1 the
       // action reads the commit through the GitHub API: title, body and
       // author reach the card exactly as on a push. The author is the owner
-      // here, so no Author row is printed — a people row naming the reader
-      // is not news.
+      // here, and the row is printed all the same (03.09.2026): the same set
+      // of people rows on every card, whoever the person turns out to be.
       type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
       commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/arvent/commit/9b1fc68',
       commitTitle: 'fix(bot): confirm with a button before wiping client data',
@@ -406,7 +406,7 @@ export const CARDS = [
     expectTag: '#job #daily_import #unknown',
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
-      job: 'Yandex game import', status: 'silent', note: 'no report in time',
+      job: 'Yandex game import', status: 'silent', via: 'vps', note: 'no report in time',
       expected: 'at least once every 26h', lastSeen: '23.08 04:12',
       url: 'https://russkie-igry.ru'
     },
@@ -421,7 +421,7 @@ export const CARDS = [
     expectTag: '#job #daily_import #ok',
     event: {
       type: 'job', project: 'playhub', key: 'daily-import',
-      job: 'Yandex game import', status: 'ok', note: 'reporting again',
+      job: 'Yandex game import', status: 'ok', via: 'vps', duration: '6m 08s', note: 'reporting again',
       expected: 'at least once every 26h', lastSeen: '25.08 04:10',
       url: 'https://russkie-igry.ru'
     },
@@ -435,7 +435,7 @@ export const CARDS = [
     expectTag: '#job #arvent_eval #ok',
     event: {
       type: 'job', project: 'arvent', key: 'arvent-eval',
-      job: 'Bot answer quality', status: 'ok',
+      job: 'Bot answer quality', status: 'ok', via: 'mac', duration: '2m 55s',
       stats: [['verdict', '12 of 12 answers passed']],
       path: '/tmp/arvent-eval-24-08.txt',
       filename: 'arvent-eval-24-08.txt'
