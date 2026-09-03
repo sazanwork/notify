@@ -8,6 +8,7 @@
  * exactly what can break without anyone noticing.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { ICON, severity, type NotifyEvent } from './events.ts';
 import { render, eventKey, clampMessage, markdownToTelegram, OUTCOME_TAG } from './render.ts';
@@ -317,7 +318,7 @@ test('a long text on ONE line is not thrown away whole', () => {
 // of the previous version (`!/<[a-z]*$/`) could never fail: the clamper
 // always appends `\n…`, and the end of the string can never fall inside a
 // tag by construction.
-const TAGS = ['b', 'i', 'u', 'a', 'code', 'blockquote'];
+const TAGS = ['b', 'i', 'u', 'a', 'code', 'pre', 'blockquote'];
 
 const unbalanced = (html: string): string[] =>
   TAGS.filter((t) => {
@@ -1171,7 +1172,7 @@ test('clampMessage closes nested tags in the order they were opened', () => {
   // Counting tags is what let this through, so check the NESTING with a stack.
   const wellFormed = (s: string): boolean => {
     const stack: string[] = [];
-    for (const m of s.matchAll(/<(\/?)(b|a|i|u|code|blockquote)[ >]/g)) {
+    for (const m of s.matchAll(/<(\/?)(b|a|i|u|code|pre|blockquote)[ >]/g)) {
       if (m[1] === '/') {
         if (stack.pop() !== m[2]) {
           return false;
@@ -1799,4 +1800,83 @@ test('cut marker: a caption card announces the attachment as the full text and f
 
   assert.ok(out.length <= 1024, `caption over the limit: ${out.length}`);
   assert.ok(out.includes('⋯ cut, full text attached'), 'a caption cut must point at the attachment');
+});
+
+// ---------------------------------------------------------------------------
+// Findings from the 03.09.2026 close review — one test per fix, each of them
+// red on the code as it stood before that day.
+
+test('markdownToTelegram never nests a link in a link or an entity in code', () => {
+  // Every replace used to run over the output of the one before it. The
+  // README badge `[![alt](img)](url)` came out as `<a><a>…</a></a>` and
+  // `` `a **b** c` `` as `<code>a <b>b</b> c</code>`. Telegram rejects both
+  // with a 4xx, and the package does not retry a 4xx — the card is lost.
+  assert.equal(
+    markdownToTelegram('[![Build Status](https://img.shields.io/b.svg)](https://github.com/x/runs/1)'),
+    '<a href="https://github.com/x/runs/1">Build Status</a>'
+  );
+  assert.equal(markdownToTelegram('`a **b** c`'), '<code>a **b** c</code>');
+  // Bold inside a link stays legal and must survive the parking.
+  assert.equal(markdownToTelegram('[**bold link**](https://x/y)'), '<a href="https://x/y"><b>bold link</b></a>');
+  assert.equal(
+    markdownToTelegram('plain **b** and `c` and [t](https://u)'),
+    'plain <b>b</b> and <code>c</code> and <a href="https://u">t</a>'
+  );
+});
+
+test('a closed card keeps the subsections of its first section', () => {
+  // `firstSection` cut at ANY heading level, so a `###` subsection inside the
+  // first section ended the body early and the text under it vanished from a
+  // merged PR or a closed issue.
+  const out = render({
+    type: 'issue', project: 'arvent', action: 'closed', number: 7, title: 't',
+    url: 'https://x/i/7', body: '## One\nalpha\n### Sub\nbeta\n## Two\ngamma'
+  });
+
+  assert.ok(out.includes('beta'), 'a ### subsection ended the body early');
+  assert.ok(!out.includes('gamma'), 'the second ## section leaked into the card');
+});
+
+test('the clamp does not leave a fenced block open', () => {
+  // `pre` reached the clamper but neither tag list in this file, so a
+  // regression that dropped it would cut `<pre>` open and every test here
+  // would still pass.
+  const body = ['```', 'x'.repeat(5000), '```'].join('\n');
+  const card = render({ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't', body, url: 'https://x/i/1' });
+
+  assert.ok(card.includes('<pre>'), 'the fenced block never reached the card');
+  assert.deepEqual(unbalanced(card), [], 'a fenced block was cut open');
+  // And the checker can say no about `pre` too, or its yes means nothing.
+  assert.deepEqual(unbalanced('<pre>x'), ['pre']);
+});
+
+test('action.yml reads the commit for every empty field, only on ci/deploy, and never in silence', () => {
+  // Three defects in the same guard: it tested only the title (so an explicit
+  // `commit-title` suppressed body and author), it ran on pr/issue events that
+  // cannot use the result, and every failure — no token, 401, 404, timeout,
+  // bad JSON — ended as an empty title with a green workflow.
+  const yml = readFileSync(new URL('../action.yml', import.meta.url), 'utf8');
+  const guard = yml.split('\n').find((l) => l.includes('-z "$IN_COMMIT_TITLE"') && l.includes('if '));
+
+  assert.ok(guard, 'the commit-read guard is no longer where the test looks for it');
+  assert.ok(guard.includes('IN_COMMIT_BODY'), 'an explicit commit-title still suppresses the body read');
+  assert.ok(guard.includes('IN_COMMIT_AUTHOR'), 'an explicit commit-title still suppresses the author read');
+  assert.ok(/IN_EVENT" = "ci"/.test(yml), 'the read still fires on pr/issue events');
+  assert.ok(yml.includes('%{http_code}'), 'the HTTP status of the commit read is not captured');
+  assert.ok(/::warning::commit read/.test(yml), 'a failed commit read produces no signal at all');
+});
+
+test('the catalogue accepts a commit row whose title carries its own separator', () => {
+  // `Commit: <a>hash</a> · fix: a · b` is one pointer and one name, but the
+  // exception refused any row with a second ` · ` anywhere — including its own
+  // legal shape.
+  const src = readFileSync(new URL('../catalogue/build.mjs', import.meta.url), 'utf8');
+  const m = /const pointerThenName = (\(raw\) =>[^\n]+);/.exec(src);
+
+  assert.ok(m, 'pointerThenName is no longer where the test looks for it');
+  const pointerThenName = new Function(`return ${m[1]}`)() as (raw: string) => boolean;
+
+  assert.equal(pointerThenName(' <a href="x">h</a> \u00b7 feat: a'), true, 'the plain pointer row was refused');
+  assert.equal(pointerThenName(' <a href="x">h</a> \u00b7 feat: a \u00b7 b'), true, 'a title with its own separator was refused');
+  assert.equal(pointerThenName('plain \u00b7 text'), false, 'the exception can no longer refuse anything');
 });

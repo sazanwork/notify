@@ -178,7 +178,12 @@ const articles = CARDS.map((c) => {
     // (03.09.2026) — is the one shape where the dot joins two halves of ONE
     // fact, the same way `PR #414 · title` does on line 2: the hash is the
     // link, the title says what it did. Exactly one link first, then the name.
-    const pointerThenName = (raw) => /^\s*<a href="[^"]*">[^<]*<\/a> · [^\n]+$/.test(raw) && !/ · .* · /.test(raw);
+    // The `!/ · .* · /` clause that used to stand here made the exception
+    // refuse its own shape: a legal `Commit: <a>hash</a> · fix: a · b` — a
+    // commit whose TITLE contains a dot separator — still threw. The regex
+    // above already pins the row: exactly one link, then one ` · `, then free
+    // text to the end. Whatever the title holds is one fact, not a second one.
+    const pointerThenName = (raw) => /^\s*<a href="[^"]*">[^<]*<\/a> · [^\n]+$/.test(raw);
     for (const line of html.split('\n')) {
       const m = /<b>[^<]+:<\/b>(.*)$/.exec(line);
       const value = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';

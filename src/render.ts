@@ -388,12 +388,31 @@ export const markdownToTelegram = (text: string): string => {
         .filter((c) => c !== '')
         .join(' · ');
     }
+    // Each replace used to run over the OUTPUT of the previous one, so a tag
+    // this function had just written was still visible to the next pattern.
+    // Two shapes came out illegal for Telegram, and Telegram answers 4xx to
+    // both — the package does not retry a 4xx, so the whole card is lost:
+    //   `[![alt](img)](url)` — the README badge — became `<a><a>…</a></a>`,
+    //   `` `a **b** c` ``   became `<code>a <b>b</b> c</code>`.
+    // A produced tag is therefore parked in `spans` behind a sentinel that no
+    // pattern below can match, and put back only after the last replace.
+    // `plain` unwraps a parked span to its text, which is how a link label
+    // that already holds a link (or code) is flattened instead of nested.
+    const spans: string[] = [];
+    const park = (html: string): string => `\u0000${spans.push(html) - 1}\u0000`;
+    const plain = (s: string): string =>
+      s.replace(/\u0000(\d+)\u0000/g, (_, i: string) => spans[Number(i)].replace(/<[^>]+>/g, ''));
+    const bold = (s: string): string => s.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
     row = row
-      .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_, alt: string, url: string) => `<a href="${url}">${alt.trim() || 'image'}</a>`)
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>')
-      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      // Code first: nothing inside a `code` span may become a tag.
+      .replace(/`([^`\n]+)`/g, (_, code: string) => park(`<code>${code}</code>`))
+      .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_, alt: string, url: string) =>
+        park(`<a href="${url}">${plain(alt).trim() || 'image'}</a>`))
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label: string, url: string) =>
+        park(`<a href="${url}">${bold(plain(label)).trim() || 'link'}</a>`))
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, (_, label: string) => plain(label))
       .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
-      .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+      .replace(/\u0000(\d+)\u0000/g, (_, i: string) => spans[Number(i)]);
     out.push(row);
   }
   if (fence) {
@@ -414,12 +433,19 @@ export const markdownToTelegram = (text: string): string => {
  */
 const firstSection = (text: string): string => {
   const lines = text.replace(/<!--[\s\S]*?-->/g, '').split('\n');
-  let headings = 0;
+  // The cut is made at the next heading of the FIRST heading's level, not at
+  // any heading at all. `#{1,6}` treated a `###` subsection inside the first
+  // section as the second heading, so everything after it was silently
+  // dropped from a merged PR or a closed issue — the body the card exists to
+  // carry. A deeper heading belongs to the section it sits in and is kept.
+  let level = 0;
   const kept: string[] = [];
   for (const line of lines) {
-    if (/^\s*#{1,6}\s+/.test(line)) {
-      headings += 1;
-      if (headings === 2) {
+    const m = line.match(/^\s*(#{1,6})\s+/);
+    if (m) {
+      if (level === 0) {
+        level = m[1].length;
+      } else if (m[1].length <= level) {
         break;
       }
     }

@@ -209,11 +209,35 @@ runs:
         # every push card had one. The commit is read through the API instead
         # (`github.token` reaches the run's own repository); a failed read
         # leaves the fields empty, as before, never breaks the card.
-        if [ -z "$IN_COMMIT_TITLE" ] && [ -n "$GH_TOKEN_IN" ] && [ -n "$GH_SHA" ]; then
-          COMMIT_JSON=$(curl -sS --max-time 10 -H "Authorization: Bearer $GH_TOKEN_IN" \
-            -H "Accept: application/vnd.github+json" "$GH_API/repos/$GH_REPO/commits/$GH_SHA" 2>/dev/null || true)
+        #
+        # Three corrections after review (03.09.2026):
+        #   * the guard tested only the TITLE, so a caller who passed
+        #     `commit-title` by hand on a scheduled run got no body and no
+        #     author — the fetch never happened. It now runs when ANY of the
+        #     three is empty, and an explicitly supplied input still wins.
+        #   * only a `ci`/`deploy` card renders these fields. A pr/issue event
+        #     also has no `head_commit`, so every such card paid an API call
+        #     for values the renderer then ignored.
+        #   * every failure — no token, 401, 404, timeout, unparsable JSON —
+        #     ended as an empty title with a green workflow and a card back to
+        #     a bare hash: exactly the state this read was added to end. The
+        #     HTTP status is captured and a non-200 or an empty parse writes a
+        #     `::warning::`. The card still sends; the failure stops being invisible.
+        if { [ -z "$IN_COMMIT_TITLE" ] || [ -z "$IN_COMMIT_BODY" ] || [ -z "$IN_COMMIT_AUTHOR" ]; } \
+           && { [ "$IN_EVENT" = "ci" ] || [ "$IN_EVENT" = "deploy" ]; } \
+           && [ -n "$GH_TOKEN_IN" ] && [ -n "$GH_SHA" ]; then
+          COMMIT_RAW=$(curl -sS --max-time 10 -w '\n%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN_IN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GH_API/repos/$GH_REPO/commits/$GH_SHA" 2>&1) || COMMIT_RAW=""
+          COMMIT_CODE="${COMMIT_RAW##*$'\n'}"
+          COMMIT_JSON="${COMMIT_RAW%$'\n'*}"
+          if [ "$COMMIT_CODE" != "200" ]; then
+            echo "::warning::commit read for $GH_SHA failed (http ${COMMIT_CODE:-none}) — the card keeps the bare hash"
+            COMMIT_JSON=""
+          fi
           if [ -n "$COMMIT_JSON" ]; then
-            IN_COMMIT_TITLE=$(printf '%s' "$COMMIT_JSON" | node -e '
+            FETCHED_MESSAGE=$(printf '%s' "$COMMIT_JSON" | node -e '
               let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
                 try { const j=JSON.parse(s); process.stdout.write(j.commit?.message ?? ""); } catch {}
               });')
@@ -221,6 +245,21 @@ runs:
               let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
                 try { const j=JSON.parse(s); process.stdout.write(j.author?.login ?? ""); } catch {}
               });')
+            # `author` is null for a commit pushed from an email no GitHub
+            # account claims. It stays empty on purpose: the renderer builds
+            # `https://github.com/<value>`, so a display name there is a 404.
+            if [ -z "$FETCHED_MESSAGE" ] && [ -z "$FETCHED_AUTHOR" ]; then
+              echo "::warning::commit read for $GH_SHA parsed to nothing — the card keeps the bare hash"
+            fi
+            if [ -n "$FETCHED_MESSAGE" ]; then
+              FETCHED_TITLE="${FETCHED_MESSAGE%%$'\n'*}"
+              FETCHED_BODY="${FETCHED_MESSAGE#*$'\n'}"
+              [ "$FETCHED_BODY" = "$FETCHED_MESSAGE" ] && FETCHED_BODY=""
+              [ -z "$IN_COMMIT_TITLE" ] && IN_COMMIT_TITLE="$FETCHED_TITLE"
+              if [ -z "$IN_COMMIT_BODY" ] && [ -n "$FETCHED_BODY" ]; then
+                IN_COMMIT_BODY=$(printf '%s' "$FETCHED_BODY" | sed '/./,$!d')
+              fi
+            fi
             if [ -z "$IN_COMMIT_AUTHOR" ] && [ -n "$FETCHED_AUTHOR" ]; then
               add --commit-author "$FETCHED_AUTHOR"
             fi
