@@ -149,19 +149,20 @@ export type NotifyEvent = Keyed &
        */
       status: 'ok' | 'fail' | 'disabled' | 'silent';
       /**
-       * The one qualifier the name needs to be readable on its own, printed in
-       * brackets right after it: `Yandex game import (reporting again)`. It is
-       * the same slot a report uses for the day it covers. Anything that is a
-       * FACT about the job goes in a row of its own; this is for the word that
-       * finishes the name.
+       * The one sentence that says why this card exists at all («reporting
+       * again»). It has no bracket of its own any more — the bracket on a job
+       * carries the outcome — and prints in the `Reason:` row, but only when
+       * the sender left `note` empty; a real reason is never duplicated.
+       * The field stays for the senders that still pass it.
        */
       aside?: string;
       /**
        * WHERE the job ran, one word from the sender: `mac` (launchd on this
        * Mac), `vps` (a cron on the server), `actions` (GitHub Actions). Any
-       * other word is passed through and capitalised. It is printed in the
-       * bracket ON the type word — `Job (Mac): config sync` — the same slot
-       * the outcome takes on Deploy and CI. Until now the Mac's launchd, a
+       * other word is passed through and capitalised. It prints as a `Via:`
+       * row directly under the type line — it is a fact ABOUT the run, and
+       * the bracket on the type word belongs to the outcome. Until now the
+       * Mac's launchd, a
        * VPS cron, GitHub Actions and the silence watchdog all arrived under
        * one bare `#job` tag and only memory told them apart; deploy has said
        * «via GitHub Actions» from the start, and job now does too

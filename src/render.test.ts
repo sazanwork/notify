@@ -1476,8 +1476,8 @@ test('card/session: the folded type renders as an incident, tag and all', () => 
 
   assert.equal(folded.split('\n')[0], '#incident #context_runaway #fail');
   assert.equal(folded.split('\n')[1], '🚨 <b>Incident (Session):</b> Claude session is burning the limit');
-  // No bracket on an incident: it has exactly one state, so the word would
-  // say nothing. What burns is the NAME after the colon.
+  // The bracket on an incident names the PLACE that burns — here the folded
+  // session — and never an outcome: the card has exactly one state.
   assert.ok(folded.includes('<b>Incident (Session):</b>'), 'the bracket names the place, not an outcome');
 
   // An incident sent directly is the same card, and it carries the rows the
@@ -2029,4 +2029,59 @@ test('incident: the bracket names WHERE it burns — the sender\'s word, else th
 
   const fallback = render({ type: 'incident', project: 'vault', title: 'The vault needs repair' });
   assert.equal(fallback.split('\n')[1], '🚨 <b>Incident (Vault):</b> The vault needs repair');
+});
+
+// The bracket, the icon and the third tag are three readings of one fact, and
+// an untyped `--json` payload can hold a status or an action none of them
+// knows. Until 03.09.2026 they disagreed there: a job with no status threw
+// before it could render, and deploy, CI, PR and issue printed a word that
+// said the opposite of the icon standing next to it.
+test('bracket/unknown: a job with no status renders instead of throwing, and says Unknown', () => {
+  const card = render({ type: 'job', job: 'nightly', key: 'playhub' } as unknown as NotifyEvent);
+
+  assert.equal(card.split('\n')[0], '#job #playhub #unknown');
+  assert.equal(card.split('\n')[1], '❓ <b>Job (Unknown):</b> nightly');
+});
+
+test('bracket/unknown: a status outside {ok,fail} never says OK under a red icon', () => {
+  for (const [type, word] of [['deploy', 'Deploy'], ['ci', 'CI']] as const) {
+    const card = render({ type, project: 'playhub', status: 'weird' } as unknown as NotifyEvent);
+
+    assert.equal(card.split('\n')[0], `#${type} #playhub #fail`);
+    assert.equal(card.split('\n')[1], `🔴 <b>${word} (Fail)</b>`);
+  }
+});
+
+test('bracket/unknown: a PR or an issue with no action says Unknown, not Info', () => {
+  const pr = render({ type: 'pr', project: 'playhub', number: 1, title: 'x' } as unknown as NotifyEvent);
+  assert.equal(pr.split('\n')[0], '#pr #p1 #unknown');
+  assert.equal(pr.split('\n')[1], '❓ <b>PR (Unknown)</b> #1 · x');
+
+  const issue = render({ type: 'issue', project: 'playhub', number: 2, title: 'y', action: 'reopened' } as unknown as NotifyEvent);
+  assert.equal(issue.split('\n')[1], '❓ <b>Issue (Unknown)</b> #2 · y');
+});
+
+// `??` cannot tell a field the sender left blank from one they never sent —
+// and both arrive here, from a `--json` payload and from a shell flag whose
+// variable expanded to nothing.
+test('blank fields: an empty or whitespace scope falls back to the project, never an empty bracket', () => {
+  const empty = render({ type: 'incident', project: 'playhub', title: 'x', scope: '' });
+  assert.equal(empty.split('\n')[1], '🚨 <b>Incident (Playhub):</b> x');
+
+  const spaces = render({ type: 'incident', project: 'vault', title: 'X', scope: '   ' });
+  assert.equal(spaces.split('\n')[1], '🚨 <b>Incident (Vault):</b> X');
+});
+
+test('blank fields: an empty note still lets the aside fill the Reason row', () => {
+  const base = { type: 'job', project: 'playhub', job: 'nightly', status: 'fail' } as const;
+
+  assert.match(render({ ...base, note: '', aside: 'reporting again' }), /<b>Reason:<\/b> reporting again/);
+  assert.match(render({ ...base, note: '  ', aside: 'reporting again' }), /<b>Reason:<\/b> reporting again/);
+  assert.match(render({ ...base, note: 'the API refused', aside: 'reporting again' }), /<b>Reason:<\/b> the API refused/);
+});
+
+test('blank fields: a whitespace-only duration prints no Took row', () => {
+  const card = render({ type: 'job', project: 'playhub', job: 'nightly', status: 'ok', duration: '  ' });
+
+  assert.ok(!card.includes('Took'), 'an empty Took row was printed');
 });

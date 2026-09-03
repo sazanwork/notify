@@ -139,6 +139,17 @@ const firstLine = (value: string | number): string | number => {
 };
 
 /**
+ * The first value the sender actually filled in, trimmed; `undefined` when
+ * every one of them came in empty. Neither `??` nor `||` alone can do this:
+ * `??` keeps an empty string and so takes the fallback away, `||` still lets
+ * a whitespace-only one through to a visibly empty row or bracket. Both `''`
+ * and `'   '` reach us for real — from a `--json` payload and from a shell
+ * flag whose variable expanded to nothing.
+ */
+const filled = (...values: (string | number | null | undefined)[]): string | undefined =>
+  values.map((v) => String(v ?? '').trim()).find((v) => v !== '');
+
+/**
  * A field: `<b>Label:</b> value` — a bold, capitalized label, a plain value.
  * `null` is dropped the same as `undefined`/`''` — the field's sources are
  * JSON on stdin (`--json`) and objects from the server, where a missing
@@ -748,7 +759,11 @@ const renderDeploy: Renderer<Extract<NotifyEvent, { type: 'deploy' }>> = (e) => 
     // The run URL rides on the name (03.09.2026): the thing you read is the
     // thing you tap. It spent three days in a `Source:` row at the bottom, and
     // the owner asked what that row was for when the name was right there.
-    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via), sourceUrl(e), e.status === 'fail' ? 'Fail' : 'OK'),
+    // The outcome word comes from the icon, not from a second reading of
+    // `status`: `fail ? 'Fail' : 'OK'` defaulted the opposite way from
+    // `iconFor` (`ok ? 🟢 : 🔴`), so any status outside {ok,fail} arrived as
+    // 🔴 `#fail` with the word `(OK)` beside it.
+    typeLine(icon, 'Deploy', mechanism(e.workflowName, e.via), sourceUrl(e), outcomeAside(e)),
     ...twoBlocks(
       [field('Target', e.target), reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
@@ -830,7 +845,11 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // The URL is on the name (03.09.2026). It went down to a `Source:` row in
     // v2.1 so the pointer could be SEEN — and came back, because the row's
     // only text was `workflow run`, the same two words on every card.
-    typeLine(icon, 'Job', e.job, sourceUrl(e), JOB_OUTCOME[e.status] ?? cap(e.status)),
+    // `?? outcomeAside(e)` for the same reason `iconFor` defends itself: an
+    // untyped `--json` payload can carry a status outside the map or none at
+    // all, and `cap(undefined)` threw a TypeError instead of rendering a card.
+    // The word comes from the icon, so ❓ and `#unknown` say `(Unknown)`.
+    typeLine(icon, 'Job', e.job, sourceUrl(e), JOB_OUTCOME[e.status] ?? outcomeAside(e)),
     // Where it ran comes first among the facts: it qualifies everything below
     // it — the same reason, the same duration mean different things on the Mac
     // and on the server.
@@ -840,11 +859,16 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // Reason row says; it fills that row only when the sender left it empty,
     // and is dropped rather than duplicating a real reason. The field stays in
     // the event type — the senders that still pass it must not start failing.
-    reason('Reason', e.note ?? e.aside),
+    // `filled`, not `??`: a sender that passes `note: ''` (an empty variable
+    // in a shell script) left the row empty, and `??` read that as a reason
+    // given — dropping the aside and the whole row with it.
+    reason('Reason', filled(e.note, e.aside)),
     // How long the run took, in the sender's own words. It sits under the
     // reason and above the timetable: the reason says what happened, this
     // says what it cost, and only then comes when it is due again.
-    field('Took', e.duration),
+    // Trimmed by `filled`: a whitespace-only `--took` printed a bare
+    // `Took:` with nothing after it.
+    field('Took', filled(e.duration)),
     field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
     // The timetable is a different subject from this event: how often the task
     // owes a sign of life and when it last gave one. It stood in a bare run
@@ -910,7 +934,10 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
 
   return join([
     // The run URL is on the gate's name — `CI: <a>nightly</a>` — since 03.09.2026.
-    typeLine(icon, 'CI', mechanism(e.workflowName, undefined), sourceUrl(e), e.status === 'fail' ? 'Fail' : 'OK'),
+    // Same source as the icon — see the deploy card: the two readings of
+    // `status` defaulted opposite ways and the bracket could contradict both
+    // the icon and the tag.
+    typeLine(icon, 'CI', mechanism(e.workflowName, undefined), sourceUrl(e), outcomeAside(e)),
     // No `Actor:` row (03.09.2026). It was redundant on every kind of run: on
     // a push the actor IS the commit's author, printed a line above; on a
     // scheduled run GitHub names the workflow's owner, the same person every
@@ -983,9 +1010,10 @@ const numberedLine = (
 
 /**
  * How a pull request or an issue ended, in one word. An action nobody
- * foresaw — a new GitHub verb, or a word from an untyped `--json` payload —
- * gets its own name capitalised rather than being dropped: a bracket that is
- * sometimes absent is a bracket that cannot be relied on.
+ * foresaw — a new GitHub verb, or a missing one in an untyped `--json`
+ * payload — takes the word the icon already implies, `Unknown`; it used to
+ * take the literal `Info`, which is not an outcome and contradicted both the
+ * ❓ on the same line and the `#unknown` tag above it.
  */
 const PR_OUTCOME: Record<string, string> = {
   opened: 'Opened',
@@ -1001,8 +1029,8 @@ const ISSUE_OUTCOME: Record<string, string> = {
   closed: 'Closed'
 };
 
-const outcomeWord = (table: Record<string, string>, action: string): string =>
-  table[action] ?? cap(String(action ?? '').trim() || 'Info');
+const outcomeWord = (table: Record<string, string>, e: { action: string } & NotifyEvent): string | undefined =>
+  table[e.action] ?? outcomeAside(e);
 
 // The people come BEFORE the text, and the text comes only when it is the
 // news. An `assigned` card carries one new fact — who took it — and it used to
@@ -1044,7 +1072,7 @@ const prBody = (action: string, body: string | undefined): string | null => {
 // does the assignee cut apart what should be inseparable?"
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
-    numberedLine(iconFor(e), 'PR', e.number, e.title, e.url, outcomeWord(PR_OUTCOME, e.action)),
+    numberedLine(iconFor(e), 'PR', e.number, e.title, e.url, outcomeWord(PR_OUTCOME, e)),
     prBody(e.action, e.body),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
@@ -1061,7 +1089,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
 // took it needs the whole brief); the first section on closed — see prBody.
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
-    numberedLine(iconFor(e), 'Issue', e.number, e.title, e.url, outcomeWord(ISSUE_OUTCOME, e.action)),
+    numberedLine(iconFor(e), 'Issue', e.number, e.title, e.url, outcomeWord(ISSUE_OUTCOME, e)),
     markdownQuote(e.body, e.action !== 'closed'),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
@@ -1083,7 +1111,10 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
     // The bracket on an incident names WHERE it burns, not how it ended —
     // it has one ending. `Incident (Vault):`, `Incident (Session):`; with no
     // word from the sender, the project name stands in.
-    typeLine(iconFor(e), 'Incident', e.title, e.url, e.scope ?? cap(e.project)),
+    // `filled`, not `??`: `scope: ''` and `scope: ' '` are a sender that
+    // named no place, and `??` let the first past the project fallback (no
+    // bracket at all) and the second into a visibly empty one.
+    typeLine(iconFor(e), 'Incident', e.title, e.url, filled(e.scope) ?? cap(e.project)),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
     // The rows below came from the `session` card when it was folded in
     // (03.09.2026), in the order they had there: which copy, what the guard
@@ -1143,9 +1174,9 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
     // repository builds this event any more — the silence watchdog sends an
     // ordinary job with `--status silent` — but a machine still running the old
     // copy of that watchdog can, and the card it gets must obey the template.
-    // No bracket saying `ok` or `miss`: the icon says it, the third tag says
-    // it, and `miss` is not one of the five words the outcome is allowed to
-    // be. The bracket is for what finishes the NAME, never for a verdict.
+    // The bracket takes an outcome word, the same as a job card does — and
+    // it takes one of the job's own words: `Silent`, never `miss`, which is
+    // not one of the words the outcome is allowed to be.
     typeLine(icon, 'Heartbeat', e.job, undefined, e.recovered ? 'OK' : 'Silent'),
     field('Reason', e.note),
     ...schedule(e.expected, e.lastSeen, e.recovered ? 'Last run' : 'Last seen')
@@ -1285,6 +1316,27 @@ export const OUTCOME_TAG: Readonly<Record<Icon, OutcomeTag>> = {
 };
 
 export const outcomeTag = (e: NotifyEvent): OutcomeTag => OUTCOME_TAG[iconFor(e) as Icon];
+
+/**
+ * The bracket word for a status or an action no outcome table knows — a new
+ * GitHub verb, a `--json` payload with a typo or with no status at all. It is
+ * read off the SAME icon the card already shows, so line 2 can never
+ * contradict line 1 or the third tag: an unmapped value renders ❓ `#unknown`
+ * and now says `(Unknown)` too, where it used to say `(OK)` or `(Info)` — the
+ * exact opposite of the icon beside it.
+ *
+ * `info` gets no word: nothing was decided on that card, and there is no
+ * honest outcome to name. A missing bracket is a gap; a wrong one is a lie.
+ */
+const FALLBACK_OUTCOME: Readonly<Record<OutcomeTag, string | undefined>> = {
+  ok: 'OK',
+  fail: 'Fail',
+  off: 'Off',
+  unknown: 'Unknown',
+  info: undefined
+};
+
+const outcomeAside = (e: NotifyEvent): string | undefined => FALLBACK_OUTCOME[outcomeTag(e)];
 
 const tagsLine = (e: NotifyEvent): string =>
   `#${TYPE_TAG[e.type]} #${esc(eventKey(e))} #${outcomeTag(e)}`;

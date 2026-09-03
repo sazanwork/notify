@@ -13,7 +13,7 @@
  *   notify deploy   --project playhub --status ok --commit "msg" [--commit-url "..."] --url "..."
  *   notify job      --project playhub --job "Game import" --status ok --stat "added=5" [--via vps] [--took "4m 12s"]
  *   notify report   --project playhub --title "Daily summary" --line "Games=1284"
- *   notify ci       --project arvent  --status fail --branch master --actor saz_sam
+ *   notify ci       --project arvent  --status fail --branch master
  *   notify pr       --project arvent  --action opened --number 142 --title "..."
  *   notify incident --project arvent  --title "Redis is unreachable" --detail "$ERR"
  *   notify session  --project mac-config --action "burning the limit"   # DEPRECATED alias of incident

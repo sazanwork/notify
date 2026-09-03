@@ -13,8 +13,10 @@
 > Amended again 03.09.2026 (v1.16.0): the bracket on the type word says HOW IT
 > ENDED, in one word, on every type that has more than one outcome — `Deploy
 > (OK)`, `CI (Fail)`, `Job (Off)`, `Job (Silent)`, `Issue (Assigned)`, `PR
-> (Merged)`. One slot, one meaning. `Incident` has a single state and carries
-> no bracket: what burns is the name after the colon. `Report` has no outcome
+> (Merged)`. One slot, one meaning. `Incident` has a single state, so its
+> bracket names the PLACE that burns — the word from `--scope`, the project's
+> name when the sender left it out — and what burns is the name after the
+> colon. `Report` has no outcome
 > at all, so its bracket keeps the day. The `session` type is folded into
 > `incident` — still accepted from old senders, never printed as `#session`. The tables below describe the 20.08 shape and are kept as history.
 
