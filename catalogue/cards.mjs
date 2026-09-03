@@ -289,7 +289,7 @@ export const CARDS = [
       commitTitle: 'fix(bot): confirm with a button before wiping client data',
       commitBody: 'A typo in the chat used to wipe the client without asking.\nNow the bot shows a button, and the wipe happens only after it.',
       commitAuthor: 'mikitasazan',
-      actor: '@chelsnebes', note: 'nightly master check',
+      note: 'nightly master check',
       workflowUrl: 'https://github.com/sazanwork/arvent/actions/runs/1', workflowName: 'nightly'
     },
     note: "Ночной прогон идёт по расписанию, коммита в событии нет — экшен с 1.15.1 сам берёт заголовок, тело и автора через API GitHub. Reason здесь говорит только «ночная проверка»: это слабое место отправителя, а не карточки."

@@ -611,7 +611,7 @@ test('blocks: run facts touch the name, the commit keeps its heading', () => {
   assert.equal(rows[3], '');
   assert.equal(rows[4], '<i><u>Change</u></i>');
   assert.equal(rows[5], '<b>Commit:</b> <a href="https://x/c">9b1fc68</a>');
-  assert.equal(rows[6], '<b>Actor:</b> <a href="https://t.me/ilja">@ilja</a>');
+  assert.equal(rows.length, 6, 'no Actor row after the commit');
 
   // A green deploy: no reason to give, so the card is only name plus commit.
   const one = render({
@@ -808,8 +808,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · Онбординг: заготовки вопросов (#294)',
-    '<blockquote>Тело коммита, написанное человеком.</blockquote>',
-    '<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>'
+    '<blockquote>Тело коммита, написанное человеком.</blockquote>'
   ].join('\n'));
 });
 
@@ -827,8 +826,7 @@ test('card/ci: commit author links to their GitHub profile, distinct from Actor'
     '',
     '<i><u>Change</u></i>',
     '<b>Commit:</b> <a href="https://x/c">9b1fc68</a> · fix: checkout',
-    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>',
-    '<b>Actor:</b> <a href="https://t.me/ilja_tg">@ilja_tg</a>'
+    '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
   ].join('\n'));
 });
 
@@ -875,11 +873,10 @@ test('people rows: the owner is printed like anyone else — Author, Assignee, R
     'the owner as assignee is printed'
   );
 
+  // `actor` is accepted from old senders and never printed (03.09.2026): on a
+  // push it is the commit's author, on a schedule it is the workflow's owner.
   const ci = render({ type: 'ci', project: 'arvent', status: 'ok', actor: '@chelsnebes', commit: 'a', commitUrl: 'https://x/c' });
-  assert.ok(
-    ci.includes('<b>Actor:</b> <a href="https://t.me/chelsnebes">@chelsnebes</a>'),
-    'the owner as actor is printed, linked to Telegram'
-  );
+  assert.ok(!ci.includes('<b>Actor:</b>'), 'the Actor row is gone from CI');
 
   // The suppression was case-insensitive, so an upper-case spelling proves the
   // filter is gone rather than merely missed.
@@ -980,7 +977,7 @@ test('quote: a body longer than a screenful collapses, by length OR by lines', (
   assert.ok(!short.includes('expandable'), 'a two-line body must not hide itself');
 });
 
-test('fieldPerson/fieldTelegram: a multi-line login does not put a raw newline inside the href', () => {
+test('fieldPerson: a multi-line login does not put a raw newline inside the href', () => {
   // Found by Codex/GLM review 2026-08-26: unlike `field`/`fieldLink`, these
   // two skipped `firstLine`, so a login/handle containing `\n` (only
   // reachable through `--json`/direct calls — a real GitHub login cannot
@@ -989,12 +986,9 @@ test('fieldPerson/fieldTelegram: a multi-line login does not put a raw newline i
     type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 'x',
     assignee: 'alice\nbob'
   });
-  const telegram = render({ type: 'ci', project: 'arvent', status: 'fail', actor: '@alice\n@bob' });
 
   assert.ok(!person.includes('href="https://github.com/alice\nbob"'), 'newline reached the href');
   assert.ok(person.includes('<b>Assignee:</b> <a href="https://github.com/alice…">alice…</a>'));
-  assert.ok(!telegram.includes('href="https://t.me/alice\n@bob"'), 'newline reached the href');
-  assert.ok(telegram.includes('<b>Actor:</b> <a href="https://t.me/alice…">@alice…</a>'));
 });
 
 test('card/pr: body arrives, and a multi-line title is NOT cut', () => {

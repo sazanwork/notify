@@ -221,24 +221,6 @@ const fieldPerson = (label: string, login: string | undefined): string | null =>
 };
 
 /**
- * `Actor` on a CI card is a Telegram handle, not a GitHub login
- * (`nightly.yml`, step "Кто чинит" — "по «@chelsnebes» приходит уведомление
- * тому, кто чинит, по «mikitasazan» — нет"), so it links to Telegram, not
- * GitHub: `github.com/@chelsnebes` would open a page that does not exist.
- * Telegram DOES auto-link a bare `@handle` on its own, but the owner asked
- * for an explicit link like every other identifier on the card, not an
- * implicit one riding on a client behavior he cannot see from here.
- */
-const fieldTelegram = (label: string, handle: string | undefined): string | null => {
-  if (!handle) {
-    return null;
-  }
-  const oneLine = firstLine(handle) as string;
-  const bare = oneLine.replace(/^@/, '');
-  return `<b>${esc(cap(label))}:</b> <a href="https://t.me/${esc(bare)}">${esc(oneLine)}</a>`;
-};
-
-/**
  * A row that asks something FROM THE OWNER, rather than reports a fact. It
  * already stood last, set off by a blank line, and still read as an
  * ordinary field among five others. The `▶` marker is the only difference:
@@ -908,13 +890,12 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
   return join([
     // The run URL is on the gate's name — `CI: <a>nightly</a>` — since 03.09.2026.
     typeLine(icon, 'CI', mechanism(e.workflowName, undefined), sourceUrl(e), e.status === 'fail' ? 'Fail' : 'OK'),
-    // `Actor` used to be read as "who wrote the commit," and on most runs it
-    // is — `github.actor` for a push IS the person who pushed. It stops being
-    // that on a scheduled run: arvent's nightly rewrites it to whoever is on
-    // duty to fix a red run, which can be someone other than the commit's
-    // author. So Actor answers "who is responsible for this run," `Author`
-    // below the commit answers "who wrote this code" — two different people
-    // on a nightly card, the same person everywhere else.
+    // No `Actor:` row (03.09.2026). It was redundant on every kind of run: on
+    // a push the actor IS the commit's author, printed a line above; on a
+    // scheduled run GitHub names the workflow's owner, the same person every
+    // night; only a hand-pressed button carries news, and the run link on
+    // line 2 shows that. `actor` stays in the event for old senders and is
+    // simply not printed.
     ...twoBlocks(
       [reason('Reason', e.note), field('Still red', e.stillRed ? `day ${e.stillRed}` : null)],
       [
@@ -923,8 +904,7 @@ const renderCi: Renderer<Extract<NotifyEvent, { type: 'ci' }>> = (e) => {
         // quote read as that person's words.
         commitRow(e.commit, e.commitUrl, e.commitTitle),
         bodyQuote(e.commitBody),
-        fieldPerson('Author', e.commitAuthor),
-        fieldTelegram('Actor', e.actor)
+        fieldPerson('Author', e.commitAuthor)
       ]
     )
   ]);
