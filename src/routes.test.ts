@@ -115,7 +115,7 @@ test('notify session is an alias of notify incident', () => {
 
   assert.equal(code, 0);
   assert.ok(stdout.includes('#incident #context_runaway #fail'), stdout);
-  assert.ok(stdout.includes('🚨 <b>Incident:</b> Claude session is burning the limit'), stdout);
+  assert.ok(stdout.includes('🚨 <b>Incident (Session):</b> Claude session is burning the limit'), stdout);
   assert.ok(!stdout.includes('#session'), 'the retired #session tag came back');
   assert.ok(stdout.includes('<b>Project:</b> arvent'), stdout);
   assert.ok(stdout.includes('<code>rm /tmp/x.latch</code>'), stdout);

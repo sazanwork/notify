@@ -434,6 +434,7 @@ if (flags.has('json')) {
           command === 'session'
             ? sessionTitle(one('action') ?? 'in trouble')
             : (one('title') ?? '(no title)'),
+        scope: command === 'session' ? 'Session' : one('scope'),
         detail: one('detail'),
         items: items(),
         logs: one('logs'),

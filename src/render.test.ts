@@ -485,7 +485,7 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
   const short = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: multiline });
   const long = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'А'.repeat(500) });
 
-  assert.equal(short.split('\n')[1], '🚨 <b>Incident:</b> Vault needs a fix');
+  assert.equal(short.split('\n')[1], '🚨 <b>Incident (Vault):</b> Vault needs a fix');
   assert.ok(short.includes('лог: ~/Library/Logs/vault.log'), 'the last line of the diagnosis was cut off');
   assert.ok(short.includes('<blockquote>'), 'the diagnosis must be quoted');
   assert.ok(long.includes('<blockquote expandable>'), 'a long diagnosis folds up');
@@ -494,7 +494,7 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
 test('incident: detail equal to title is not printed twice', () => {
   const out = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'Vault needs a fix' });
 
-  assert.equal(out.split('\n')[1], '🚨 <b>Incident:</b> Vault needs a fix');
+  assert.equal(out.split('\n')[1], '🚨 <b>Incident (Vault):</b> Vault needs a fix');
   assert.ok(!out.includes('<blockquote>'), 'the quote repeats the title');
 });
 
@@ -1145,7 +1145,7 @@ test('card/incident: every line of the diagnosis survives', () => {
 
   assert.equal(out, [
     '#incident #vault_needs_a_fix #fail',
-    '🚨 <b>Incident:</b> Vault needs a fix',
+    '🚨 <b>Incident (Vault):</b> Vault needs a fix',
     '<blockquote>нет sops',
     'ключ не найден',
     'лог: ~/Library/Logs/vault.log</blockquote>',
@@ -1167,7 +1167,7 @@ test('card/incident: several independent findings become a named list, not one g
 
   assert.equal(out, [
     '#incident #the_vault_needs_repair #fail',
-    '🚨 <b>Incident:</b> The vault needs repair',
+    '🚨 <b>Incident (Vault):</b> The vault needs repair',
     '',
     '<i><u>Findings</u></i>',
     '• DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another',
@@ -1381,7 +1381,7 @@ test('link/incident: the title is the link', () => {
   });
 
   assert.ok(
-    out.includes('🚨 <b>Incident:</b> <a href="https://x/run">The vault needs repair</a>'),
+    out.includes('🚨 <b>Incident (Vault):</b> <a href="https://x/run">The vault needs repair</a>'),
     'the incident title is the link on the type line'
   );
   assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
@@ -1426,7 +1426,7 @@ test('card/session: identifier first, his own words quoted, command copyable', (
 
   assert.equal(out, [
     '#incident #burning_the_limit #fail',
-    '🚨 <b>Incident:</b> Claude session is burning the limit',
+    '🚨 <b>Incident (Session):</b> Claude session is burning the limit',
     '<b>Project:</b> mac-config',
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     '',
@@ -1475,10 +1475,10 @@ test('card/session: the folded type renders as an incident, tag and all', () => 
   });
 
   assert.equal(folded.split('\n')[0], '#incident #context_runaway #fail');
-  assert.equal(folded.split('\n')[1], '🚨 <b>Incident:</b> Claude session is burning the limit');
+  assert.equal(folded.split('\n')[1], '🚨 <b>Incident (Session):</b> Claude session is burning the limit');
   // No bracket on an incident: it has exactly one state, so the word would
   // say nothing. What burns is the NAME after the colon.
-  assert.ok(!folded.includes('Incident ('), 'a single-state type must not carry a bracket');
+  assert.ok(folded.includes('<b>Incident (Session):</b>'), 'the bracket names the place, not an outcome');
 
   // An incident sent directly is the same card, and it carries the rows the
   // session card used to own.
@@ -1495,7 +1495,7 @@ test('card/session: the folded type renders as an incident, tag and all', () => 
 
   // With no action at all the card still names what it is about.
   const bare = render({ type: 'session', project: 'mac-config', action: '' });
-  assert.equal(bare.split('\n')[1], '🚨 <b>Incident:</b> Claude session is in trouble');
+  assert.equal(bare.split('\n')[1], '🚨 <b>Incident (Session):</b> Claude session is in trouble');
 });
 
 test('card/job: facts get their own lines instead of one run-on Reason', () => {
@@ -2021,4 +2021,12 @@ test('the catalogue accepts a commit row whose title carries its own separator',
   assert.equal(pointerThenName(' <a href="x">h</a> \u00b7 feat: a'), true, 'the plain pointer row was refused');
   assert.equal(pointerThenName(' <a href="x">h</a> \u00b7 feat: a \u00b7 b'), true, 'a title with its own separator was refused');
   assert.equal(pointerThenName('plain \u00b7 text'), false, 'the exception can no longer refuse anything');
+});
+
+test('incident: the bracket names WHERE it burns — the sender\'s word, else the project', () => {
+  const named = render({ type: 'incident', project: 'mac-config', title: 'Disk is full', scope: 'Server' });
+  assert.equal(named.split('\n')[1], '🚨 <b>Incident (Server):</b> Disk is full');
+
+  const fallback = render({ type: 'incident', project: 'vault', title: 'The vault needs repair' });
+  assert.equal(fallback.split('\n')[1], '🚨 <b>Incident (Vault):</b> The vault needs repair');
 });

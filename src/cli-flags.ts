@@ -10,7 +10,7 @@
  */
 export const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   'action', 'actor', 'assignee', 'author', 'body', 'branch', 'commit',
-  'id', 'opened', 'reason', 'workdir',
+  'id', 'opened', 'reason', 'scope', 'workdir',
   'check', 'command', 'command-note', 'commit-author', 'commit-body', 'commit-title', 'commit-url',
   'detail', 'detail-label',
   'expected', 'filename', 'item',

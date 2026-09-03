@@ -363,6 +363,14 @@ export type NotifyEvent = Keyed &
        * stuck deploy has a working directory too, and any alarm can carry a
        * command that gets you out of it.
        */
+      /**
+       * WHERE it burns, one word, printed in the bracket on the type word:
+       * `Incident (Vault):`, `Incident (Session):`. The owner (03.09.2026):
+       * the bracket should throw the place at the eye before anything is
+       * read. Not an outcome — an incident has one — so this is the one
+       * bracket that names a place. Absent → the project name, capitalised.
+       */
+      scope?: string;
       /** Which working copy this is about, when several of them look alike. */
       workdir?: string;
       /** One line of measurement: what the guard saw. */

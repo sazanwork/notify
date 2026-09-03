@@ -1080,7 +1080,10 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
   const findings = bullets(e.items, false);
 
   return join([
-    typeLine(iconFor(e), 'Incident', e.title, e.url),
+    // The bracket on an incident names WHERE it burns, not how it ended —
+    // it has one ending. `Incident (Vault):`, `Incident (Session):`; with no
+    // word from the sender, the project name stands in.
+    typeLine(iconFor(e), 'Incident', e.title, e.url, e.scope ?? cap(e.project)),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
     // The rows below came from the `session` card when it was folded in
     // (03.09.2026), in the order they had there: which copy, what the guard
@@ -1124,6 +1127,7 @@ const asIncident = (
 ): Extract<NotifyEvent, { type: 'incident' }> => ({
   ...e,
   type: 'incident',
+  scope: 'Session',
   title: sessionTitle(e.action)
 });
 
