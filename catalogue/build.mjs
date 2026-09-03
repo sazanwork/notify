@@ -92,15 +92,14 @@ const TYPES = [
     ]
   },
   {
-    tag: '#incident', what: 'Приложение или сейф сломались прямо сейчас',
-    who: 'vault.sh',
-    lines: [['одна строка на все случаи', { type: 'incident', ...P, title: 'x' }]]
-  },
-  {
-    tag: '#session', what: 'Рабочая сессия на маке жжёт лимит',
-    who: 'context-runaway-guard.sh',
-    lines: [['на месте действия — что именно случилось с сессией; зелёной пары у этого тега нет — сессия не выздоравливает, она заканчивается',
-             { type: 'session', ...P, action: 'burning the limit', status: 'fail' }]]
+    tag: '#incident', what: 'Что-то встало и ждёт тебя прямо сейчас: приложение, сейф или рабочая сессия на маке',
+    who: 'vault.sh, context-runaway-guard.sh',
+    lines: [
+      ['одно состояние на все случаи, поэтому скобки у слова нет — горит то, что стоит после двоеточия',
+       { type: 'incident', ...P, title: 'The vault needs repair' }],
+      ['сессия на маке — тот же тег: у неё нет имени, поэтому его собирают из того, что с ней случилось',
+       { type: 'session', ...P, action: 'burning the limit' }]
+    ]
   },
   {
     tag: '#issue', what: 'Задача на доске GitHub',

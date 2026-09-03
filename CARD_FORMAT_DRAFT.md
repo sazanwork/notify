@@ -6,9 +6,17 @@
 > `Check:` and `Log:`. GitHub Markdown bodies are translated to Telegram
 > markup; merged/closed cards keep the body's first section only. Person rows
 > are printed always, the owner included — the same set of rows on every card,
-> so an absent row means an empty field. A job says where it ran in the bracket
-> on its type word (`Job (Mac):`) and how long it took in a `Took:` row. A zero
-> that did not move is not printed. The tables below describe the 20.08 shape and are kept as history.
+> so an absent row means an empty field. A job says where it ran in a `Via:`
+> row and how long it took in a `Took:` row. A zero that did not move is not
+> printed.
+>
+> Amended again 03.09.2026 (v1.16.0): the bracket on the type word says HOW IT
+> ENDED, in one word, on every type that has more than one outcome — `Deploy
+> (OK)`, `CI (Fail)`, `Job (Off)`, `Job (Silent)`, `Issue (Assigned)`, `PR
+> (Merged)`. One slot, one meaning. `Incident` has a single state and carries
+> no bracket: what burns is the name after the colon. `Report` has no outcome
+> at all, so its bracket keeps the day. The `session` type is folded into
+> `incident` — still accepted from old senders, never printed as `#session`. The tables below describe the 20.08 shape and are kept as history.
 
 **Status: approved in Telegram and live in `render.ts` since 1.4.0.** Live-tested
 across ~15 rounds in the "Mac-config" Ops forum (chat_id `-1004442522004`,

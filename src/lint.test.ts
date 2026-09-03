@@ -20,8 +20,8 @@ test('lint: a card built by the package passes its own standard', () => {
 });
 
 test('lint: line 1 must be exactly three tags, and the third from the five words', () => {
-  assert.match(lintCard('#job #x\n✅ <b>Job:</b> X')[0], /exactly three tags/);
-  assert.match(lintCard('#job #x #broken\n✅ <b>Job:</b> X')[0], /vocabulary/);
+  assert.match(lintCard('#job #x\n✅ <b>Job (OK):</b> X')[0], /exactly three tags/);
+  assert.match(lintCard('#job #x #broken\n✅ <b>Job (OK):</b> X')[0], /vocabulary/);
 });
 
 test('lint: line 2 never holds the outcome, an invented word, or nothing', () => {
@@ -37,11 +37,11 @@ test('lint: a retired row is a fact already said somewhere else', () => {
 });
 
 test('lint: a link goes to a real address and is named by what it opens', () => {
-  const bad = lintCard('#job #x #ok\n✅ <b>Job:</b> <a href="not a url">X</a>');
+  const bad = lintCard('#job #x #ok\n✅ <b>Job (OK):</b> <a href="not a url">X</a>');
 
   assert.match(bad[0], /is not an address/);
   assert.match(
-    lintCard('#job #x #ok\n✅ <b>Job:</b> X\n<b>Run:</b> <a href="https://x/r">open</a>')[0],
+    lintCard('#job #x #ok\n✅ <b>Job (OK):</b> X\n<b>Run:</b> <a href="https://x/r">open</a>')[0],
     /name the thing it opens/
   );
 });
@@ -118,7 +118,7 @@ test('lint: an empty instance tag groups nothing', () => {
 
 test('lint: tags are lowercase [a-z0-9_], and a dated tag groups nothing (v2.1)', () => {
   assert.match(
-    lintCard('#job #аналитика #fail\n🔴 <b>Job:</b> X\n<b>Check:</b> <code>x</code>').join('\n'),
+    lintCard('#job #аналитика #fail\n🔴 <b>Job (Fail):</b> X\n<b>Check:</b> <code>x</code>').join('\n'),
     /outside \[a-z0-9_\]/
   );
   assert.match(
@@ -130,7 +130,7 @@ test('lint: tags are lowercase [a-z0-9_], and a dated tag groups nothing (v2.1)'
 test('lint: Cyrillic outside quoted content is a fault; quoted content is free (rule L)', () => {
   // System text in Russian — a fault.
   assert.match(
-    lintCard('#job #x #fail\n🔴 <b>Job:</b> X\n<b>Reason:</b> сеть упала\n<b>Check:</b> <code>x</code>').join('\n'),
+    lintCard('#job #x #fail\n🔴 <b>Job (Fail):</b> X\n<b>Reason:</b> сеть упала\n<b>Check:</b> <code>x</code>').join('\n'),
     /rule L/
   );
   // A commit body in a blockquote, an issue title on line 2, a Russian link
@@ -142,11 +142,11 @@ test('lint: Cyrillic outside quoted content is a fault; quoted content is free (
 });
 
 test('lint: the Check row is back in the vocabulary, Logs stays retired (v2.1)', () => {
-  const withCheck = '#job #x #fail\n🔴 <b>Job:</b> X\n<b>Check:</b> <code>config jobs --log x</code>';
+  const withCheck = '#job #x #fail\n🔴 <b>Job (Fail):</b> X\n<b>Check:</b> <code>config jobs --log x</code>';
 
   assert.deepEqual(lintCard(withCheck), []);
   assert.match(
-    lintCard('#job #x #fail\n🔴 <b>Job:</b> X\n<b>Logs:</b> <code>/x</code>\n<b>Check:</b> <code>x</code>').join('\n'),
+    lintCard('#job #x #fail\n🔴 <b>Job (Fail):</b> X\n<b>Logs:</b> <code>/x</code>\n<b>Check:</b> <code>x</code>').join('\n'),
     /"Logs:" is back/
   );
 });

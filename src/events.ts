@@ -355,22 +355,42 @@ export type NotifyEvent = Keyed &
       /** A local path to the logs (not a URL — renders monospaced, to copy, not to click). */
       logs?: string;
       url?: string;
+      /**
+       * The rest of this block arrived with the `session` type, which was
+       * folded into `incident` on 03.09.2026. Two types said one thing —
+       * something is stuck and waits for you — under the same 🚨, and the
+       * owner cut it to one. The fields are not session-only in meaning: a
+       * stuck deploy has a working directory too, and any alarm can carry a
+       * command that gets you out of it.
+       */
+      /** Which working copy this is about, when several of them look alike. */
+      workdir?: string;
+      /** One line of measurement: what the guard saw. */
+      reason?: string;
+      /**
+       * A long quotation of someone's own writing — the line he opened a
+       * session with. Quoted, never a field: a field would clip it to one
+       * short line, which is exactly how the first version of that card lost
+       * it.
+       */
+      opened?: string;
+      /** A command for him to run, monospaced so Telegram makes it copyable. */
+      command?: string;
+      /** WHAT that command does — see the note on `job.commandNote`. */
+      commandNote?: string;
     }
   /**
-   * A working session on this Mac is in trouble — not a job, not a workflow.
-   * It went out as `job` at first and read wrong: `#job` promises something
-   * scheduled that ran and failed, and the owner rightly asked what a burning
-   * session was doing under that heading.
-   *
-   * What makes it its own type rather than an `incident`: a session has an
-   * identity nothing else here has — an id, a working directory, and the line
-   * he typed to start it, which is the ONLY thing that tells two of his open
-   * sessions apart.
+   * DEPRECATED since 1.16.0: send an `incident`. The type is still ACCEPTED
+   * and renders as one — the runaway guard on this Mac
+   * (`context-runaway-notify.sh`) sends exactly this and must keep working —
+   * but `#session` is never printed again: the card comes out `#incident`.
+   * It was a separate type because a session has an id, a working directory
+   * and the line he typed to open it; `incident` carries all three now.
    */
   | {
       type: 'session';
       project: Project;
-      /** What happened, as the second line reads it: `Session: burning the limit`. */
+      /** What happened. Line 2 builds the incident's name out of it: `burning the limit` → `Claude session is burning the limit`. */
       action: string;
       /** The session's own id. Never printed as a field — he cannot type it or search it; it only reaches the card inside the `command`'s `rm`. */
       id?: string;
@@ -388,7 +408,11 @@ export type NotifyEvent = Keyed &
       command?: string;
       /** WHAT that command does — see the note on `job.commandNote`. */
       commandNote?: string;
-      /** `fail` red, `ok` green — a session that recovered is not an alarm. */
+      /**
+       * Kept for old senders and no longer read: an incident is an alarm by
+       * definition, and no sender ever passed `ok` here — the runaway guard
+       * only ever sends the bad news.
+       */
       status?: 'fail' | 'ok';
     }
   /**
@@ -480,8 +504,9 @@ export const iconFor = (e: NotifyEvent): string => {
       // `undefined` at the head of line 2. Not knowing is itself a state the
       // package already has a word and a sound for.
       return JOB_ICON[e.status] ?? ICON.unknown;
+    // A session IS an incident since 03.09.2026 — same icon, same sound, same
+    // tag. It is listed separately only because the type name still exists.
     case 'session':
-      return e.status === 'ok' ? ICON.ok : ICON.alarm;
     case 'incident':
       return ICON.alarm;
     case 'heartbeat_miss':

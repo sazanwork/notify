@@ -16,6 +16,7 @@
  *   notify ci       --project arvent  --status fail --branch master --actor saz_sam
  *   notify pr       --project arvent  --action opened --number 142 --title "..."
  *   notify incident --project arvent  --title "Redis is unreachable" --detail "$ERR"
+ *   notify session  --project mac-config --action "burning the limit"   # DEPRECATED alias of incident
  *   notify file     --project arvent  --title "Full dialogues" --path ./out.txt [--filename name.txt]
  *   notify <type> [--key stable-key]   # the task's key on the card's last line
  *   notify <type> --json < payload.json   # the whole event object on stdin
@@ -24,7 +25,7 @@
 import { readFileSync } from 'node:fs';
 import type { NotifyEvent, Project } from './events.ts';
 import { KNOWN_FLAGS } from './cli-flags.ts';
-import { render } from './render.ts';
+import { render, sessionTitle } from './render.ts';
 import { lintCard } from './lint.ts';
 import { notify } from './send.ts';
 import { ROUTES } from './routes.ts';
@@ -418,30 +419,30 @@ if (flags.has('json')) {
         url: one('url')
       };
       break;
+    // DEPRECATED since 1.16.0. `notify session` is an alias of `notify
+    // incident`: the two cards said one thing — something is stuck and waits
+    // for you — under two names and the same 🚨. The subcommand still works
+    // because the runaway guard on this Mac calls it, and it builds an
+    // incident whose title names the session: `Claude session is burning the
+    // limit`. `--status` is read no more; an incident has one state.
     case 'session':
-      event = {
-        type: 'session',
-        project: project(),
-        action: one('action') ?? 'in trouble',
-        id: one('id'),
-        workdir: one('workdir'),
-        reason: one('reason'),
-        opened: one('opened'),
-        command: one('command'),
-        commandNote: one('command-note'),
-        // Only two states here, so `disabled` must not leak in from jobStatus.
-        status: jobStatus() === 'ok' ? 'ok' : 'fail'
-      };
-      break;
     case 'incident':
       event = {
         type: 'incident',
         project: project(),
-        title: one('title') ?? '(no title)',
+        title:
+          command === 'session'
+            ? sessionTitle(one('action') ?? 'in trouble')
+            : (one('title') ?? '(no title)'),
         detail: one('detail'),
         items: items(),
         logs: one('logs'),
-        url: one('url')
+        url: one('url'),
+        workdir: one('workdir'),
+        reason: one('reason'),
+        opened: one('opened'),
+        command: one('command'),
+        commandNote: one('command-note')
       };
       break;
     case 'heartbeat_miss':

@@ -88,7 +88,7 @@ test('--dry-run prints the card to stdout and sends nothing', () => {
     '--status=fail', '--note=sops missing', '--dry-run');
 
   assert.equal(code, 0);
-  assert.ok(stdout.startsWith('#job #self_check #fail\n🔴 <b>Job:</b> Self-check'), stdout);
+  assert.ok(stdout.startsWith('#job #self_check #fail\n🔴 <b>Job (Fail):</b> Self-check'), stdout);
   assert.doesNotMatch(stderr, /sent|skipped|failed/, 'a dry run must not give a verdict');
 });
 
@@ -99,8 +99,26 @@ test('--via and --took reach the job card', () => {
     '--status=fail', '--via=mac', '--took=4m 12s', '--note=symlink missing', '--dry-run');
 
   assert.equal(code, 0);
-  assert.ok(stdout.includes('<b>Job (Mac):</b> config sync'), stdout);
+  assert.ok(stdout.includes('<b>Job (Fail):</b> config sync'), stdout);
+  assert.ok(stdout.includes('<b>Via:</b> Mac'), stdout);
   assert.ok(stdout.includes('<b>Took:</b> 4m 12s'), stdout);
+});
+
+// `notify session` is an alias of `notify incident` since 03.09.2026. The
+// runaway guard on this Mac calls it and must keep working; what it sends now
+// comes out as an incident, tag included.
+test('notify session is an alias of notify incident', () => {
+  const { code, stdout } = runCli('session', '--project=mac-config', '--key=context-runaway',
+    '--action=burning the limit', '--workdir=arvent', '--reason=context 871596',
+    '--opened=fix the login form', '--command=rm /tmp/x.latch',
+    '--command-note=unlock it', '--dry-run');
+
+  assert.equal(code, 0);
+  assert.ok(stdout.includes('#incident #context_runaway #fail'), stdout);
+  assert.ok(stdout.includes('🚨 <b>Incident:</b> Claude session is burning the limit'), stdout);
+  assert.ok(!stdout.includes('#session'), 'the retired #session tag came back');
+  assert.ok(stdout.includes('<b>Project:</b> arvent'), stdout);
+  assert.ok(stdout.includes('<code>rm /tmp/x.latch</code>'), stdout);
 });
 
 test('a flag with no value is an explicit error, not href="true"', () => {

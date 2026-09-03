@@ -169,10 +169,10 @@ export const CARDS = [
     when: 'сессия переписывает кэш вместо чтения — сторож её останавливает',
     live: ['new', 'новый вид карточки'],
     sender: 'context-runaway-guard.sh → context-runaway-notify.sh',
-    expectTag: '#session #context_runaway #fail',
+    expectTag: '#incident #context_runaway #fail',
     event: {
       type: 'session', project: 'mac-config', key: 'context-runaway',
-      action: 'burning the limit', status: 'fail',
+      action: 'burning the limit',
       id: '8f03d18c-b7d6-438c-bb40-6756c3e1e835',
       workdir: 'mac-config',
       reason: 'context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
@@ -180,7 +180,7 @@ export const CARDS = [
       command: 'rm /var/folders/f1/vkkb__f93dv44kmfstl9pgf40000gn/T/claude-ctxguard/8f03d18c.latch',
       commandNote: 'let this session keep working — it stays stopped until you do'
     },
-    note: "У сессии имени нет, поэтому вторая строка говорит, что с ней случилось. Твоя строка запуска идёт под заголовком блока, как список у любой другой карточки; 36-значный id остался только внутри команды внизу."
+    note: "Отдельного вида «сессия» больше нет — это инцидент: обе карточки говорили одно и то же под двумя именами. Имени у сессии нет, поэтому его собирают из того, что с ней случилось; 36-значный id остался только внутри команды внизу."
   },
   {
     id: 'job-import', title: 'Импорт игр — дневной итог',

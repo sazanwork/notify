@@ -39,8 +39,11 @@ const OUTCOMES = new Set(['ok', 'fail', 'off', 'unknown', 'info']);
  * Labels the template retired. Each one used to say what a neighbour said.
  * `Check` LEFT this list in v2.1: rule S brought it back as the standard
  * verification-command row. `Logs` stays retired — the new spelling is `Log`.
+ * `Via` left it on 03.09.2026: the bracket on the type word now says how the
+ * job ENDED, so where it ran has nowhere else to go and is a row again — and
+ * it never duplicated a neighbour, which is what this list is for.
  */
-const RETIRED = ['Title', 'Number', 'State', 'Via', 'Logs', 'Task', 'Id', 'Period'];
+const RETIRED = ['Title', 'Number', 'State', 'Logs', 'Task', 'Id', 'Period'];
 
 /**
  * Reads a finished card and returns what is wrong with it, in the owner's

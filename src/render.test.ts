@@ -95,7 +95,6 @@ const VOCABULARY: Array<[NotifyEvent, string]> = [
   [{ type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 't' }, ICON.taken],
   [{ type: 'issue', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.ok],
   [{ type: 'session', project: 'mac-config', action: 'burning the limit' }, ICON.alarm],
-  [{ type: 'session', project: 'mac-config', action: 'back to normal', status: 'ok' }, ICON.ok],
   [{ type: 'incident', project: 'arvent', title: 't' }, ICON.alarm],
   [{ type: 'report', project: 'arvent', title: 't', lines: [] }, ICON.info],
   [{ type: 'heartbeat_miss', project: 'arvent', job: 'x' }, ICON.unknown],
@@ -194,10 +193,10 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
   // Line 2 is `Issue #322 · title`: the number first, the title after a middle
   // dot (03.09.2026). No url on this one, so the number is plain text — it
   // stays rather than vanishing from the card altogether.
-  assert.equal(issue.split('\n')[1], '🆕 <b>Issue</b> #322 · Коммиты не следуют конвенции');
+  assert.equal(issue.split('\n')[1], '🆕 <b>Issue (Opened)</b> #322 · Коммиты не следуют конвенции');
   assert.ok(!issue.includes('<b>Number:</b>'), 'the Number row came back');
   assert.ok(!issue.includes('<b>Title:</b>'), 'the Title row came back');
-  assert.equal((issue.match(/<b>Issue<\/b>/g) ?? []).length, 1, 'the type label must not repeat');
+  assert.equal((issue.match(/<b>Issue \(Opened\)<\/b>/g) ?? []).length, 1, 'the type label must not repeat');
   assert.ok(issue.includes('<blockquote>разбор 150 коммитов</blockquote>'));
 });
 
@@ -387,7 +386,7 @@ test('issue/pr: the number is the link on line 2, first, and never disappears', 
     title: 'Waiting list', assignee: 'Ilja', url: 'https://x/i/128'
   });
 
-  assert.equal(linked.split('\n')[1], '🙋 <b>Issue</b> <a href="https://x/i/128">#128</a> · Waiting list');
+  assert.equal(linked.split('\n')[1], '🙋 <b>Issue (Assigned)</b> <a href="https://x/i/128">#128</a> · Waiting list');
   assert.ok(!linked.includes('<b>Source:</b>'), 'the Source row is gone');
   assert.ok(!linked.includes('issue #128'), 'the type word came back into the link');
   // Exactly once as `#128`: on line 2. The instance tag is `#i128`, a
@@ -400,7 +399,7 @@ test('issue/pr: the number is the link on line 2, first, and never disappears', 
     title: 'Waiting list', assignee: 'Ilja'
   });
 
-  assert.equal(bare.split('\n')[1], '🙋 <b>Issue</b> #128 · Waiting list', 'no url — the number stays, plain');
+  assert.equal(bare.split('\n')[1], '🙋 <b>Issue (Assigned)</b> #128 · Waiting list', 'no url — the number stays, plain');
   assert.ok(!bare.includes('href="https://x/i/128"'), 'a link to the issue appeared out of nowhere');
 
   // A pull request is named the same way. No title: the line ends at the number.
@@ -408,9 +407,9 @@ test('issue/pr: the number is the link on line 2, first, and never disappears', 
     type: 'pr', project: 'playhub', action: 'opened', number: 118,
     title: 'Category hints', url: 'https://x/p/118'
   });
-  assert.equal(pr.split('\n')[1], '🆕 <b>PR</b> <a href="https://x/p/118">#118</a> · Category hints');
+  assert.equal(pr.split('\n')[1], '🆕 <b>PR (Opened)</b> <a href="https://x/p/118">#118</a> · Category hints');
   const untitled = render({ type: 'pr', project: 'playhub', action: 'opened', number: 118, title: '', url: 'https://x/p/118' });
-  assert.equal(untitled.split('\n')[1], '🆕 <b>PR</b> <a href="https://x/p/118">#118</a>');
+  assert.equal(untitled.split('\n')[1], '🆕 <b>PR (Opened)</b> <a href="https://x/p/118">#118</a>');
 });
 
 test('deploy: with no workflow run, the commit hash is the only link, and it is on the Commit row', () => {
@@ -700,16 +699,18 @@ test('card/job fail: task name is on the card, not only in the tag', () => {
 
   assert.equal(out, [
     '#job #vps_backups #fail',
-    '🔴 <b>Job:</b> Backups from the server',
+    '🔴 <b>Job (Fail):</b> Backups from the server',
     '<b>Reason:</b> no fresh copy arrived from the server'
   ].join('\n'));
 });
 
 // A job used to say only its name. The Mac's launchd, a VPS cron, GitHub
 // Actions and the silence watchdog all arrived under one bare `#job` tag and
-// only memory told them apart. `via` puts the place in the bracket on the type
-// word — the same slot the outcome takes on Deploy and CI (03.09.2026).
-test('card/job: the bracket on the type word says where it ran, and how long it took gets a row', () => {
+// only memory told them apart. `via` says the place, in its own row directly
+// under the type line — the bracket on the type word belongs to the OUTCOME on
+// every type (the owner's decision, 03.09.2026: one slot, one meaning), and a
+// job's outcome now reads exactly the way a deploy's does.
+test('card/job: the bracket says how it ended, and a Via row says where it ran', () => {
   const mac = render({
     type: 'job', project: 'mac-config', key: 'config-sync',
     job: 'config sync', status: 'fail', via: 'mac',
@@ -718,12 +719,30 @@ test('card/job: the bracket on the type word says where it ran, and how long it 
 
   assert.equal(mac, [
     '#job #config_sync #fail',
-    '🔴 <b>Job (Mac):</b> config sync',
+    '🔴 <b>Job (Fail):</b> config sync',
+    '<b>Via:</b> Mac',
     '<b>Reason:</b> symlink missing'
   ].join('\n'));
 
-  // `via` and `aside` share the one bracket: both are part of the NAME of the
-  // event, and neither earns a row of its own.
+  // `Via` stands FIRST among the facts, right under the type line: it
+  // qualifies every row below it.
+  assert.equal(mac.split('\n')[2], '<b>Via:</b> Mac');
+
+  // All four job outcomes get their word, and the icon and the word agree.
+  const outcomes: Array<[NotifyEvent['type'] extends never ? never : 'ok' | 'fail' | 'disabled' | 'silent', string]> = [
+    ['ok', '✅ <b>Job (OK):</b> J'],
+    ['fail', '🔴 <b>Job (Fail):</b> J'],
+    ['disabled', '🚫 <b>Job (Off):</b> J'],
+    ['silent', '❓ <b>Job (Silent):</b> J']
+  ];
+  for (const [status, line] of outcomes) {
+    const out = render({ type: 'job', project: 'mac-config', key: 'k', job: 'J', status });
+    assert.equal(out.split('\n')[1], line, `status ${status}`);
+  }
+
+  // `aside` lost its bracket with the rest. It is a sentence about why the
+  // card exists, which is the Reason row's job — and only when the sender left
+  // that row empty.
   const vps = render({
     type: 'job', project: 'playhub', key: 'daily-import',
     job: 'Game import', status: 'ok', via: 'vps', aside: 'reporting again',
@@ -732,24 +751,35 @@ test('card/job: the bracket on the type word says where it ran, and how long it 
 
   assert.equal(vps, [
     '#job #daily_import #ok',
-    '✅ <b>Job (VPS, reporting again):</b> Game import',
+    '✅ <b>Job (OK):</b> Game import',
+    '<b>Via:</b> VPS',
+    '<b>Reason:</b> reporting again',
     '<b>Took:</b> 4m 12s'
   ].join('\n'));
+
+  // A real reason wins: `aside` never doubles it.
+  const both = render({
+    type: 'job', project: 'playhub', key: 'daily-import',
+    job: 'Game import', status: 'fail', aside: 'reporting again', note: 'the feed was empty'
+  });
+  assert.ok(both.includes('<b>Reason:</b> the feed was empty'), both);
+  assert.ok(!both.includes('reporting again'), 'aside must not double a real reason');
 
   // A word nobody foresaw still prints, with its first letter raised.
   const actions = render({
     type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok', via: 'actions'
   });
-  assert.ok(actions.includes('<b>Job (Actions):</b> J'), actions);
+  assert.ok(actions.includes('<b>Via:</b> Actions'), actions);
 
   const other = render({
     type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok', via: 'hetzner'
   });
-  assert.ok(other.includes('<b>Job (Hetzner):</b> J'), other);
+  assert.ok(other.includes('<b>Via:</b> Hetzner'), other);
 
-  // Neither field present: the card is exactly what it was before.
+  // Neither field present: no row, and the bracket still says how it ended.
   const bare = render({ type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok' });
-  assert.equal(bare, ['#job #k #ok', '✅ <b>Job:</b> J'].join('\n'));
+  assert.equal(bare, ['#job #k #ok', '✅ <b>Job (OK):</b> J'].join('\n'));
+  assert.ok(!bare.includes('<b>Via:</b>'), 'no via, no row');
   assert.ok(!bare.includes('Took'), 'a job that does not measure itself says nothing about time');
 });
 
@@ -763,7 +793,7 @@ test('card/job with items: no "Disabled workflows" heading unless disabled', () 
 
   assert.equal(out, [
     '#job #daily_import #ok',
-    '✅ <b>Job:</b> Game import',
+    '✅ <b>Job (OK):</b> Game import',
     '<b>Published:</b> 9',
     '',
     '• <a href="https://x/1">Cut the Rope</a>'
@@ -782,7 +812,7 @@ test('card/job disabled: heading present, list numbered', () => {
     // `#off`, not `#fail`: a watchdog that switched something off on purpose
     // is not a broken job, and the owner must be able to filter the two apart.
     '#job #actions_minutes_guard #off',
-    '🚫 <b>Job:</b> GitHub Actions minutes watchdog',
+    '🚫 <b>Job (Off):</b> GitHub Actions minutes watchdog',
     '<b>Reason:</b> free minutes almost gone',
     '',
     '<i><u>Disabled workflows</u></i>',
@@ -930,7 +960,7 @@ test('card/issue: body arrives — it never did before', () => {
 
   assert.equal(out, [
     '#issue #i322 #info',
-    '🆕 <b>Issue</b> <a href="https://x/i/322">#322</a> · Commit convention for all repos',
+    '🆕 <b>Issue (Opened)</b> <a href="https://x/i/322">#322</a> · Commit convention for all repos',
     '<blockquote>Тело задачи с GitHub, как его написал человек.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
@@ -950,7 +980,7 @@ test('card/issue: assigned carries the body too, quoted', () => {
 
   assert.equal(out, [
     '#issue #i312 #info',
-    '🙋 <b>Issue</b> <a href="https://x/i/312">#312</a> · Web booking page',
+    '🙋 <b>Issue (Assigned)</b> <a href="https://x/i/312">#312</a> · Web booking page',
     '<blockquote>A description he needs in front of him, not one link away.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/mikitasazan">mikitasazan</a>',
@@ -1001,7 +1031,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
 
   assert.equal(out, [
     '#pr #p294 #info',
-    '🆕 <b>PR</b> <a href="https://x/p/294">#294</a> · Onboarding: question drafts',
+    '🆕 <b>PR (Opened)</b> <a href="https://x/p/294">#294</a> · Onboarding: question drafts',
     '<blockquote>PR description here.</blockquote>',
     '',
     '<b>Author:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'
@@ -1013,7 +1043,7 @@ test('card/pr: body arrives, and a multi-line title is NOT cut', () => {
     type: 'pr', project: 'playhub', action: 'opened', number: 1,
     title: 'first line\nsecond line'
   });
-  assert.ok(twoLine.includes('<b>PR</b> #1 · first line…'), 'no url, so the number stays on line 2');
+  assert.ok(twoLine.includes('<b>PR (Opened)</b> #1 · first line…'), 'no url, so the number stays on line 2');
   assert.ok(!twoLine.includes('second line'), 'a title is cut at its first line');
 });
 
@@ -1030,7 +1060,7 @@ test('card/pr: a review verdict quotes the reviewer\'s own comment, not the PR d
   // the only thing that says so.
   assert.equal(requested, [
     '#pr #p118 #info',
-    '📝 <b>PR</b> <a href="https://x/p/118">#118</a> · Onboarding: question drafts',
+    '📝 <b>PR (Changes)</b> <a href="https://x/p/118">#118</a> · Onboarding: question drafts',
     '<b>Review:</b>',
     '<blockquote>Please rename this variable, it shadows the outer one.</blockquote>',
     '',
@@ -1156,7 +1186,7 @@ test('card/heartbeat miss', () => {
 
   assert.equal(out, [
     '#heartbeat #yandex_game_import #unknown',
-    '❓ <b>Heartbeat:</b> Yandex game import',
+    '❓ <b>Heartbeat (Silent):</b> Yandex game import',
     '',
     '<i><u>Schedule</u></i>',
     '<b>Expected:</b> at least once every 26h',
@@ -1171,7 +1201,7 @@ test('card with a file: the caption is clamped at 1024, not 4000', () => {
   });
 
   assert.ok(out.length <= 1024, `caption ${out.length} chars — Telegram cuts at 1024`);
-  assert.ok(out.startsWith('#job #arvent_eval #ok\n✅ <b>Job:</b> Eval: bot answer quality'),
+  assert.ok(out.startsWith('#job #arvent_eval #ok\n✅ <b>Job (OK):</b> Eval: bot answer quality'),
     'a card carrying a file is still the card of its own type');
 });
 
@@ -1326,7 +1356,7 @@ test('link/job: the task name is the link, not a trailing Workflow: open', () =>
   });
 
   assert.ok(
-    out.includes('<b>Job:</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">Yandex game import</a>'),
+    out.includes('<b>Job (Fail):</b> <a href="https://github.com/sazanwork/playhub/actions/runs/42">Yandex game import</a>'),
     'the task name is the link'
   );
   assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
@@ -1340,7 +1370,7 @@ test('link/job: the workflow row is gone — it was line 2 written twice', () =>
   });
 
   // `workflowUrl` beats `url` on the name.
-  assert.ok(out.includes('<b>Job:</b> <a href="https://x/wf">Game validator</a>'), 'the name must link to workflowUrl');
+  assert.ok(out.includes('<b>Job (OK):</b> <a href="https://x/wf">Game validator</a>'), 'the name must link to workflowUrl');
   assert.ok(!out.includes('<b>Workflow:</b>'), 'the duplicate destination came back');
 });
 
@@ -1395,8 +1425,8 @@ test('card/session: identifier first, his own words quoted, command copyable', (
   });
 
   assert.equal(out, [
-    '#session #burning_the_limit #fail',
-    '🚨 <b>Session:</b> burning the limit',
+    '#incident #burning_the_limit #fail',
+    '🚨 <b>Incident:</b> Claude session is burning the limit',
     '<b>Project:</b> mac-config',
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     '',
@@ -1424,10 +1454,48 @@ test('card/session: a red session rings, and its tag does not change every sessi
   const one = render({ type: 'session', project: 'mac-config', action: 'burning the limit', id: 'aaa' });
   const two = render({ type: 'session', project: 'mac-config', action: 'burning the limit', id: 'bbb' });
 
-  assert.ok(one.startsWith('#session #burning_the_limit'), 'wrong tag');
+  assert.ok(one.startsWith('#incident #burning_the_limit'), 'wrong tag');
+  assert.ok(!one.includes('#session'), 'the retired #session tag came back');
   assert.equal(one.split('\n')[0], two.split('\n')[0], 'the tag changed with the session id');
+  // A session is an incident: one state, one sound. `status: 'ok'` is still
+  // ACCEPTED from the old sender and is simply not read any more.
   assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'fail' }), 'error');
-  assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'ok' }), 'info');
+  assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'ok' }), 'error');
+});
+
+// The `session` type was folded into `incident` on 03.09.2026: two cards said
+// one thing — something is stuck and waits for you — under two names and the
+// same 🚨. The type is still ACCEPTED, because the runaway guard on this Mac
+// (`context-runaway-notify.sh`) sends exactly it; it renders as an incident,
+// and `#session` is never printed again.
+test('card/session: the folded type renders as an incident, tag and all', () => {
+  const folded = render({
+    type: 'session', project: 'mac-config', key: 'context-runaway',
+    action: 'burning the limit'
+  });
+
+  assert.equal(folded.split('\n')[0], '#incident #context_runaway #fail');
+  assert.equal(folded.split('\n')[1], '🚨 <b>Incident:</b> Claude session is burning the limit');
+  // No bracket on an incident: it has exactly one state, so the word would
+  // say nothing. What burns is the NAME after the colon.
+  assert.ok(!folded.includes('Incident ('), 'a single-state type must not carry a bracket');
+
+  // An incident sent directly is the same card, and it carries the rows the
+  // session card used to own.
+  const direct = render({
+    type: 'incident', project: 'mac-config', key: 'context-runaway',
+    title: 'Claude session is burning the limit',
+    workdir: 'arvent', reason: 'context 871596 against 500000',
+    opened: 'fix the login form', command: 'rm /tmp/x.latch', commandNote: 'unlock it'
+  });
+
+  assert.ok(direct.includes('<b>Project:</b> arvent'), direct);
+  assert.ok(direct.includes('<b>Opened with:</b>'), direct);
+  assert.ok(direct.includes('<code>rm /tmp/x.latch</code>'), direct);
+
+  // With no action at all the card still names what it is about.
+  const bare = render({ type: 'session', project: 'mac-config', action: '' });
+  assert.equal(bare.split('\n')[1], '🚨 <b>Incident:</b> Claude session is in trouble');
 });
 
 test('card/job: facts get their own lines instead of one run-on Reason', () => {
@@ -1440,7 +1508,7 @@ test('card/job: facts get their own lines instead of one run-on Reason', () => {
 
   assert.equal(out, [
     '#job #server_backups #fail',
-    '🔴 <b>Job:</b> Server backups',
+    '🔴 <b>Job (Fail):</b> Server backups',
     '<b>Reason:</b> re-downloading from the server did not help, there is nothing to roll back to',
     '<b>Fresh copies:</b> 10',
     '<b>Broken:</b> 1',
@@ -1492,7 +1560,7 @@ test('card/job silent: one task, one tag, and the pair closes', () => {
   );
   assert.equal(gone.split('\n')[0].split(' ')[2], '#unknown');
   assert.equal(back.split('\n')[0].split(' ')[2], '#ok');
-  assert.ok(gone.includes('❓ <b>Job:</b> Yandex game import'), 'silence has lost its own icon');
+  assert.ok(gone.includes('❓ <b>Job (Silent):</b> Yandex game import'), 'silence has lost its own icon');
   // No `State:` row anywhere. It repeated in words what the icon and the third
   // tag both already say.
   assert.ok(!gone.includes('<b>State:</b>'), 'the State row came back');

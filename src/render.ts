@@ -787,16 +787,28 @@ const viaName = (via: string): string =>
   VIA_NAMES[via.trim().toLowerCase()] ?? via.trim().charAt(0).toUpperCase() + via.trim().slice(1);
 
 /**
- * The bracket on the type word: where it ran, then the qualifier the name
- * needs — `Job (Mac, reporting again):`. Both are part of the NAME of the
- * event, so both ride in the one bracket rather than taking rows.
+ * The bracket on the type word says HOW IT ENDED, in one word — the owner's
+ * decision of 03.09.2026: one slot, one meaning, on every type. It used to
+ * mean three different things at once — the outcome on deploy and CI, the day
+ * on a report, and (for one afternoon) the place of the run on a job — so the
+ * bracket could not be read without first knowing which card you were looking
+ * at. A job's outcome now reads the same way a deploy's does.
  */
-const jobAside = (via: string | undefined, aside: string | undefined): string | undefined => {
-  const parts = [via?.trim() ? viaName(via) : null, aside?.trim() ? aside.trim() : null].filter(
-    (p): p is string => p !== null
-  );
-  return parts.length > 0 ? parts.join(', ') : undefined;
+const JOB_OUTCOME: Record<Extract<NotifyEvent, { type: 'job' }>['status'], string> = {
+  ok: 'OK',
+  fail: 'Fail',
+  disabled: 'Off',
+  silent: 'Silent'
 };
+
+/**
+ * Where the job ran, as its own row directly under the type line. It spent one
+ * afternoon inside the bracket on the type word, which cost the bracket its
+ * single meaning; `Via:` is a fact ABOUT the run, and facts about the subject
+ * are what the rows under line 2 are for.
+ */
+const viaRow = (via: string | undefined): string | null =>
+  via?.trim() ? field('Via', viaName(via)) : null;
 
 const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
   const icon = iconFor(e);
@@ -818,8 +830,17 @@ const renderJob: Renderer<Extract<NotifyEvent, { type: 'job' }>> = (e) => {
     // The URL is on the name (03.09.2026). It went down to a `Source:` row in
     // v2.1 so the pointer could be SEEN — and came back, because the row's
     // only text was `workflow run`, the same two words on every card.
-    typeLine(icon, 'Job', e.job, sourceUrl(e), jobAside(e.via, e.aside)),
-    reason('Reason', e.note),
+    typeLine(icon, 'Job', e.job, sourceUrl(e), JOB_OUTCOME[e.status] ?? cap(e.status)),
+    // Where it ran comes first among the facts: it qualifies everything below
+    // it — the same reason, the same duration mean different things on the Mac
+    // and on the server.
+    viaRow(e.via),
+    // `aside` no longer has a bracket to ride in. It was always a sentence
+    // about WHY this card exists at all («reporting again»), which is what the
+    // Reason row says; it fills that row only when the sender left it empty,
+    // and is dropped rather than duplicating a real reason. The field stays in
+    // the event type — the senders that still pass it must not start failing.
+    reason('Reason', e.note ?? e.aside),
     // How long the run took, in the sender's own words. It sits under the
     // reason and above the timetable: the reason says what happened, this
     // says what it cost, and only then comes when it is due again.
@@ -948,13 +969,40 @@ const numberedLine = (
   type: string,
   number: number,
   title: string | undefined,
-  url: string | undefined
+  url: string | undefined,
+  outcome?: string
 ): string => {
   const id = url ? `<a href="${esc(firstLine(url))}">#${number}</a>` : `#${number}`;
   const name = title?.trim() ? ` · ${esc(firstLine(title.trim()))}` : '';
+  // The bracket goes on the TYPE WORD, before the number — the same slot it
+  // takes on `Deploy (OK):`, so one glance finds the outcome on any card.
+  const label = outcome ? `${type} (${outcome})` : type;
 
-  return `${icon} <b>${esc(type)}</b> ${id}${name}`;
+  return `${icon} <b>${esc(label)}</b> ${id}${name}`;
 };
+
+/**
+ * How a pull request or an issue ended, in one word. An action nobody
+ * foresaw — a new GitHub verb, or a word from an untyped `--json` payload —
+ * gets its own name capitalised rather than being dropped: a bracket that is
+ * sometimes absent is a bracket that cannot be relied on.
+ */
+const PR_OUTCOME: Record<string, string> = {
+  opened: 'Opened',
+  approved: 'Approved',
+  changes_requested: 'Changes',
+  merged: 'Merged',
+  closed: 'Closed'
+};
+
+const ISSUE_OUTCOME: Record<string, string> = {
+  opened: 'Opened',
+  assigned: 'Assigned',
+  closed: 'Closed'
+};
+
+const outcomeWord = (table: Record<string, string>, action: string): string =>
+  table[action] ?? cap(String(action ?? '').trim() || 'Info');
 
 // The people come BEFORE the text, and the text comes only when it is the
 // news. An `assigned` card carries one new fact — who took it — and it used to
@@ -996,7 +1044,7 @@ const prBody = (action: string, body: string | undefined): string | null => {
 // does the assignee cut apart what should be inseparable?"
 const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
   join([
-    numberedLine(iconFor(e), 'PR', e.number, e.title, e.url),
+    numberedLine(iconFor(e), 'PR', e.number, e.title, e.url, outcomeWord(PR_OUTCOME, e.action)),
     prBody(e.action, e.body),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
@@ -1013,7 +1061,7 @@ const renderPr: Renderer<Extract<NotifyEvent, { type: 'pr' }>> = (e) =>
 // took it needs the whole brief); the first section on closed — see prBody.
 const renderIssue: Renderer<Extract<NotifyEvent, { type: 'issue' }>> = (e) =>
   join([
-    numberedLine(iconFor(e), 'Issue', e.number, e.title, e.url),
+    numberedLine(iconFor(e), 'Issue', e.number, e.title, e.url, outcomeWord(ISSUE_OUTCOME, e.action)),
     markdownQuote(e.body, e.action !== 'closed'),
     e.body ? '' : null,
     fieldPerson('Author', e.author),
@@ -1034,35 +1082,53 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
   return join([
     typeLine(iconFor(e), 'Incident', e.title, e.url),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
-    field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
-    findings.length > 0 ? '' : null,
-    ...findings
-    // `Log:` moved to the pointer block `render` appends — see renderJob.
-  ]);
-};
-
-// A session in trouble. Same law as every other card: identifier first, then
-// the facts as fields, then his own words as a quote — never as a field, which
-// keeps one line and clipped the name of the very session the card is about.
-//
-// A session has no name, so line 2 says what happened to it. The 36-character
-// id is not printed: he cannot type it, cannot search it and cannot act on it.
-// It is still in the card — inside the `rm` command at the bottom, which is the
-// one place it is of any use.
-const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =>
-  join([
-    typeLine(iconFor(e), 'Session', e.action),
-    // No blank line under the type line: a blank means a new block, and here it
-    // opened a block that had no heading. Facts about the session touch the
-    // line that names it, the way they do on every job card.
+    // The rows below came from the `session` card when it was folded in
+    // (03.09.2026), in the order they had there: which copy, what the guard
+    // measured, then his own opening line as a quote, then the way out.
     field('Project', e.workdir),
     reason('Reason', e.reason),
     field('Still red', e.stillRed ? `day ${e.stillRed}` : null),
+    findings.length > 0 ? '' : null,
+    ...findings,
     e.opened ? '' : null,
     quoted('Opened with', e.opened),
     e.command ? '' : null,
     ...fieldRun(e.command, e.commandNote)
+    // `Log:` moved to the pointer block `render` appends — see renderJob.
   ]);
+};
+
+/**
+ * A session has no name of its own, so the incident's title is built out of
+ * what happened to it: `burning the limit` → `Claude session is burning the
+ * limit`. That is the whole of what the separate `session` card ever said
+ * differently — every other row it had is an incident row now.
+ *
+ * The 36-character id is still not printed: he cannot type it, cannot search
+ * it and cannot act on it. It reaches the card only inside the `rm` command at
+ * the bottom, which is the one place it is of any use.
+ */
+export const sessionTitle = (action: string | undefined): string => {
+  const what = action?.trim();
+
+  return what ? `Claude session is ${what}` : 'Claude session is in trouble';
+};
+
+/**
+ * The folded `session` type (03.09.2026): accepted, never rendered as itself.
+ * It is turned into the incident it always was and handed to the incident
+ * renderer, so there is ONE card shape and no second copy to keep in step.
+ */
+const asIncident = (
+  e: Extract<NotifyEvent, { type: 'session' }>
+): Extract<NotifyEvent, { type: 'incident' }> => ({
+  ...e,
+  type: 'incident',
+  title: sessionTitle(e.action)
+});
+
+const renderSession: Renderer<Extract<NotifyEvent, { type: 'session' }>> = (e) =>
+  renderIncident(asIncident(e));
 
 const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss' }>> = (e) => {
   const icon = iconFor(e);
@@ -1076,7 +1142,7 @@ const renderHeartbeatMiss: Renderer<Extract<NotifyEvent, { type: 'heartbeat_miss
     // No bracket saying `ok` or `miss`: the icon says it, the third tag says
     // it, and `miss` is not one of the five words the outcome is allowed to
     // be. The bracket is for what finishes the NAME, never for a verdict.
-    typeLine(icon, 'Heartbeat', e.job),
+    typeLine(icon, 'Heartbeat', e.job, undefined, e.recovered ? 'OK' : 'Silent'),
     field('Reason', e.note),
     ...schedule(e.expected, e.lastSeen, e.recovered ? 'Last run' : 'Last seen')
   ]);
@@ -1120,7 +1186,8 @@ const TYPE_TAG: Record<NotifyEvent['type'], string> = {
   pr: 'pr',
   issue: 'issue',
   incident: 'incident',
-  session: 'session',
+  // Folded into incident on 03.09.2026 — `#session` is never printed again.
+  session: 'incident',
   heartbeat_miss: 'heartbeat'
 };
 
