@@ -14,7 +14,7 @@
 // `vault` is not a product, it is infrastructure: a secrets safe. It needs a
 // forum for the same reason projects do: a robot needs somewhere to write.
 // There are no people there.
-export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools';
+export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'playgust';
 
 /**
  * A stable machine key for the task — the instance tag on the FIRST line of

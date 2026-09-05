@@ -3,8 +3,13 @@
  * touches: add a row to `ROUTES` — no new bot, no new secret, no edits in
  * the projects themselves.
  *
- * The scheme: ONE FORUM PER PROJECT, with an "⚙️ Ops" tab (robot
- * notifications) and a "💬 Dev" tab (people's live chat) inside it.
+ * The scheme: ONE CHAT PER PROJECT. A project with a team is a forum
+ * supergroup with an "⚙️ Ops" tab (robot notifications) and a "💬 Dev" tab
+ * (people's live chat). A project the owner runs alone is a plain
+ * supergroup without topics — the robots post straight into it and there
+ * is nobody to talk to in a Dev tab (owner's rule of 2026-09-05; the first
+ * such chat is `playgust`). A plain chat has no `ops` number: the message
+ * goes to the chat itself.
  *
  * Why not one shared forum with a topic per project — that was the first
  * version, and it turned out to be a mistake: Telegram cannot hide one
@@ -25,10 +30,13 @@ import type { NotifyEvent, Project } from './events.ts';
 import { severity } from './events.ts';
 
 type Forum = {
-  /** The id of the project's forum supergroup. */
+  /** The id of the project's supergroup (forum or plain). */
   chat: string;
-  /** The "⚙️ Ops" tab — robots write here. */
-  ops: number;
+  /**
+   * The "⚙️ Ops" tab — robots write here. Absent for a plain chat without
+   * topics (a solo project): the message then goes to the chat itself.
+   */
+  ops?: number;
   /**
    * The "💬 Dev" tab — people. The bot does not write here; the field is
    * kept for completeness. Optional: an infrastructure forum has no people
@@ -59,7 +67,11 @@ export const ROUTES: Record<Project, Forum> = {
   // publish delivered" (ali98x-sentry). No `dev` — the project's team lives
   // in other systems, there are no people here. Until 18.08.2026 reports
   // were getting lost on "unknown project" for weeks.
-  alitools: { chat: '-1003904331479', ops: 3 }
+  alitools: { chat: '-1003904331479', ops: 3 },
+  // Solo project, plain supergroup without topics (owner's rule 05.09.2026):
+  // no `ops`, no `dev`, the bot posts into the chat itself. Created
+  // 05.09.2026 as «Playgust · Ops».
+  playgust: { chat: '-1004334723487' }
 };
 
 export type Target = { chat: string; thread?: number; silent: boolean };
@@ -87,5 +99,5 @@ export const targets = (e: NotifyEvent): Target[] => {
     return [];
   }
 
-  return [{ chat: forum.chat, thread: forum.ops, silent: severity(e) === 'info' }];
+  return [{ chat: forum.chat, ...(forum.ops === undefined ? {} : { thread: forum.ops }), silent: severity(e) === 'info' }];
 };
