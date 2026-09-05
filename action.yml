@@ -7,7 +7,7 @@ inputs:
     description: Тип события — deploy, job, report, ci, pr, issue, incident, heartbeat_miss
     required: true
   project:
-    description: playhub, one-q, arvent или game-publisher
+    description: playhub, one-q, zabukai или game-publisher
     required: true
   status:
     description: 'ok/fail (для deploy, job, ci) — обычно передают статус джобы (job.status); success/failure маппится автоматически'
@@ -204,7 +204,7 @@ runs:
 
         # A scheduled or hand-started run has no `head_commit` in its event, so
         # the title, body and author defaults above arrive empty and the card
-        # showed a bare hash — every arvent nightly card since 18.08.2026, and
+        # showed a bare hash — every zabukai nightly card since 18.08.2026, and
         # the owner asked on 03.09 why the commit body was missing here when
         # every push card had one. The commit is read through the API instead
         # (`github.token` reaches the run's own repository); a failed read

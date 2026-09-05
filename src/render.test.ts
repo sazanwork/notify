@@ -20,10 +20,10 @@ const SAMPLES: NotifyEvent[] = [
   { type: 'deploy', project: 'playhub', status: 'fail', commit: XSS, url: 'https://x' },
   { type: 'job', project: 'playhub', job: XSS, status: 'ok', stats: [['метка', XSS]] },
   { type: 'report', project: 'playhub', title: XSS, aside: '26 июля', lines: [['ключ', XSS]] },
-  { type: 'ci', project: 'arvent', status: 'fail', branch: 'master', commitTitle: XSS, actor: 'x' },
-  { type: 'pr', project: 'arvent', action: 'opened', number: 1, title: XSS, author: XSS },
-  { type: 'issue', project: 'arvent', action: 'opened', number: 1, title: XSS, assignee: XSS },
-  { type: 'incident', project: 'arvent', title: XSS, detail: XSS },
+  { type: 'ci', project: 'zabukai', status: 'fail', branch: 'master', commitTitle: XSS, actor: 'x' },
+  { type: 'pr', project: 'zabukai', action: 'opened', number: 1, title: XSS, author: XSS },
+  { type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: XSS, assignee: XSS },
+  { type: 'incident', project: 'zabukai', title: XSS, detail: XSS },
   { type: 'heartbeat_miss', project: 'playhub', job: XSS, lastSeen: '10:00' }
 ];
 
@@ -38,7 +38,7 @@ for (const sample of SAMPLES) {
 }
 
 test('the tags are the first line, BEFORE the text, not after', () => {
-  const text = render({ type: 'ci', project: 'arvent', status: 'ok', branch: 'master' });
+  const text = render({ type: 'ci', project: 'zabukai', status: 'ok', branch: 'master' });
 
   assert.match(text, /^#ci #master #ok\n/, `the tags are not on the first line: ${text.slice(0, 40)}`);
 });
@@ -78,27 +78,27 @@ test('the red 🔴 and the later success share the same key — otherwise the pa
  * promise him an icon the code does not draw.
  */
 const VOCABULARY: Array<[NotifyEvent, string]> = [
-  [{ type: 'deploy', project: 'arvent', status: 'ok' }, ICON.ok],
-  [{ type: 'deploy', project: 'arvent', status: 'fail' }, ICON.red],
-  [{ type: 'ci', project: 'arvent', status: 'ok' }, ICON.ok],
-  [{ type: 'ci', project: 'arvent', status: 'fail' }, ICON.red],
-  [{ type: 'job', project: 'arvent', job: 'x', status: 'ok' }, ICON.ok],
-  [{ type: 'job', project: 'arvent', job: 'x', status: 'fail' }, ICON.red],
-  [{ type: 'job', project: 'arvent', job: 'x', status: 'disabled' }, ICON.off],
-  [{ type: 'job', project: 'arvent', job: 'x', status: 'silent' }, ICON.unknown],
-  [{ type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
-  [{ type: 'pr', project: 'arvent', action: 'approved', number: 1, title: 't' }, ICON.approved],
-  [{ type: 'pr', project: 'arvent', action: 'changes_requested', number: 1, title: 't' }, ICON.changes],
-  [{ type: 'pr', project: 'arvent', action: 'merged', number: 1, title: 't' }, ICON.landed],
-  [{ type: 'pr', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.discarded],
-  [{ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't' }, ICON.fresh],
-  [{ type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 't' }, ICON.taken],
-  [{ type: 'issue', project: 'arvent', action: 'closed', number: 1, title: 't' }, ICON.ok],
+  [{ type: 'deploy', project: 'zabukai', status: 'ok' }, ICON.ok],
+  [{ type: 'deploy', project: 'zabukai', status: 'fail' }, ICON.red],
+  [{ type: 'ci', project: 'zabukai', status: 'ok' }, ICON.ok],
+  [{ type: 'ci', project: 'zabukai', status: 'fail' }, ICON.red],
+  [{ type: 'job', project: 'zabukai', job: 'x', status: 'ok' }, ICON.ok],
+  [{ type: 'job', project: 'zabukai', job: 'x', status: 'fail' }, ICON.red],
+  [{ type: 'job', project: 'zabukai', job: 'x', status: 'disabled' }, ICON.off],
+  [{ type: 'job', project: 'zabukai', job: 'x', status: 'silent' }, ICON.unknown],
+  [{ type: 'pr', project: 'zabukai', action: 'opened', number: 1, title: 't' }, ICON.fresh],
+  [{ type: 'pr', project: 'zabukai', action: 'approved', number: 1, title: 't' }, ICON.approved],
+  [{ type: 'pr', project: 'zabukai', action: 'changes_requested', number: 1, title: 't' }, ICON.changes],
+  [{ type: 'pr', project: 'zabukai', action: 'merged', number: 1, title: 't' }, ICON.landed],
+  [{ type: 'pr', project: 'zabukai', action: 'closed', number: 1, title: 't' }, ICON.discarded],
+  [{ type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: 't' }, ICON.fresh],
+  [{ type: 'issue', project: 'zabukai', action: 'assigned', number: 1, title: 't' }, ICON.taken],
+  [{ type: 'issue', project: 'zabukai', action: 'closed', number: 1, title: 't' }, ICON.ok],
   [{ type: 'session', project: 'mac-config', action: 'burning the limit' }, ICON.alarm],
-  [{ type: 'incident', project: 'arvent', title: 't' }, ICON.alarm],
-  [{ type: 'report', project: 'arvent', title: 't', lines: [] }, ICON.info],
-  [{ type: 'heartbeat_miss', project: 'arvent', job: 'x' }, ICON.unknown],
-  [{ type: 'heartbeat_miss', project: 'arvent', job: 'x', recovered: true }, ICON.ok]
+  [{ type: 'incident', project: 'zabukai', title: 't' }, ICON.alarm],
+  [{ type: 'report', project: 'zabukai', title: 't', lines: [] }, ICON.info],
+  [{ type: 'heartbeat_miss', project: 'zabukai', job: 'x' }, ICON.unknown],
+  [{ type: 'heartbeat_miss', project: 'zabukai', job: 'x', recovered: true }, ICON.ok]
 ];
 
 const wordOf = (e: NotifyEvent): string => {
@@ -139,7 +139,7 @@ test('vocabulary: no card draws an icon that is not in the list', () => {
 });
 
 test('type line: the icon stays outside the bold, no name is invented, the outcome is spelled out', () => {
-  const text = render({ type: 'ci', project: 'arvent', status: 'ok' });
+  const text = render({ type: 'ci', project: 'zabukai', status: 'ok' });
   const secondLine = text.split('\n')[1];
 
   // Nothing named this run, so line 2 is just the type — no made-up name.
@@ -150,7 +150,7 @@ test('type line: the icon stays outside the bold, no name is invented, the outco
 });
 
 test('field: a bold label with a capital letter, the value as plain text', () => {
-  const text = render({ type: 'job', project: 'arvent', job: 'x', status: 'fail', note: 'причина' });
+  const text = render({ type: 'job', project: 'zabukai', job: 'x', status: 'fail', note: 'причина' });
 
   assert.ok(text.includes('<b>Reason:</b> причина'));
   assert.ok(!text.includes('<b>Reason:</b> <b>причина</b>'), 'the value must not be bold');
@@ -159,10 +159,10 @@ test('field: a bold label with a capital letter, the value as plain text', () =>
 test('commit/pr/issue: one form — identifier, then the body as a quote, no doubles', () => {
   const ci = render({
     type: 'ci',
-    project: 'arvent',
+    project: 'zabukai',
     status: 'ok',
     commit: '9b1fc68',
-    commitUrl: 'https://github.com/sazanwork/arvent/commit/9b1fc68',
+    commitUrl: 'https://github.com/sazanwork/zabukai/commit/9b1fc68',
     commitTitle: 'Онбординг: заготовки вопросов (#294)'
   });
 
@@ -172,7 +172,7 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
   // кликабельным". `Title:` under it was the same second row the issue card
   // had already lost.
   assert.ok(ci.includes(
-    '<b>Commit:</b> <a href="https://github.com/sazanwork/arvent/commit/9b1fc68">9b1fc68</a> · Онбординг: заготовки вопросов (#294)'
+    '<b>Commit:</b> <a href="https://github.com/sazanwork/zabukai/commit/9b1fc68">9b1fc68</a> · Онбординг: заготовки вопросов (#294)'
   ));
   assert.ok(!ci.includes('<b>Source:</b>'), 'the Source row is gone — the link is on the hash');
   assert.ok(!ci.includes('<b>Title:</b>'), 'the Title row came back on the commit');
@@ -183,7 +183,7 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
 
   const issue = render({
     type: 'issue',
-    project: 'arvent',
+    project: 'zabukai',
     action: 'opened',
     number: 322,
     title: 'Коммиты не следуют конвенции',
@@ -203,7 +203,7 @@ test('commit/pr/issue: one form — identifier, then the body as a quote, no dou
 test('report groups: the heading is italic+underline, not bold, and has no colon', () => {
   const text = render({
     type: 'report',
-    project: 'arvent',
+    project: 'zabukai',
     title: 'tasks',
     aside: '20.08',
     lines: [],
@@ -238,7 +238,7 @@ test('job disabled: the list of disabled items is numbered, with no label on eac
 });
 
 test('incident: the log is a monospaced local path, not a link — and one label', () => {
-  const text = render({ type: 'incident', project: 'arvent', title: 'x', detail: 'reason', logs: '~/.claude/logs/' });
+  const text = render({ type: 'incident', project: 'zabukai', title: 'x', detail: 'reason', logs: '~/.claude/logs/' });
 
   // `Log:`, the same word a job card uses. It said `Logs:` here — one concept
   // under two labels, decided by which type happened to be rendering.
@@ -249,7 +249,7 @@ test('incident: the log is a monospaced local path, not a link — and one label
 test('report: items render as links, text is escaped (flat view with no groups)', () => {
   const text = render({
     type: 'report',
-    project: 'arvent',
+    project: 'zabukai',
     title: 'Дайджест',
     lines: [['Открыто', 2]],
     items: [
@@ -276,7 +276,7 @@ test('clampMessage cuts long text, the tags stay untouched on the FIRST line', (
 test('a giant file title with no --key does not push the caption over 1024', () => {
   const caption = render({
     type: 'report',
-    project: 'arvent',
+    project: 'zabukai',
     title: 'Щ'.repeat(1100),
     path: '/tmp/x.txt'
   });
@@ -287,7 +287,7 @@ test('a giant file title with no --key does not push the caption over 1024', () 
 test('the file caption fits under the 1024 caption limit and still carries the tag', () => {
   const caption = render({
     type: 'report',
-    project: 'arvent',
+    project: 'zabukai',
     title: 'Полные диалоги',
     path: '/tmp/x.txt',
     aside: 'Ы'.repeat(3000)
@@ -333,7 +333,7 @@ test('the clamp does not leave an unclosed tag on any form', () => {
   const cases: Array<[string, NotifyEvent]> = [
     ['job note', { type: 'job', project: 'playhub', job: 'x', status: 'fail', note: long }],
     ['incident detail', { type: 'incident', project: 'vault', title: 'x', detail: long }],
-    ['issue body', { type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 'x', body: long }],
+    ['issue body', { type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: 'x', body: long }],
     ['group name', { type: 'report', project: 'playhub', title: 'x', groups: [{ name: long, items: [] }] }],
     ['item link', { type: 'job', project: 'playhub', job: 'x', status: 'ok', items: [{ text: long, url: 'https://x/y' }] }]
   ];
@@ -364,7 +364,7 @@ test('an unknown event type gives a clear error, not a crash of the renderer', (
 test('issue: the assignee ends up in the message', () => {
   const out = render({
     type: 'issue',
-    project: 'arvent',
+    project: 'zabukai',
     action: 'assigned',
     number: 128,
     title: 'Лист ожидания',
@@ -382,7 +382,7 @@ test('issue/pr: the number is the link on line 2, first, and never disappears', 
   // title". With no url the number is plain, but it is never erased: the card
   // must not name a task without saying which one.
   const linked = render({
-    type: 'issue', project: 'arvent', action: 'assigned', number: 128,
+    type: 'issue', project: 'zabukai', action: 'assigned', number: 128,
     title: 'Waiting list', assignee: 'Ilja', url: 'https://x/i/128'
   });
 
@@ -395,7 +395,7 @@ test('issue/pr: the number is the link on line 2, first, and never disappears', 
   assert.ok(linked.includes('#i128'), 'the instance tag lost the number');
 
   const bare = render({
-    type: 'issue', project: 'arvent', action: 'assigned', number: 128,
+    type: 'issue', project: 'zabukai', action: 'assigned', number: 128,
     title: 'Waiting list', assignee: 'Ilja'
   });
 
@@ -500,7 +500,7 @@ test('incident: detail equal to title is not printed twice', () => {
 
 test('a multiline commit title is cut to its first line (protects against the full body in a field)', () => {
   const messy = 'Онбординг: заготовки вопросов (#294)\n\n* feat(onboarding): длинное тело\n\nещё абзац';
-  const ci = render({ type: 'ci', project: 'arvent', status: 'ok', commit: '9b1fc68', commitTitle: messy });
+  const ci = render({ type: 'ci', project: 'zabukai', status: 'ok', commit: '9b1fc68', commitTitle: messy });
 
   assert.ok(ci.includes('Онбординг: заготовки вопросов (#294)…'), 'the commit title is not cut to its first line');
   assert.ok(!ci.includes('feat(onboarding)'), 'the multiline commitTitle leaked into the quote in full');
@@ -516,7 +516,7 @@ test('job stats: the value is not bold, a field is label+value', () => {
 test('field/fieldLink accept null as an absent value (JSON over stdin sends null, not a missing key)', () => {
   const out = render({
     type: 'job',
-    project: 'arvent',
+    project: 'zabukai',
     job: 'x',
     status: 'ok',
     note: null as unknown as string,
@@ -528,7 +528,7 @@ test('field/fieldLink accept null as an absent value (JSON over stdin sends null
 });
 
 test('workflow with no url — there is no row at all, not "Check: run" without a link', () => {
-  const out = render({ type: 'ci', project: 'arvent', status: 'ok' });
+  const out = render({ type: 'ci', project: 'zabukai', status: 'ok' });
 
   assert.ok(!out.includes('Check'), 'there is nothing to open — there must be no row');
   assert.ok(!out.includes('Workflow'), 'the old trailing row must not come back');
@@ -554,7 +554,7 @@ test('run: what ran is the type line itself and carries the link', () => {
   assert.ok(!deploy.includes('<b>Workflow:</b>'), 'the trailing Workflow row had to go');
 
   const ci = render({
-    type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
+    type: 'ci', project: 'zabukai', status: 'fail', branch: 'master',
     commit: '9b1fc68', commitUrl: 'https://x/c',
     workflowName: 'nightly', workflowUrl: 'https://x/run'
   });
@@ -599,7 +599,7 @@ test('run: a hand deploy names the means and has nothing to open', () => {
 // jumble."
 test('blocks: run facts touch the name, the commit keeps its heading', () => {
   const both = render({
-    type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
+    type: 'ci', project: 'zabukai', status: 'fail', branch: 'master',
     commit: '9b1fc68', commitUrl: 'https://x/c', actor: '@ilja',
     note: '3 tests failed', workflowUrl: 'https://x/run', workflowName: 'nightly'
   });
@@ -674,9 +674,9 @@ test('run: a nameless run keeps its link rather than losing it', () => {
 });
 
 test('severity: job disabled rings like fail, heartbeat recovered stays quiet like success', () => {
-  assert.equal(severity({ type: 'job', project: 'arvent', job: 'x', status: 'disabled' }), 'error');
-  assert.equal(severity({ type: 'heartbeat_miss', project: 'arvent', job: 'x', recovered: true }), 'info');
-  assert.equal(severity({ type: 'heartbeat_miss', project: 'arvent', job: 'x' }), 'error');
+  assert.equal(severity({ type: 'job', project: 'zabukai', job: 'x', status: 'disabled' }), 'error');
+  assert.equal(severity({ type: 'heartbeat_miss', project: 'zabukai', job: 'x', recovered: true }), 'info');
+  assert.equal(severity({ type: 'heartbeat_miss', project: 'zabukai', job: 'x' }), 'error');
 });
 
 // ─── Full-card snapshots, one per event type ───────────────────────────────
@@ -805,7 +805,7 @@ test('card/job disabled: heading present, list numbered', () => {
     type: 'job', project: 'mac-config', key: 'actions-minutes-guard',
     job: 'GitHub Actions minutes watchdog', status: 'disabled',
     note: 'free minutes almost gone',
-    items: [{ text: 'arvent/nightly.yml' }, { text: 'one-q/quality.yml' }]
+    items: [{ text: 'zabukai/nightly.yml' }, { text: 'one-q/quality.yml' }]
   });
 
   assert.equal(out, [
@@ -816,14 +816,14 @@ test('card/job disabled: heading present, list numbered', () => {
     '<b>Reason:</b> free minutes almost gone',
     '',
     '<i><u>Disabled workflows</u></i>',
-    '1. arvent/nightly.yml',
+    '1. zabukai/nightly.yml',
     '2. one-q/quality.yml'
   ].join('\n'));
 });
 
 test('card/ci: commit hash links, body quoted under it', () => {
   const out = render({
-    type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
+    type: 'ci', project: 'zabukai', status: 'ok', branch: 'master',
     commit: '9b1fc68', commitUrl: 'https://x/c',
     commitTitle: 'Онбординг: заготовки вопросов (#294)',
     commitBody: 'Тело коммита, написанное человеком.',
@@ -844,7 +844,7 @@ test('card/ci: commit hash links, body quoted under it', () => {
 
 test('card/ci: commit author links to their GitHub profile, distinct from Actor', () => {
   const out = render({
-    type: 'ci', project: 'arvent', status: 'fail', branch: 'master',
+    type: 'ci', project: 'zabukai', status: 'fail', branch: 'master',
     commit: '9b1fc68', commitUrl: 'https://x/c', commitTitle: 'fix: checkout',
     commitAuthor: 'Ilja-Prihach',
     actor: '@ilja_tg', workflowUrl: 'https://x/run'
@@ -885,7 +885,7 @@ test('card/deploy: commit author, with no Actor row — deploy has none', () => 
 // empty field.
 test('people rows: the owner is printed like anyone else — Author, Assignee, Reviewer, Actor', () => {
   const pr = render({
-    type: 'pr', project: 'arvent', action: 'opened', number: 1, title: 'x',
+    type: 'pr', project: 'zabukai', action: 'opened', number: 1, title: 'x',
     author: 'mikitasazan', reviewer: 'Ilja-Prihach', url: 'https://x/p/1'
   });
   assert.ok(
@@ -895,7 +895,7 @@ test('people rows: the owner is printed like anyone else — Author, Assignee, R
   assert.ok(pr.includes('<b>Reviewer:</b> <a href="https://github.com/Ilja-Prihach">Ilja-Prihach</a>'));
 
   const issue = render({
-    type: 'issue', project: 'arvent', action: 'assigned', number: 322, title: 'x',
+    type: 'issue', project: 'zabukai', action: 'assigned', number: 322, title: 'x',
     author: 'Ilja-Prihach', assignee: 'mikitasazan', url: 'https://x/i/322'
   });
   assert.ok(
@@ -905,13 +905,13 @@ test('people rows: the owner is printed like anyone else — Author, Assignee, R
 
   // `actor` is accepted from old senders and never printed (03.09.2026): on a
   // push it is the commit's author, on a schedule it is the workflow's owner.
-  const ci = render({ type: 'ci', project: 'arvent', status: 'ok', actor: '@chelsnebes', commit: 'a', commitUrl: 'https://x/c' });
+  const ci = render({ type: 'ci', project: 'zabukai', status: 'ok', actor: '@chelsnebes', commit: 'a', commitUrl: 'https://x/c' });
   assert.ok(!ci.includes('<b>Actor:</b>'), 'the Actor row is gone from CI');
 
   // The suppression was case-insensitive, so an upper-case spelling proves the
   // filter is gone rather than merely missed.
   const deploy = render({
-    type: 'deploy', project: 'arvent', status: 'ok', commit: 'a', commitUrl: 'https://x/c',
+    type: 'deploy', project: 'zabukai', status: 'ok', commit: 'a', commitUrl: 'https://x/c',
     commitAuthor: 'MikitaSazan'
   });
   assert.ok(deploy.includes('<b>Author:</b> <a href="https://github.com/MikitaSazan">MikitaSazan</a>'));
@@ -919,7 +919,7 @@ test('people rows: the owner is printed like anyone else — Author, Assignee, R
 
 test('card/ci scheduled: a run with no commit body still says why it ran', () => {
   const out = render({
-    type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
+    type: 'ci', project: 'zabukai', status: 'ok', branch: 'master',
     commit: '9b1fc68', commitUrl: 'https://x/c',
     note: 'nightly check of master', workflowUrl: 'https://x/run'
   });
@@ -972,7 +972,7 @@ test('card/issue: body arrives — it never did before', () => {
 // body collapses instead of being dropped (see the expandable test below).
 test('card/issue: assigned carries the body too, quoted', () => {
   const out = render({
-    type: 'issue', project: 'arvent', action: 'assigned', number: 312,
+    type: 'issue', project: 'zabukai', action: 'assigned', number: 312,
     title: 'Web booking page',
     body: 'A description he needs in front of him, not one link away.',
     author: 'mikitasazan', assignee: 'Ilja-Prihach', url: 'https://x/i/312'
@@ -990,15 +990,15 @@ test('card/issue: assigned carries the body too, quoted', () => {
 
 test('quote: a body longer than a screenful collapses, by length OR by lines', () => {
   const byLength = render({
-    type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't',
+    type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: 't',
     body: 'x'.repeat(500)
   });
   const byLines = render({
-    type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't',
+    type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: 't',
     body: 'one\ntwo\nthree\nfour\nfive\nsix'
   });
   const short = render({
-    type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't',
+    type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: 't',
     body: 'two\nlines'
   });
 
@@ -1013,7 +1013,7 @@ test('fieldPerson: a multi-line login does not put a raw newline inside the href
   // reachable through `--json`/direct calls — a real GitHub login cannot
   // have one) put the newline straight into the `href` attribute itself.
   const person = render({
-    type: 'issue', project: 'arvent', action: 'assigned', number: 1, title: 'x',
+    type: 'issue', project: 'zabukai', action: 'assigned', number: 1, title: 'x',
     assignee: 'alice\nbob'
   });
 
@@ -1131,7 +1131,7 @@ test('markdown: a GitHub body is translated into Telegram markup, never pasted r
   assert.ok(!out.includes('\n\n\n'), 'blank runs collapse');
 
   // The whole thing survives the clamp with its tags balanced.
-  const card = render({ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't', body: body.repeat(40), url: 'https://x/i/1' });
+  const card = render({ type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: 't', body: body.repeat(40), url: 'https://x/i/1' });
   assert.ok(card.length <= 4096);
   assert.ok(card.includes('<blockquote expandable>'), 'a long body collapses');
 });
@@ -1196,19 +1196,19 @@ test('card/heartbeat miss', () => {
 
 test('card with a file: the caption is clamped at 1024, not 4000', () => {
   const out = render({
-    type: 'job', project: 'arvent', job: 'Eval: bot answer quality', status: 'ok',
-    key: 'arvent-eval', path: '/tmp/x.txt', note: 'Ц'.repeat(4000)
+    type: 'job', project: 'zabukai', job: 'Eval: bot answer quality', status: 'ok',
+    key: 'zabukai-eval', path: '/tmp/x.txt', note: 'Ц'.repeat(4000)
   });
 
   assert.ok(out.length <= 1024, `caption ${out.length} chars — Telegram cuts at 1024`);
-  assert.ok(out.startsWith('#job #arvent_eval #ok\n✅ <b>Job (OK):</b> Eval: bot answer quality'),
+  assert.ok(out.startsWith('#job #zabukai_eval #ok\n✅ <b>Job (OK):</b> Eval: bot answer quality'),
     'a card carrying a file is still the card of its own type');
 });
 
 test('the same card without a file gets the full 4000', () => {
   const out = render({
-    type: 'job', project: 'arvent', job: 'Eval: bot answer quality', status: 'ok',
-    key: 'arvent-eval', note: 'Ц'.repeat(4000)
+    type: 'job', project: 'zabukai', job: 'Eval: bot answer quality', status: 'ok',
+    key: 'zabukai-eval', note: 'Ц'.repeat(4000)
   });
 
   assert.ok(out.length > 1024, 'a card with no attachment must not be cut to caption size');
@@ -1251,11 +1251,11 @@ test('report: what it covers rides in brackets on the name itself', () => {
 });
 
 test('fieldLink: a multi-line value does not become multi-line link text', () => {
-  // arvent's nightly workflow passes a two-line `commit`. `fieldLink` skipped
+  // zabukai's nightly workflow passes a two-line `commit`. `fieldLink` skipped
   // the first-line trim that `field` applies, so both lines ended up inside the
   // <a> tag.
   const out = render({
-    type: 'ci', project: 'arvent', status: 'ok',
+    type: 'ci', project: 'zabukai', status: 'ok',
     commit: 'ночная проверка master\nполная проверка: success',
     commitUrl: 'https://x/c'
   });
@@ -1485,11 +1485,11 @@ test('card/session: the folded type renders as an incident, tag and all', () => 
   const direct = render({
     type: 'incident', project: 'mac-config', key: 'context-runaway',
     title: 'Claude session is burning the limit',
-    workdir: 'arvent', reason: 'context 871596 against 500000',
+    workdir: 'zabukai', reason: 'context 871596 against 500000',
     opened: 'fix the login form', command: 'rm /tmp/x.latch', commandNote: 'unlock it'
   });
 
-  assert.ok(direct.includes('<b>Project:</b> arvent'), direct);
+  assert.ok(direct.includes('<b>Project:</b> zabukai'), direct);
   assert.ok(direct.includes('<b>Opened with:</b>'), direct);
   assert.ok(direct.includes('<code>rm /tmp/x.latch</code>'), direct);
 
@@ -1884,7 +1884,7 @@ test('cut marker: with no log, a cut card points at the link on line 2', () => {
   // dots referred to. The card carried a link the whole time — the rest was
   // one tap away and the marker never said so.
   const long = Array.from({ length: 900 }, (_, i) => `описание строки ${i}, довольно длинное`).join(' ');
-  const out = render({ type: 'pr', project: 'arvent', action: 'merged', number: 315,
+  const out = render({ type: 'pr', project: 'zabukai', action: 'merged', number: 315,
     title: 'Лист ожидания', body: long, url: 'https://x/p/315' });
 
   assert.ok(out.includes('⋯ cut, full text behind the link on line 2'));
@@ -1893,7 +1893,7 @@ test('cut marker: with no log, a cut card points at the link on line 2', () => {
 
   // Nothing to point at: the marker says only that something was cut, because
   // promising a link that is not there is worse than saying nothing.
-  const nowhere = render({ type: 'pr', project: 'arvent', action: 'merged', number: 315,
+  const nowhere = render({ type: 'pr', project: 'zabukai', action: 'merged', number: 315,
     title: 'Лист ожидания', body: long });
   assert.ok(nowhere.includes('⋯ cut'));
   assert.ok(!nowhere.includes('behind the link'), 'promised a link that does not exist');
@@ -1937,7 +1937,7 @@ test('zero rows: a zero that did not move is not printed, and a group left empty
 
 test('cut marker: a caption card announces the attachment as the full text and fits 1024 (v2.1)', () => {
   const long = Array.from({ length: 200 }, (_, i) => `line ${i}`).join('\n');
-  const out = render({ type: 'report', project: 'arvent', title: 'Full dialogues',
+  const out = render({ type: 'report', project: 'zabukai', title: 'Full dialogues',
     lines: [['Total', 42]], path: '/tmp/x.txt', aside: long });
 
   assert.ok(out.length <= 1024, `caption over the limit: ${out.length}`);
@@ -1971,7 +1971,7 @@ test('a closed card keeps the subsections of its first section', () => {
   // first section ended the body early and the text under it vanished from a
   // merged PR or a closed issue.
   const out = render({
-    type: 'issue', project: 'arvent', action: 'closed', number: 7, title: 't',
+    type: 'issue', project: 'zabukai', action: 'closed', number: 7, title: 't',
     url: 'https://x/i/7', body: '## One\nalpha\n### Sub\nbeta\n## Two\ngamma'
   });
 
@@ -1984,7 +1984,7 @@ test('the clamp does not leave a fenced block open', () => {
   // regression that dropped it would cut `<pre>` open and every test here
   // would still pass.
   const body = ['```', 'x'.repeat(5000), '```'].join('\n');
-  const card = render({ type: 'issue', project: 'arvent', action: 'opened', number: 1, title: 't', body, url: 'https://x/i/1' });
+  const card = render({ type: 'issue', project: 'zabukai', action: 'opened', number: 1, title: 't', body, url: 'https://x/i/1' });
 
   assert.ok(card.includes('<pre>'), 'the fenced block never reached the card');
   assert.deepEqual(unbalanced(card), [], 'a fenced block was cut open');

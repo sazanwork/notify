@@ -13,11 +13,11 @@
  *   notify deploy   --project playhub --status ok --commit "msg" [--commit-url "..."] --url "..."
  *   notify job      --project playhub --job "Game import" --status ok --stat "added=5" [--via vps] [--took "4m 12s"]
  *   notify report   --project playhub --title "Daily summary" --line "Games=1284"
- *   notify ci       --project arvent  --status fail --branch master
- *   notify pr       --project arvent  --action opened --number 142 --title "..."
- *   notify incident --project arvent  --title "Redis is unreachable" --detail "$ERR"
+ *   notify ci       --project zabukai  --status fail --branch master
+ *   notify pr       --project zabukai  --action opened --number 142 --title "..."
+ *   notify incident --project zabukai  --title "Redis is unreachable" --detail "$ERR"
  *   notify session  --project mac-config --action "burning the limit"   # DEPRECATED alias of incident
- *   notify file     --project arvent  --title "Full dialogues" --path ./out.txt [--filename name.txt]
+ *   notify file     --project zabukai  --title "Full dialogues" --path ./out.txt [--filename name.txt]
  *   notify <type> [--key stable-key]   # the task's key on the card's last line
  *   notify <type> --json < payload.json   # the whole event object on stdin
  *   notify setup <forum chat_id> <project key>   # create the tabs, see setup.ts

@@ -43,7 +43,7 @@ export const ROUTES: Record<Project, Forum> = {
   // 27.07.2026, and Telegram removes a topic's messages along with it. A
   // recreated topic gets a NEW id — a topic's id is the id of its first
   // message, it is never reused.
-  arvent: { chat: '-1004299939100', ops: 22, dev: 23 },
+  zabukai: { chat: '-1004299939100', ops: 22, dev: 23 },
   playhub: { chat: '-1004418379613', ops: 3, dev: 4 },
   'game-publisher': { chat: '-1004292453693', ops: 3, dev: 4 },
   'one-q': { chat: '-1004466909784', ops: 3, dev: 4 },

@@ -190,7 +190,7 @@ const fieldLink = (
   }
 
   // `firstLine` here for the same reason `field` has it: the linked case used to
-  // skip it, so a multi-line value (arvent's two-line `commit`) became two-line
+  // skip it, so a multi-line value (zabukai's two-line `commit`) became two-line
   // LINK TEXT instead of one identifier.
   return url
     ? `<b>${esc(cap(label))}:</b> <a href="${esc(url)}">${esc(firstLine(text))}</a>`
@@ -1197,7 +1197,7 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
 
 // The tag at the top of the card AND the parser's machine key are ONE AND THE
 // SAME value (the owner's decision, 20.08.2026): they used to be two separate
-// representations of one fact (a hyphenated `#ci-arvent` at the bottom, tags
+// representations of one fact (a hyphenated `#ci-zabukai` at the bottom, tags
 // typed by hand at the top), and that read as duplication. The separator is
 // an underscore, not a hyphen: a hyphen splits a Telegram hashtag in the
 // middle of a word (`#mac-config` links only as `#mac`), and the tag MUST be

@@ -3,7 +3,7 @@
 Единая типизированная отправка Telegram-уведомлений: **форум на проект**,
 внутри вкладки «⚙️ Ops» (роботы) и «💬 Dev» (люди), один бот, семь типов
 событий. Заменяет 18 разных имён переменных и 4+ независимых реализации
-`jq | curl`, что были в playhub, arvent, game-publisher до 26.07.2026.
+`jq | curl`, что были в playhub, zabukai, game-publisher до 26.07.2026.
 
 **Почему форум на проект, а не один общий форум с темой на проект.** Второе
 пробовали первым — не работает: Telegram не умеет закрывать отдельную тему от
@@ -180,8 +180,8 @@ notify report --project playhub --json < payload.json   # весь объект 
 
 | Отправитель | Старый тег (авто из русского названия) | Новый тег (из `--key`) |
 |---|---|---|
-| `arvent-eval-report.sh`, отчёт по эвалу | `#eval_качество_ответов_бота` | `#arvent_eval` |
-| `arvent-eval-report.sh`, файл диалогов | нет — шёл мимо пакета, сырым `sendDocument` Bot API | `#arvent_eval_dialogues` |
+| `zabukai-eval-report.sh`, отчёт по эвалу | `#eval_качество_ответов_бота` | `#zabukai_eval` |
+| `zabukai-eval-report.sh`, файл диалогов | нет — шёл мимо пакета, сырым `sendDocument` Bot API | `#zabukai_eval_dialogues` |
 | `daily-digest.sh`, дайджест задач (`job`) | `#дайджест_задач` | `#daily_digest` |
 | `daily-digest.sh`, дайджест задач (`report`) | `#дайджест_задач` (то же слово, другой тип-тег: `#report` вместо `#job`) | `#daily_digest` |
 | `daily-digest.sh`, отключённые Actions | `#github_actions_выключены` | `#actions_off` |
@@ -197,7 +197,7 @@ notify report --project playhub --json < payload.json   # весь объект 
 - Автосоздания темы при первой отправке — сбой мог бы наплодить дублей;
   создание — явная команда `notify setup`.
 - Любых зависимостей, сборки, MarkdownV2, мультиязычности, троттла (троттл —
-  забота вызывающего кода, он есть в `arvent/web/src/server/alert.ts` и там
+  забота вызывающего кода, он есть в `zabukai/web/src/server/alert.ts` и там
   и остаётся: работает только внутри долгоживущего процесса, а CLI стартует
   заново на каждый вызов).
 

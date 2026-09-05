@@ -103,7 +103,7 @@ exists.
 `~/.claude/scheduled-tasks/ops-reactor/SKILL.md` STEP 2 currently extracts
 the matching key as **"the last line matching `#<slug>`"** — that was true
 of the OLD format, where a single combined key sat on its own line at the
-bottom (`ключ — #ci-arvent`). This format has NO such line: both tags live
+bottom (`ключ — #ci-zabukai`). This format has NO such line: both tags live
 on line 1, and the type tag is the same for every instance while the
 instance tag (`#master`, `#i322`, `#vps_backups`) is what actually
 identifies "this specific thing." Porting the new render without updating

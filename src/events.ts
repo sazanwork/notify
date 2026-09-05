@@ -14,7 +14,7 @@
 // `vault` is not a product, it is infrastructure: a secrets safe. It needs a
 // forum for the same reason projects do: a robot needs somewhere to write.
 // There are no people there.
-export type Project = 'playhub' | 'one-q' | 'arvent' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools';
+export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools';
 
 /**
  * A stable machine key for the task — the instance tag on the FIRST line of
@@ -33,7 +33,7 @@ export type Project = 'playhub' | 'one-q' | 'arvent' | 'game-publisher' | 'vault
 /**
  * The common part of any event. `path` is a local file that travels WITH the
  * card: the card becomes a caption on the attachment. There has been no
- * separate `file` type since 25.08.2026 — an Arvent run used to send the
+ * separate `file` type since 25.08.2026 — an Zabukai run used to send the
  * verdict and the log as two cards about one piece of news.
  */
 type Keyed = {

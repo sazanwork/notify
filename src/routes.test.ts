@@ -28,8 +28,8 @@ test('an unknown project does not crash the process, it gives an empty list of t
 });
 
 test('red rings, green stays quiet', () => {
-  const fail = targets({ type: 'deploy', project: 'arvent', status: 'fail' });
-  const ok = targets({ type: 'deploy', project: 'arvent', status: 'ok' });
+  const fail = targets({ type: 'deploy', project: 'zabukai', status: 'fail' });
+  const ok = targets({ type: 'deploy', project: 'zabukai', status: 'ok' });
 
   assert.equal(fail[0].silent, false);
   assert.equal(ok[0].silent, true);
@@ -109,7 +109,7 @@ test('--via and --took reach the job card', () => {
 // comes out as an incident, tag included.
 test('notify session is an alias of notify incident', () => {
   const { code, stdout } = runCli('session', '--project=mac-config', '--key=context-runaway',
-    '--action=burning the limit', '--workdir=arvent', '--reason=context 871596',
+    '--action=burning the limit', '--workdir=zabukai', '--reason=context 871596',
     '--opened=fix the login form', '--command=rm /tmp/x.latch',
     '--command-note=unlock it', '--dry-run');
 
@@ -117,7 +117,7 @@ test('notify session is an alias of notify incident', () => {
   assert.ok(stdout.includes('#incident #context_runaway #fail'), stdout);
   assert.ok(stdout.includes('🚨 <b>Incident (Session):</b> Claude session is burning the limit'), stdout);
   assert.ok(!stdout.includes('#session'), 'the retired #session tag came back');
-  assert.ok(stdout.includes('<b>Project:</b> arvent'), stdout);
+  assert.ok(stdout.includes('<b>Project:</b> zabukai'), stdout);
   assert.ok(stdout.includes('<code>rm /tmp/x.latch</code>'), stdout);
 });
 
