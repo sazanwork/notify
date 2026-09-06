@@ -416,7 +416,7 @@ const articles = CARDS.map((c) => {
     <p class="no">${c.no}</p>
     <h2>${esc(c.title)}</h2>
     <dl>
-      <div><dt>Форум</dt><dd>${esc(c.forum)}</dd></div>
+      <div><dt>Чат</dt><dd>${esc(c.forum)}</dd></div>
       <div><dt>Когда</dt><dd>${esc(c.when)}</dd></div>
       <div><dt>Кто шлёт</dt><dd><code>${esc(c.sender)}</code></dd></div>
       <div><dt>Сейчас</dt><dd class="live ${liveCls}">${esc(liveText)}</dd></div>
