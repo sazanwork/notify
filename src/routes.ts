@@ -8,7 +8,7 @@
  * (people's live chat). A project the owner runs alone is a plain
  * supergroup without topics — the robots post straight into it and there
  * is nobody to talk to in a Dev tab (owner's rule of 2026-09-05; the first
- * such chat is `playgust`). A plain chat has no `ops` number: the message
+ * such chat is `htmlg`). A plain chat has no `ops` number: the message
  * goes to the chat itself.
  *
  * Why not one shared forum with a topic per project — that was the first
@@ -70,8 +70,9 @@ export const ROUTES: Record<Project, Forum> = {
   alitools: { chat: '-1003904331479', ops: 3 },
   // Solo project, plain supergroup without topics (owner's rule 05.09.2026):
   // no `ops`, no `dev`, the bot posts into the chat itself. Created
-  // 05.09.2026 as «Playgust · Ops».
-  playgust: { chat: '-1004334723487' }
+  // 05.09.2026 as «HTMLG · Ops» (HTMLG is the HTML5-games business; the brand
+  // and domain of its portal may change, the project name does not).
+  htmlg: { chat: '-1004334723487' }
 };
 
 export type Target = { chat: string; thread?: number; silent: boolean };
