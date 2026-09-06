@@ -47,31 +47,26 @@ type Forum = {
 };
 
 export const ROUTES: Record<Project, Forum> = {
-  // ops/dev = 22/23, not 3/4: the old tabs were deleted by hand on
-  // 27.07.2026, and Telegram removes a topic's messages along with it. A
-  // recreated topic gets a NEW id — a topic's id is the id of its first
-  // message, it is never reused.
+  // The only project with a team, and so the only forum left. ops/dev =
+  // 22/23, not 3/4: the old tabs were deleted by hand on 27.07.2026, and
+  // Telegram removes a topic's messages along with it. A recreated topic
+  // gets a NEW id — a topic's id is the id of its first message, it is
+  // never reused.
   zabukai: { chat: '-1004299939100', ops: 22, dev: 23 },
-  playhub: { chat: '-1004418379613', ops: 3, dev: 4 },
-  'game-publisher': { chat: '-1004292453693', ops: 3, dev: 4 },
-  'one-q': { chat: '-1004466909784', ops: 3, dev: 4 },
-  // No `dev`: the safe is infrastructure, there is no one to discuss it
-  // with. Only reports from the weekly check, and only when something
-  // broke.
-  vault: { chat: '-1004459314999', ops: 3 },
-  // Also infrastructure, no `dev`: the daily task digest and the Monday
-  // stumbles summary. Before this row, both used to die silently on
-  // "unknown project."
-  'mac-config': { chat: '-1004442522004', ops: 2 },
-  // The owner's corporate project: only its own reports on "what the
-  // publish delivered" (ali98x-sentry). No `dev` — the project's team lives
-  // in other systems, there are no people here. Until 18.08.2026 reports
-  // were getting lost on "unknown project" for weeks.
-  alitools: { chat: '-1003904331479', ops: 3 },
-  // Solo project, plain supergroup without topics (owner's rule 05.09.2026):
-  // no `ops`, no `dev`, the bot posts into the chat itself. Created
-  // 05.09.2026 as «HTMLG · Ops» (HTMLG is the HTML5-games business; the brand
-  // and domain of its portal may change, the project name does not).
+  // Every row below is a project the owner runs alone. Their Topics were
+  // turned off on 06.09.2026 and their `ops` numbers went with them: a card
+  // now goes to the chat itself. Sending a thread id into a chat that is no
+  // longer a forum fails with "message thread not found", so a row here and
+  // the chat's own setting must always agree.
+  playhub: { chat: '-1004418379613' },
+  'game-publisher': { chat: '-1004292453693' },
+  'one-q': { chat: '-1004466909784' },
+  vault: { chat: '-1004459314999' },
+  'mac-config': { chat: '-1004442522004' },
+  alitools: { chat: '-1003904331479' },
+  // Created 05.09.2026 as «HTMLG · Ops», the first chat built this way
+  // (HTMLG is the HTML5-games business; the brand and domain of its portal
+  // may change, the project name does not).
   htmlg: { chat: '-1004334723487' }
 };
 
