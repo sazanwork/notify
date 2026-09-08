@@ -27,7 +27,7 @@
  * secret — `OPS_BOT_TOKEN`.
  */
 import type { NotifyEvent, Project } from './events.ts';
-import { severity } from './events.ts';
+import { DISPLAY, severity } from './events.ts';
 
 type Forum = {
   /** The id of the project's supergroup (forum or plain). */
@@ -67,8 +67,21 @@ export const ROUTES: Record<Project, Forum> = {
   // Created 05.09.2026 as «HTMLG · Ops», the first chat built this way
   // (HTMLG is the HTML5-games business; the brand and domain of its portal
   // may change, the project name does not).
-  htmlg: { chat: '-1004334723487' }
+  htmlg: { chat: '-1004334723487' },
+  // Created 08.09.2026 as «2Roles · Ops»: the third focus project, the owner
+  // runs it alone.
+  '2roles': { chat: '-1004314188744' }
 };
+
+/**
+ * A solo project's chat is «<Name> · Ops»; a team forum is just the name — the
+ * forum already carries its own «Ops»/«Dev» tabs, so the chat's own title
+ * does not need to repeat the word. The real Telegram chat title and this
+ * function must agree: the avatar scripts and the name-drift check both read
+ * it through `notify routes --json`, not by asking Telegram.
+ */
+export const chatTitle = (p: Project): string =>
+  ROUTES[p].ops === undefined ? `${DISPLAY[p]} · Ops` : DISPLAY[p];
 
 export type Target = { chat: string; thread?: number; silent: boolean };
 

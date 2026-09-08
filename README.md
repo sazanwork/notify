@@ -91,8 +91,10 @@ notify report --project playhub --json < payload.json   # весь объект 
 Скобка у слова типа говорит одним словом, чем кончилось: `Deploy (OK)`,
 `CI (Fail)`, `Job (Off)`, `Job (Silent)`, `Issue (Assigned)`, `PR (Merged)`.
 Она стоит там, где у типа исходов больше одного. У `incident` состояние одно,
-поэтому его скобка называет МЕСТО, где горит: `Incident (Vault)`,
-`Incident (Session)` — слово из `--scope`, без него имя проекта. У `report`
+поэтому его скобка называет МЕСТО, где горит: `Incident (vault)`,
+`Incident (Session)` — слово из `--scope`, без него человеческое имя проекта
+(таблица `DISPLAY` в `src/events.ts`; `vault` и `mac-config` — нарочно со
+строчной, это машина и хранилище, а не бренды). У `report`
 исхода нет вовсе, и скобку занимает день: `Report (2026-08-23 / 2026-08-22)`.
 
 У `job` есть ещё два необязательных флага: `--via` — где задача крутилась
@@ -147,8 +149,9 @@ notify report --project playhub --json < payload.json   # весь объект 
    живому аккаунту, ботом это не сделать.
 2. `notify setup <chat_id> maphub` — заведёт вкладки «⚙️ Ops» и «💬 Dev» и
    напечатает готовую строку.
-3. Вставить строку в `src/routes.ts` (и значение в тип `Project` в
-   `src/events.ts`), выпустить пакет.
+3. Вставить строку в `src/routes.ts`, значение в тип `Project` и человеческое
+   имя в `DISPLAY` в `src/events.ts` (тест держит их в одном списке), выпустить
+   пакет.
 4. В репозиторий проекта — трёхстрочный `.github/workflows/notify.yml`,
    вызывающий `mikitasazan/notify/.github/workflows/ops-notify.yml@v1`:
    CI, деплой, PR и задачи начинают приходить сами.

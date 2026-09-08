@@ -9,8 +9,8 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { severity } from './events.ts';
-import { ROUTES, targets } from './routes.ts';
+import { DISPLAY, severity } from './events.ts';
+import { ROUTES, chatTitle, targets } from './routes.ts';
 import { notify } from './send.ts';
 
 test('the event goes to the Ops tab of its own project, and only there', () => {
@@ -44,6 +44,19 @@ test('every project in ROUTES has its own forum — a shared chat would mean str
   const chats = Object.values(ROUTES).map((f) => f.chat);
 
   assert.equal(new Set(chats).size, chats.length);
+});
+
+// A project in ROUTES with no entry in DISPLAY would crash `chatTitle()` and
+// the Incident scope fallback the moment that project's card was rendered —
+// the guard makes the drift show up here, in a test, not on a live card.
+test('DISPLAY names exactly the projects ROUTES routes for — no more, no fewer', () => {
+  assert.deepEqual(Object.keys(DISPLAY).sort(), Object.keys(ROUTES).sort());
+});
+
+test('chatTitle: a solo project\'s chat is "<Name> · Ops", a team forum is just the name', () => {
+  assert.equal(chatTitle('htmlg'), 'HTMLG · Ops');
+  assert.equal(chatTitle('zabukai'), 'Zabukai');
+  assert.equal(chatTitle('2roles'), '2Roles · Ops');
 });
 
 /**
@@ -192,6 +205,23 @@ test('every flag name the code reads is declared in KNOWN_FLAGS', async () => {
   const missing = [...used].filter((f) => !KNOWN_FLAGS.has(f));
 
   assert.deepEqual(missing, [], `these flags are read but not declared: ${missing.join(', ')}`);
+});
+
+test('notify routes prints every project with its display name and chat title', () => {
+  const { code, stdout } = runCli('routes');
+  const rows = JSON.parse(stdout) as Record<string, { chat: string; display: string; title: string }>;
+
+  assert.equal(code, 0);
+  assert.equal(rows.htmlg.display, 'HTMLG');
+  assert.equal(rows.htmlg.title, 'HTMLG · Ops');
+  assert.equal(rows.zabukai.title, 'Zabukai');
+  assert.equal(rows['2roles'].chat, '-1004314188744');
+  assert.equal(rows['2roles'].title, '2Roles · Ops');
+  // Every existing field survives the addition — `chat` was the whole point
+  // of this command before `display`/`title` joined it.
+  for (const key of Object.keys(rows)) {
+    assert.ok(rows[key].chat, `${key}: the routing fact chat is gone`);
+  }
 });
 
 test('a parsing error does not give back the contract word out of the input', () => {

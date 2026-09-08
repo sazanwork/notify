@@ -485,7 +485,7 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
   const short = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: multiline });
   const long = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'А'.repeat(500) });
 
-  assert.equal(short.split('\n')[1], '🚨 <b>Incident (Vault):</b> Vault needs a fix');
+  assert.equal(short.split('\n')[1], '🚨 <b>Incident (vault):</b> Vault needs a fix');
   assert.ok(short.includes('лог: ~/Library/Logs/vault.log'), 'the last line of the diagnosis was cut off');
   assert.ok(short.includes('<blockquote>'), 'the diagnosis must be quoted');
   assert.ok(long.includes('<blockquote expandable>'), 'a long diagnosis folds up');
@@ -494,7 +494,7 @@ test('incident: detail is quoted in full, never cut to its first line', () => {
 test('incident: detail equal to title is not printed twice', () => {
   const out = render({ type: 'incident', project: 'vault', title: 'Vault needs a fix', detail: 'Vault needs a fix' });
 
-  assert.equal(out.split('\n')[1], '🚨 <b>Incident (Vault):</b> Vault needs a fix');
+  assert.equal(out.split('\n')[1], '🚨 <b>Incident (vault):</b> Vault needs a fix');
   assert.ok(!out.includes('<blockquote>'), 'the quote repeats the title');
 });
 
@@ -1145,7 +1145,7 @@ test('card/incident: every line of the diagnosis survives', () => {
 
   assert.equal(out, [
     '#incident #vault_needs_a_fix #fail',
-    '🚨 <b>Incident (Vault):</b> Vault needs a fix',
+    '🚨 <b>Incident (vault):</b> Vault needs a fix',
     '<blockquote>нет sops',
     'ключ не найден',
     'лог: ~/Library/Logs/vault.log</blockquote>',
@@ -1167,7 +1167,7 @@ test('card/incident: several independent findings become a named list, not one g
 
   assert.equal(out, [
     '#incident #the_vault_needs_repair #fail',
-    '🚨 <b>Incident (Vault):</b> The vault needs repair',
+    '🚨 <b>Incident (vault):</b> The vault needs repair',
     '',
     '<i><u>Findings</u></i>',
     '• DIVERGED: notify.OPS_BOT_TOKEN — the vault holds one value, the disk another',
@@ -1381,7 +1381,7 @@ test('link/incident: the title is the link', () => {
   });
 
   assert.ok(
-    out.includes('🚨 <b>Incident (Vault):</b> <a href="https://x/run">The vault needs repair</a>'),
+    out.includes('🚨 <b>Incident (vault):</b> <a href="https://x/run">The vault needs repair</a>'),
     'the incident title is the link on the type line'
   );
   assert.ok(!out.includes('<b>Source:</b>'), 'the Source row is gone');
@@ -2028,7 +2028,7 @@ test('incident: the bracket names WHERE it burns — the sender\'s word, else th
   assert.equal(named.split('\n')[1], '🚨 <b>Incident (Server):</b> Disk is full');
 
   const fallback = render({ type: 'incident', project: 'vault', title: 'The vault needs repair' });
-  assert.equal(fallback.split('\n')[1], '🚨 <b>Incident (Vault):</b> The vault needs repair');
+  assert.equal(fallback.split('\n')[1], '🚨 <b>Incident (vault):</b> The vault needs repair');
 });
 
 // The bracket, the icon and the third tag are three readings of one fact, and
@@ -2066,10 +2066,10 @@ test('bracket/unknown: a PR or an issue with no action says Unknown, not Info', 
 // variable expanded to nothing.
 test('blank fields: an empty or whitespace scope falls back to the project, never an empty bracket', () => {
   const empty = render({ type: 'incident', project: 'playhub', title: 'x', scope: '' });
-  assert.equal(empty.split('\n')[1], '🚨 <b>Incident (Playhub):</b> x');
+  assert.equal(empty.split('\n')[1], '🚨 <b>Incident (PlayHub):</b> x');
 
   const spaces = render({ type: 'incident', project: 'vault', title: 'X', scope: '   ' });
-  assert.equal(spaces.split('\n')[1], '🚨 <b>Incident (Vault):</b> X');
+  assert.equal(spaces.split('\n')[1], '🚨 <b>Incident (vault):</b> X');
 });
 
 test('blank fields: an empty note still lets the aside fill the Reason row', () => {
@@ -2084,4 +2084,16 @@ test('blank fields: a whitespace-only duration prints no Took row', () => {
   const card = render({ type: 'job', project: 'playhub', job: 'nightly', status: 'ok', duration: '  ' });
 
   assert.ok(!card.includes('Took'), 'an empty Took row was printed');
+});
+
+// `cap()` guessed at a display name by capitalizing the project KEY, and that
+// guess was wrong the day a key stopped being one plain word: `cap('htmlg')`
+// gave «Htmlg», the only place a project key ever reached a human eye (the
+// Incident scope fallback). `DISPLAY` replaces the guess with the owner's own
+// spelling.
+test('incident: the project fallback reads HTMLG, never the capitalized key Htmlg', () => {
+  const card = render({ type: 'incident', project: 'htmlg', title: 'Ads are not loading' });
+
+  assert.ok(card.includes('Incident (HTMLG):'), card);
+  assert.ok(!card.includes('Htmlg'), 'the raw capitalized key leaked onto the card');
 });

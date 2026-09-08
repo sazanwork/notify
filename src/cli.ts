@@ -24,11 +24,12 @@
  */
 import { readFileSync } from 'node:fs';
 import type { NotifyEvent, Project } from './events.ts';
+import { DISPLAY } from './events.ts';
 import { KNOWN_FLAGS } from './cli-flags.ts';
 import { render, sessionTitle } from './render.ts';
 import { lintCard } from './lint.ts';
 import { notify } from './send.ts';
-import { ROUTES } from './routes.ts';
+import { ROUTES, chatTitle } from './routes.ts';
 import { setupTopic } from './setup.ts';
 
 const log = (msg: string): void => console.error(`[notify] ${msg}`);
@@ -65,7 +66,18 @@ if (command === 'lint-text') {
 }
 
 if (command === 'routes') {
-  process.stdout.write(`${JSON.stringify(ROUTES, null, 2)}\n`);
+  // `display`/`title` ride alongside the routing facts, not instead of them —
+  // every existing field stays. The avatar scripts and the name-drift check
+  // read `title` here rather than asking Telegram, so it must be `chatTitle()`
+  // verbatim, not a second guess at the same name.
+  const rows = Object.fromEntries(
+    (Object.keys(ROUTES) as Project[]).map((p) => [
+      p,
+      { ...ROUTES[p], display: DISPLAY[p], title: chatTitle(p) }
+    ])
+  );
+
+  process.stdout.write(`${JSON.stringify(rows, null, 2)}\n`);
   process.exit(0);
 }
 

@@ -19,7 +19,7 @@
  * separates BLOCKS BY MEANING (header / body / actions), not mechanically
  * after every line.
  */
-import { ICON, LOUD, iconFor, type Item, type NotifyEvent } from './events.ts';
+import { DISPLAY, ICON, LOUD, iconFor, type Item, type NotifyEvent } from './events.ts';
 
 /**
  * A label gets a capital letter — but NOT a name that is deliberately
@@ -1109,12 +1109,14 @@ const renderIncident: Renderer<Extract<NotifyEvent, { type: 'incident' }>> = (e)
 
   return join([
     // The bracket on an incident names WHERE it burns, not how it ended —
-    // it has one ending. `Incident (Vault):`, `Incident (Session):`; with no
-    // word from the sender, the project name stands in.
+    // it has one ending. `Incident (vault):`, `Incident (Session):`; with no
+    // word from the sender, the project's own DISPLAY name stands in — the
+    // owner's human spelling, not `cap()`'s guess at one (`cap('htmlg')` gave
+    // «Htmlg», the one place a project key ever reached a human eye).
     // `filled`, not `??`: `scope: ''` and `scope: ' '` are a sender that
     // named no place, and `??` let the first past the project fallback (no
     // bracket at all) and the second into a visibly empty one.
-    typeLine(iconFor(e), 'Incident', e.title, e.url, filled(e.scope) ?? cap(e.project)),
+    typeLine(iconFor(e), 'Incident', e.title, e.url, filled(e.scope) ?? DISPLAY[e.project]),
     e.detail && e.detail !== e.title ? note(e.detail) : null,
     // The rows below came from the `session` card when it was folded in
     // (03.09.2026), in the order they had there: which copy, what the guard

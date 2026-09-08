@@ -14,7 +14,33 @@
 // `vault` is not a product, it is infrastructure: a secrets safe. It needs a
 // forum for the same reason projects do: a robot needs somewhere to write.
 // There are no people there.
-export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg';
+export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg' | '2roles';
+
+/**
+ * The human name of a project, written exactly as the owner writes it.
+ * Source of truth is the project card index (`project-index` skill,
+ * `site-profiles.md`) in mac-config — a project key is a machine identifier
+ * and was never meant to be printed; `cap()` guessed at a name by capitalizing
+ * the key, which is how `htmlg` showed up as «Htmlg» on the one card that
+ * printed it (the Incident scope fallback, `render.ts`).
+ *
+ * `mac-config` and `vault` stay lowercase on purpose: a machine and a store,
+ * not brands — capitalizing them would invent a name the owner never uses.
+ *
+ * A Telegram chat title must equal `chatTitle()` in `routes.ts`, which is
+ * built out of this table.
+ */
+export const DISPLAY: Record<Project, string> = {
+  playhub: 'PlayHub',
+  'one-q': 'One-Q',
+  zabukai: 'Zabukai',
+  'game-publisher': 'Game Publisher',
+  vault: 'vault',
+  'mac-config': 'mac-config',
+  alitools: 'Alitools',
+  htmlg: 'HTMLG',
+  '2roles': '2Roles'
+};
 
 /**
  * A stable machine key for the task — the instance tag on the FIRST line of
