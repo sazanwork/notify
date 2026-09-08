@@ -21,7 +21,7 @@
 > `incident` — still accepted from old senders, never printed as `#session`. The tables below describe the 20.08 shape and are kept as history.
 
 **Status: approved in Telegram and live in `render.ts` since 1.4.0.** Live-tested
-across ~15 rounds in the "Mac-config" Ops forum (chat_id `-1004442522004`,
+across ~15 rounds in the «mac-config · Ops» chat, then a forum (chat_id `-1004442522004`,
 message_thread_id `2`), messages 169–182, each round checked against the
 Bot API's own entity response (not eyeballed) plus an independent
 acceptance-check agent that never saw the builder's report. Final owner
