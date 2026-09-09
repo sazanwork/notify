@@ -2066,7 +2066,7 @@ test('bracket/unknown: a PR or an issue with no action says Unknown, not Info', 
 // variable expanded to nothing.
 test('blank fields: an empty or whitespace scope falls back to the project, never an empty bracket', () => {
   const empty = render({ type: 'incident', project: 'playhub', title: 'x', scope: '' });
-  assert.equal(empty.split('\n')[1], '🚨 <b>Incident (PlayHub):</b> x');
+  assert.equal(empty.split('\n')[1], '🚨 <b>Incident (playhub):</b> x');
 
   const spaces = render({ type: 'incident', project: 'vault', title: 'X', scope: '   ' });
   assert.equal(spaces.split('\n')[1], '🚨 <b>Incident (vault):</b> X');

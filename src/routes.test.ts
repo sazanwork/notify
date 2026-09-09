@@ -55,7 +55,7 @@ test('DISPLAY names exactly the projects ROUTES routes for — no more, no fewer
 
 test('chatTitle: a solo project\'s chat is "<Name> · Ops", a team forum is just the name', () => {
   assert.equal(chatTitle('htmlg'), 'HTMLG · Ops');
-  assert.equal(chatTitle('zabukai'), 'Zabukai');
+  assert.equal(chatTitle('zabukai'), 'zabukai');
   assert.equal(chatTitle('2roles'), '2Roles · Ops');
 });
 
@@ -214,7 +214,7 @@ test('notify routes prints every project with its display name and chat title', 
   assert.equal(code, 0);
   assert.equal(rows.htmlg.display, 'HTMLG');
   assert.equal(rows.htmlg.title, 'HTMLG · Ops');
-  assert.equal(rows.zabukai.title, 'Zabukai');
+  assert.equal(rows.zabukai.title, 'zabukai');
   assert.equal(rows['2roles'].chat, '-1004314188744');
   assert.equal(rows['2roles'].title, '2Roles · Ops');
   // Every existing field survives the addition — `chat` was the whole point

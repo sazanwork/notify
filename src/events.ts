@@ -17,30 +17,38 @@
 export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg' | '2roles' | 'market-lens';
 
 /**
- * The human name of a project, written exactly as the owner writes it.
- * Source of truth is the project card index (`project-index` skill,
- * `site-profiles.md`) in mac-config — a project key is a machine identifier
- * and was never meant to be printed; `cap()` guessed at a name by capitalizing
- * the key, which is how `htmlg` showed up as «Htmlg» on the one card that
- * printed it (the Incident scope fallback, `render.ts`).
+ * The name of a project — THE NAME ITS REPOSITORY CARRIES, character for
+ * character. One project, one name, everywhere: the repository, the folder on
+ * the Mac, the Telegram chat, this table. Owner's decision, 09.09.2026, after a
+ * single task card printed four styles at once — `HTMLG`, `Market Lens`,
+ * `zabukai-app`, `2Roles`.
  *
- * `mac-config` and `vault` stay lowercase on purpose: a machine and a store,
- * not brands — capitalizing them would invent a name the owner never uses.
+ * That is why most rows are lowercase and hyphenated: `playhub`, `one-q` and
+ * `market-lens` are what GitHub actually calls those repositories, and a
+ * prettier spelling here is a second name to keep in sync forever. The two
+ * capitalised rows are not exceptions to the rule but instances of it —
+ * `HTMLG` and `2Roles` are spelled that way ON GITHUB.
+ *
+ * Do not restore a prettified name here. To change how a project is written,
+ * rename the REPOSITORY first, then bring this table and the chat title to it.
+ *
+ * `cap()` guessed a name by capitalizing the key, which is how `htmlg` showed
+ * up as «Htmlg»; this table exists so nothing guesses.
  *
  * A Telegram chat title must equal `chatTitle()` in `routes.ts`, which is
  * built out of this table.
  */
 export const DISPLAY: Record<Project, string> = {
-  playhub: 'PlayHub',
-  'one-q': 'One-Q',
-  zabukai: 'Zabukai',
-  'game-publisher': 'Game Publisher',
+  playhub: 'playhub',
+  'one-q': 'one-q',
+  zabukai: 'zabukai',
+  'game-publisher': 'game-publisher',
   vault: 'vault',
   'mac-config': 'mac-config',
-  alitools: 'Alitools',
+  alitools: 'alitools',
   htmlg: 'HTMLG',
   '2roles': '2Roles',
-  'market-lens': 'Market Lens'
+  'market-lens': 'market-lens'
 };
 
 /**
