@@ -14,7 +14,7 @@
 // `vault` is not a product, it is infrastructure: a secrets safe. It needs a
 // forum for the same reason projects do: a robot needs somewhere to write.
 // There are no people there.
-export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg' | '2roles';
+export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg' | '2roles' | 'market-lens';
 
 /**
  * The human name of a project, written exactly as the owner writes it.
@@ -39,7 +39,8 @@ export const DISPLAY: Record<Project, string> = {
   'mac-config': 'mac-config',
   alitools: 'Alitools',
   htmlg: 'HTMLG',
-  '2roles': '2Roles'
+  '2roles': '2Roles',
+  'market-lens': 'Market Lens'
 };
 
 /**

@@ -70,7 +70,10 @@ export const ROUTES: Record<Project, Forum> = {
   htmlg: { chat: '-1004334723487' },
   // Created 08.09.2026 as «2Roles · Ops»: the third focus project, the owner
   // runs it alone.
-  '2roles': { chat: '-1004314188744' }
+  '2roles': { chat: '-1004314188744' },
+  // Created 09.09.2026 by create-ops-chat.py as «Market Lens»: the owner and
+  // Semyon, so a forum; the tab numbers come from `notify setup`.
+  'market-lens': { chat: '-1004489147617', ops: 4, dev: 5 }
 };
 
 /**
