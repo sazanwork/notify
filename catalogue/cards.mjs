@@ -6,7 +6,7 @@
 export const CARDS = [
   {
     id: 'deploy-actions', title: 'Выкатка через GitHub Actions',
-    forum: 'PlayHub · One-Q · Game Publisher',
+    forum: 'playhub · one-q · game-publisher',
     when: 'коммит в master, который трогает код сайта',
     live: ['off', 'выключено — минуты кончились'],
     sender: '.github/workflows/deploy.yml → sazanwork/notify',
@@ -27,7 +27,7 @@ export const CARDS = [
   },
   {
     id: 'deploy-fail', title: 'Выкатка сорвалась',
-    forum: 'PlayHub · One-Q · Game Publisher',
+    forum: 'playhub · one-q · game-publisher',
     when: 'прогон упал или его сняли уже после того, как сервер обновился',
     live: ['off', 'выключено — минуты кончились'],
     sender: '.github/workflows/deploy.yml → sazanwork/notify',
@@ -47,7 +47,7 @@ export const CARDS = [
   },
   {
     id: 'deploy-manual', title: 'Выкатка руками с Mac',
-    forum: 'PlayHub · Game Publisher',
+    forum: 'playhub · game-publisher',
     when: 'запуск scripts/deploy.sh на маке',
     live: ['live', 'работает'],
     sender: 'scripts/deploy.sh → node_modules/@mikitasazan/notify',
@@ -63,7 +63,7 @@ export const CARDS = [
   },
   {
     id: 'report', title: 'Дневной отчёт аналитики',
-    forum: 'PlayHub · Game Publisher',
+    forum: 'playhub · game-publisher',
     when: 'каждый день, данные за «сегодня минус 3»',
     live: ['live', 'работает'],
     sender: 'scripts/analytics-cron.sh → notify-digest.ts',
@@ -90,7 +90,7 @@ export const CARDS = [
   },
   {
     id: 'report-weekly', title: 'Недельный отчёт аналитики',
-    forum: 'PlayHub · Game Publisher',
+    forum: 'playhub · game-publisher',
     when: 'по понедельникам, за прошедшую неделю',
     live: ['live', 'работает'],
     sender: 'scripts/analytics-cron.sh → notify-digest.ts --weekly',
@@ -122,7 +122,7 @@ export const CARDS = [
     id: 'report-free', title: 'Утренний отчёт сервера',
     // The card's own arithmetic, checked at build time.
     sums: [['Games', ['iOS', 'Android']]],
-    forum: 'PlayHub · Game Publisher',
+    forum: 'playhub · game-publisher',
     when: 'каждое утро с сервера',
     live: ['new', 'после выпуска 1.4.2'],
     sender: 'scripts/daily-report.ts',
@@ -165,7 +165,7 @@ export const CARDS = [
   },
   {
     id: 'session', title: 'Сессия жжёт лимит',
-    forum: 'Mac-config',
+    forum: 'mac-config',
     when: 'сессия переписывает кэш вместо чтения — сторож её останавливает',
     live: ['new', 'новый вид карточки'],
     sender: 'context-runaway-guard.sh → context-runaway-notify.sh',
@@ -184,7 +184,7 @@ export const CARDS = [
   },
   {
     id: 'job-import', title: 'Импорт игр — дневной итог',
-    forum: 'PlayHub', when: 'ежедневно по расписанию на сервере',
+    forum: 'playhub', when: 'ежедневно по расписанию на сервере',
     live: ['live', 'работает'],
     sender: 'scripts/daily-import-cron.sh',
     expectTag: '#job #daily_import #ok',
@@ -204,10 +204,10 @@ export const CARDS = [
   },
   {
     id: 'job-fail', title: 'Задача конфига упала',
-    forum: 'Mac-config',
+    forum: 'mac-config',
     when: 'задача по расписанию на маке завершилась с ошибкой',
     live: ['live', 'работает'],
-    sender: 'notify-fail.sh — всегда и только форум Mac-config',
+    sender: 'notify-fail.sh — всегда и только форум mac-config',
     expectTag: '#job #config_sync #fail',
     event: {
       type: 'job', project: 'mac-config', key: 'config-sync',
@@ -220,7 +220,7 @@ export const CARDS = [
   },
   {
     id: 'job-backups', title: 'Бэкапы сервера сломались',
-    forum: 'Mac-config',
+    forum: 'mac-config',
     when: 'ночная выкачка копий с сервера нашла битую или несвежую',
     live: ['off', 'красная прямо сейчас'],
     sender: 'home/bin/pull-vps-backups.sh',
@@ -237,7 +237,7 @@ export const CARDS = [
   },
   {
     id: 'job-checks', title: 'Проверки конфига покраснели',
-    forum: 'Mac-config',
+    forum: 'mac-config',
     when: 'ежедневный прогон конфига в 13:00 нашёл красное',
     live: ['live', 'работает'],
     sender: 'home/bin/update-all',
@@ -255,7 +255,7 @@ export const CARDS = [
   },
   {
     id: 'job-disabled', title: 'Сторож минут выключил автоматику',
-    forum: 'Mac-config — полная запись · плюс строка в форум каждого проекта',
+    forum: 'mac-config — полная запись · плюс строка в форум каждого проекта',
     when: 'бесплатные минуты GitHub Actions на исходе',
     live: ['live', 'работает — сработал 23 августа'],
     sender: 'actions-minutes-guard.sh',
@@ -274,7 +274,7 @@ export const CARDS = [
   },
   {
     id: 'ci', title: 'Ночная проверка кода',
-    forum: 'Arvent · Game Publisher', when: 'каждую ночь и по кнопке',
+    forum: 'zabukai · game-publisher', when: 'каждую ночь и по кнопке',
     live: ['off', 'выключено — минуты кончились'],
     sender: '.github/workflows/nightly.yml',
     expectTag: '#ci #master #ok',
@@ -296,7 +296,7 @@ export const CARDS = [
   },
   {
     id: 'ci-push', title: 'CI, упавший на пуше',
-    forum: 'Game Publisher · One-Q', when: 'коммит в master, гейт (lint/typecheck/тесты) упал',
+    forum: 'game-publisher · one-q', when: 'коммит в master, гейт (lint/typecheck/тесты) упал',
     live: ['live', 'работает'],
     sender: '.github/workflows/quality.yml → sazanwork/notify',
     expectTag: '#ci #master #fail',
@@ -316,7 +316,7 @@ export const CARDS = [
   },
   {
     id: 'issue', title: 'Задача на доске',
-    forum: 'Arvent · One-Q · PlayHub · Game Publisher',
+    forum: 'zabukai · one-q · playhub · game-publisher',
     when: 'задачу завели, назначили или закрыли на GitHub',
     live: ['live', 'работает — опросник на маке ходит каждые 5 минут'],
     sender: 'home/.claude/scripts/github-cards.py',
@@ -332,7 +332,7 @@ export const CARDS = [
   },
   {
     id: 'issue-taken', title: 'Задачу взяли',
-    forum: 'Arvent · One-Q · PlayHub · Game Publisher',
+    forum: 'zabukai · one-q · playhub · game-publisher',
     when: 'у задачи появился исполнитель',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py',
@@ -348,7 +348,7 @@ export const CARDS = [
   },
   {
     id: 'pr', title: 'Pull request',
-    forum: 'Arvent · One-Q · PlayHub · Game Publisher',
+    forum: 'zabukai · one-q · playhub · game-publisher',
     when: 'PR открыли, закрыли или влили',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py',
@@ -364,7 +364,7 @@ export const CARDS = [
   },
   {
     id: 'pr-review', title: 'Вердикт ревью',
-    forum: 'Arvent · One-Q · PlayHub · Game Publisher',
+    forum: 'zabukai · one-q · playhub · game-publisher',
     when: 'ревьюер одобрил или запросил правки',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py — отдельный опрос, событий об этом GitHub не шлёт',
@@ -380,7 +380,7 @@ export const CARDS = [
   },
   {
     id: 'incident', title: 'Авария',
-    forum: 'Vault', when: 'еженедельная самопроверка сейфа нашла расхождение',
+    forum: 'vault', when: 'еженедельная самопроверка сейфа нашла расхождение',
     live: ['live', 'работает'],
     sender: 'vault.sh',
     expectTag: '#incident #vault_selfcheck #fail',
@@ -399,9 +399,9 @@ export const CARDS = [
   },
   {
     id: 'job-silent', title: 'Задача перестала отчитываться',
-    forum: 'PlayHub · Game Publisher · Arvent',
+    forum: 'playhub · game-publisher · zabukai',
     when: 'сторож на сервере не увидел отметки в срок',
-    live: ['new', 'новая форма — доедет после выкатки сервера PlayHub'],
+    live: ['new', 'новая форма — доедет после выкатки сервера playhub'],
     sender: 'scripts/heartbeat-check.sh',
     expectTag: '#job #daily_import #unknown',
     event: {
@@ -414,9 +414,9 @@ export const CARDS = [
   },
   {
     id: 'job-silent-ok', title: 'Задача снова отчитывается',
-    forum: 'PlayHub · Game Publisher · Arvent',
+    forum: 'playhub · game-publisher · zabukai',
     when: 'после молчания задача снова оставила отметку',
-    live: ['new', 'новая форма — доедет после выкатки сервера PlayHub'],
+    live: ['new', 'новая форма — доедет после выкатки сервера playhub'],
     sender: 'scripts/heartbeat-check.sh — или просто удачный прогон самой задачи',
     expectTag: '#job #daily_import #ok',
     event: {
@@ -429,7 +429,7 @@ export const CARDS = [
   },
   {
     id: 'file', title: 'Карточка с вложением',
-    forum: 'Arvent', when: 'после вечернего прогона качества ответов бота',
+    forum: 'zabukai', when: 'после вечернего прогона качества ответов бота',
     live: ['new', 'после выпуска 1.4.2'],
     sender: 'arvent-eval-report.sh',
     expectTag: '#job #arvent_eval #ok',
