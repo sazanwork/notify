@@ -7,7 +7,7 @@ inputs:
     description: Тип события — deploy, job, report, ci, pr, issue, incident, heartbeat_miss
     required: true
   project:
-    description: playhub, one-q, zabukai или game-publisher
+    description: playhub, one-q, zabukai-app или game-publisher
     required: true
   status:
     description: 'ok/fail (для deploy, job, ci) — обычно передают статус джобы (job.status); success/failure маппится автоматически'

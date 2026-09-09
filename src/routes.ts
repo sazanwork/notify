@@ -33,6 +33,14 @@ type Forum = {
   /** The id of the project's supergroup (forum or plain). */
   chat: string;
   /**
+   * The chat's own title, and ONLY for a chat shared by several repositories
+   * of one product. A repository is a project row here, but the chat belongs
+   * to the product above them, so its name cannot be derived from any single
+   * row — every row sharing a chat carries the same `title`. Left out
+   * everywhere else, where `chatTitle()` derives the name from the project.
+   */
+  title?: string;
+  /**
    * The "⚙️ Ops" tab — robots write here. Absent for a plain chat without
    * topics (a solo project): the message then goes to the chat itself.
    */
@@ -47,12 +55,18 @@ type Forum = {
 };
 
 export const ROUTES: Record<Project, Forum> = {
-  // The only project with a team, and so the only forum left. ops/dev =
-  // 22/23, not 3/4: the old tabs were deleted by hand on 27.07.2026, and
-  // Telegram removes a topic's messages along with it. A recreated topic
-  // gets a NEW id — a topic's id is the id of its first message, it is
-  // never reused.
-  zabukai: { chat: '-1004299939100', ops: 22, dev: 23 },
+  // Zabukai is one product built from two repositories, so it is two rows
+  // sharing one forum: an Ops tab EACH, because a card belongs to the
+  // repository it came from, and ONE Dev tab, because the people talking in
+  // it are one team working on one product (owner's rule, 09.09.2026).
+  //
+  // ops/dev = 22/23, not 3/4: the old tabs were deleted by hand on
+  // 27.07.2026, and Telegram removes a topic's messages along with it. A
+  // recreated topic gets a NEW id — a topic's id is the id of its first
+  // message, it is never reused. 962 is the site's Ops tab, created
+  // 09.09.2026.
+  'zabukai-app': { chat: '-1004299939100', title: 'Zabukai', ops: 22, dev: 23 },
+  'zabukai-site': { chat: '-1004299939100', title: 'Zabukai', ops: 962, dev: 23 },
   // Every row below is a project the owner runs alone. Their Topics were
   // turned off on 06.09.2026 and their `ops` numbers went with them: a card
   // now goes to the chat itself. Sending a thread id into a chat that is no
@@ -79,12 +93,15 @@ export const ROUTES: Record<Project, Forum> = {
 /**
  * A solo project's chat is «<Name> · Ops»; a team forum is just the name — the
  * forum already carries its own «Ops»/«Dev» tabs, so the chat's own title
- * does not need to repeat the word. The real Telegram chat title and this
- * function must agree: the avatar scripts and the name-drift check both read
- * it through `notify routes --json`, not by asking Telegram.
+ * does not need to repeat the word. A chat shared by several repositories of
+ * one product carries the product's name in `title`, and every row sharing
+ * that chat repeats it, so any of them answers with the same title. The real
+ * Telegram chat title and this function must agree: the avatar scripts and the
+ * name-drift check both read it through `notify routes --json`, not by asking
+ * Telegram.
  */
 export const chatTitle = (p: Project): string =>
-  ROUTES[p].ops === undefined ? `${DISPLAY[p]} · Ops` : DISPLAY[p];
+  ROUTES[p].title ?? (ROUTES[p].ops === undefined ? `${DISPLAY[p]} · Ops` : DISPLAY[p]);
 
 export type Target = { chat: string; thread?: number; silent: boolean };
 

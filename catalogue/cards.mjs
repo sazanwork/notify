@@ -274,7 +274,7 @@ export const CARDS = [
   },
   {
     id: 'ci', title: 'Ночная проверка кода',
-    forum: 'zabukai · game-publisher', when: 'каждую ночь и по кнопке',
+    forum: 'zabukai-app · game-publisher', when: 'каждую ночь и по кнопке',
     live: ['off', 'выключено — минуты кончились'],
     sender: '.github/workflows/nightly.yml',
     expectTag: '#ci #master #ok',
@@ -316,7 +316,7 @@ export const CARDS = [
   },
   {
     id: 'issue', title: 'Задача на доске',
-    forum: 'zabukai · one-q · playhub · game-publisher',
+    forum: 'zabukai-app · one-q · playhub · game-publisher',
     when: 'задачу завели, назначили или закрыли на GitHub',
     live: ['live', 'работает — опросник на маке ходит каждые 5 минут'],
     sender: 'home/.claude/scripts/github-cards.py',
@@ -332,7 +332,7 @@ export const CARDS = [
   },
   {
     id: 'issue-taken', title: 'Задачу взяли',
-    forum: 'zabukai · one-q · playhub · game-publisher',
+    forum: 'zabukai-app · one-q · playhub · game-publisher',
     when: 'у задачи появился исполнитель',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py',
@@ -348,7 +348,7 @@ export const CARDS = [
   },
   {
     id: 'pr', title: 'Pull request',
-    forum: 'zabukai · one-q · playhub · game-publisher',
+    forum: 'zabukai-app · one-q · playhub · game-publisher',
     when: 'PR открыли, закрыли или влили',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py',
@@ -364,7 +364,7 @@ export const CARDS = [
   },
   {
     id: 'pr-review', title: 'Вердикт ревью',
-    forum: 'zabukai · one-q · playhub · game-publisher',
+    forum: 'zabukai-app · one-q · playhub · game-publisher',
     when: 'ревьюер одобрил или запросил правки',
     live: ['live', 'работает'],
     sender: 'home/.claude/scripts/github-cards.py — отдельный опрос, событий об этом GitHub не шлёт',
@@ -399,7 +399,7 @@ export const CARDS = [
   },
   {
     id: 'job-silent', title: 'Задача перестала отчитываться',
-    forum: 'playhub · game-publisher · zabukai',
+    forum: 'playhub · game-publisher · zabukai-app',
     when: 'сторож на сервере не увидел отметки в срок',
     live: ['new', 'новая форма — доедет после выкатки сервера playhub'],
     sender: 'scripts/heartbeat-check.sh',
@@ -414,7 +414,7 @@ export const CARDS = [
   },
   {
     id: 'job-silent-ok', title: 'Задача снова отчитывается',
-    forum: 'playhub · game-publisher · zabukai',
+    forum: 'playhub · game-publisher · zabukai-app',
     when: 'после молчания задача снова оставила отметку',
     live: ['new', 'новая форма — доедет после выкатки сервера playhub'],
     sender: 'scripts/heartbeat-check.sh — или просто удачный прогон самой задачи',
@@ -429,7 +429,7 @@ export const CARDS = [
   },
   {
     id: 'file', title: 'Карточка с вложением',
-    forum: 'zabukai', when: 'после вечернего прогона качества ответов бота',
+    forum: 'zabukai-app', when: 'после вечернего прогона качества ответов бота',
     live: ['new', 'после выпуска 1.4.2'],
     sender: 'arvent-eval-report.sh',
     expectTag: '#job #arvent_eval #ok',

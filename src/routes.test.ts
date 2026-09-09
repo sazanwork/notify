@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import type { Project } from './events.ts';
 import { DISPLAY, severity } from './events.ts';
 import { ROUTES, chatTitle, targets } from './routes.ts';
 import { notify } from './send.ts';
@@ -28,8 +29,8 @@ test('an unknown project does not crash the process, it gives an empty list of t
 });
 
 test('red rings, green stays quiet', () => {
-  const fail = targets({ type: 'deploy', project: 'zabukai', status: 'fail' });
-  const ok = targets({ type: 'deploy', project: 'zabukai', status: 'ok' });
+  const fail = targets({ type: 'deploy', project: 'zabukai-app', status: 'fail' });
+  const ok = targets({ type: 'deploy', project: 'zabukai-app', status: 'ok' });
 
   assert.equal(fail[0].silent, false);
   assert.equal(ok[0].silent, true);
@@ -40,10 +41,38 @@ test('an incident and a silent task are red on their own, with no --status', () 
   assert.equal(severity({ type: 'heartbeat_miss', project: 'one-q', job: 'Бэкап' }), 'error');
 });
 
-test('every project in ROUTES has its own forum — a shared chat would mean strangers see each other\'s events', () => {
-  const chats = Object.values(ROUTES).map((f) => f.chat);
+/**
+ * Two UNRELATED projects in one chat is the failure this guards: Telegram
+ * cannot hide a topic from a member, so whoever is in the group sees every
+ * tab in it. Repositories of ONE product are the case it does not cover —
+ * the same team works on all of them, there are no strangers to hide from —
+ * so a shared chat is allowed exactly when every row on it names the same
+ * product in `title` and each has its own Ops tab to write into.
+ */
+test('a chat is shared only by repositories of one product, each with its own Ops tab', () => {
+  const byChat = new Map<string, Project[]>();
+  for (const p of Object.keys(ROUTES) as Project[]) {
+    byChat.set(ROUTES[p].chat, [...(byChat.get(ROUTES[p].chat) ?? []), p]);
+  }
 
-  assert.equal(new Set(chats).size, chats.length);
+  for (const [chat, projects] of byChat) {
+    if (projects.length === 1) continue;
+    const titles = projects.map((p) => ROUTES[p].title);
+    assert.ok(titles.every((t) => t !== undefined && t === titles[0]),
+      `chat ${chat} is shared by ${projects.join(', ')} without one product title: ${titles.join(', ')}`);
+    const ops = projects.map((p) => ROUTES[p].ops);
+    assert.ok(ops.every((o) => o !== undefined),
+      `chat ${chat} is shared, so every row on it needs its own Ops tab`);
+    assert.equal(new Set(ops).size, ops.length,
+      `chat ${chat} has two projects writing into one Ops tab: ${ops.join(', ')}`);
+  }
+});
+
+test('zabukai is one product in two repositories: an Ops tab each, one Dev tab', () => {
+  assert.equal(ROUTES['zabukai-app'].chat, ROUTES['zabukai-site'].chat);
+  assert.notEqual(ROUTES['zabukai-app'].ops, ROUTES['zabukai-site'].ops);
+  assert.equal(ROUTES['zabukai-app'].dev, ROUTES['zabukai-site'].dev);
+  assert.equal(chatTitle('zabukai-app'), chatTitle('zabukai-site'));
 });
 
 // A project in ROUTES with no entry in DISPLAY would crash `chatTitle()` and
@@ -53,10 +82,14 @@ test('DISPLAY names exactly the projects ROUTES routes for — no more, no fewer
   assert.deepEqual(Object.keys(DISPLAY).sort(), Object.keys(ROUTES).sort());
 });
 
-test('chatTitle: a solo project\'s chat is "<Name> · Ops", a team forum is just the name', () => {
+test('chatTitle: solo is "<Name> · Ops", a team forum is the name, a shared chat is the product', () => {
   assert.equal(chatTitle('htmlg'), 'HTMLG · Ops');
-  assert.equal(chatTitle('zabukai'), 'zabukai');
+  assert.equal(chatTitle('market-lens'), 'market-lens');
   assert.equal(chatTitle('2roles'), '2Roles · Ops');
+  // Both repositories of one product answer with the product's name, not
+  // with their own: the chat belongs to the product, not to either of them.
+  assert.equal(chatTitle('zabukai-app'), 'Zabukai');
+  assert.equal(chatTitle('zabukai-site'), 'Zabukai');
 });
 
 /**
@@ -214,7 +247,11 @@ test('notify routes prints every project with its display name and chat title', 
   assert.equal(code, 0);
   assert.equal(rows.htmlg.display, 'HTMLG');
   assert.equal(rows.htmlg.title, 'HTMLG · Ops');
-  assert.equal(rows.zabukai.title, 'zabukai');
+  // Two repositories of one product: each keeps its own display name, and
+  // both give the product's name as the chat title.
+  assert.equal(rows['zabukai-app'].display, 'zabukai-app');
+  assert.equal(rows['zabukai-app'].title, 'Zabukai');
+  assert.equal(rows['zabukai-site'].title, 'Zabukai');
   assert.equal(rows['2roles'].chat, '-1004314188744');
   assert.equal(rows['2roles'].title, '2Roles · Ops');
   // Every existing field survives the addition — `chat` was the whole point

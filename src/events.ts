@@ -14,7 +14,7 @@
 // `vault` is not a product, it is infrastructure: a secrets safe. It needs a
 // forum for the same reason projects do: a robot needs somewhere to write.
 // There are no people there.
-export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg' | '2roles' | 'market-lens';
+export type Project = 'playhub' | 'one-q' | 'zabukai-app' | 'zabukai-site' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg' | '2roles' | 'market-lens';
 
 /**
  * The name of a project — THE NAME ITS REPOSITORY CARRIES, character for
@@ -32,6 +32,12 @@ export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vaul
  * Do not restore a prettified name here. To change how a project is written,
  * rename the REPOSITORY first, then bring this table and the chat title to it.
  *
+ * A product built from SEVERAL repositories gets one row per repository, not
+ * one row for the product: `zabukai-app` and `zabukai-site` are two rows that
+ * share one chat. The product's own name lives in `title` on their ROUTES
+ * rows, because that is the only place a name belongs to a chat rather than
+ * to a repository.
+ *
  * `cap()` guessed a name by capitalizing the key, which is how `htmlg` showed
  * up as «Htmlg»; this table exists so nothing guesses.
  *
@@ -41,7 +47,8 @@ export type Project = 'playhub' | 'one-q' | 'zabukai' | 'game-publisher' | 'vaul
 export const DISPLAY: Record<Project, string> = {
   playhub: 'playhub',
   'one-q': 'one-q',
-  zabukai: 'zabukai',
+  'zabukai-app': 'zabukai-app',
+  'zabukai-site': 'zabukai-site',
   'game-publisher': 'game-publisher',
   vault: 'vault',
   'mac-config': 'mac-config',
