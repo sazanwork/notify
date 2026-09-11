@@ -84,7 +84,9 @@ test('DISPLAY names exactly the projects ROUTES routes for — no more, no fewer
 
 test('chatTitle: solo is "<Name> · Ops", a team forum is the name, a shared chat is the product', () => {
   assert.equal(chatTitle('htmlg'), 'HTMLG · Ops');
-  assert.equal(chatTitle('market-lens'), 'market-lens');
+  // A forum wears the product's own name even when it is one repository
+  // (owner's rule of 2026-09-10) — market-lens the repo, «Market Lens» the forum.
+  assert.equal(chatTitle('market-lens'), 'Market Lens');
   assert.equal(chatTitle('2roles'), '2Roles · Ops');
   // Both repositories of one product answer with the product's name, not
   // with their own: the chat belongs to the product, not to either of them.

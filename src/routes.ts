@@ -4,12 +4,12 @@
  * the projects themselves.
  *
  * The scheme: ONE CHAT PER PROJECT. A project with a team is a forum
- * supergroup with an "⚙️ Ops" tab (robot notifications) and a "💬 Dev" tab
- * (people's live chat). A project the owner runs alone is a plain
- * supergroup without topics — the robots post straight into it and there
- * is nobody to talk to in a Dev tab (owner's rule of 2026-09-05; the first
- * such chat is `htmlg`). A plain chat has no `ops` number: the message
- * goes to the chat itself.
+ * supergroup with an "Ops" tab (robot notifications, native 🤖 topic icon)
+ * and a "Dev" tab (people's live chat, 💬). A project the owner runs alone
+ * is a plain supergroup without topics — the robots post straight into it
+ * and there is nobody to talk to in a Dev tab (owner's rule of 2026-09-05;
+ * the first such chat is `htmlg`). A plain chat has no `ops` number: the
+ * message goes to the chat itself.
  *
  * Why not one shared forum with a topic per project — that was the first
  * version, and it turned out to be a mistake: Telegram cannot hide one
@@ -33,10 +33,11 @@ type Forum = {
   /** The id of the project's supergroup (forum or plain). */
   chat: string;
   /**
-   * The chat's own title, and ONLY for a chat shared by several repositories
-   * of one product. A repository is a project row here, but the chat belongs
-   * to the product above them, so its name cannot be derived from any single
-   * row — every row sharing a chat carries the same `title`. Left out
+   * The chat's own title, wherever it cannot be derived from the project key:
+   * a product of several repositories (every row sharing that chat carries
+   * the same `title`), and a team forum whose product name is prettier than
+   * its repository key (owner's rule of 2026-09-10: a FORUM wears the
+   * product's own name; a solo chat wears the repository's). Left out
    * everywhere else, where `chatTitle()` derives the name from the project.
    */
   title?: string;
@@ -86,16 +87,19 @@ export const ROUTES: Record<Project, Forum> = {
   // runs it alone.
   '2roles': { chat: '-1004314188744' },
   // Created 09.09.2026 by create-ops-chat.py as «Market Lens»: the owner and
-  // Semyon, so a forum; the tab numbers come from `notify setup`.
-  'market-lens': { chat: '-1004489147617', ops: 4, dev: 5 }
+  // Semyon, so a forum; the tab numbers come from `notify setup`. A forum
+  // wears the product's own name even when it is one repository (owner's
+  // rule of 2026-09-10) — hence `title`, like Zabukai above.
+  'market-lens': { chat: '-1004489147617', title: 'Market Lens', ops: 4, dev: 5 }
 };
 
 /**
  * A solo project's chat is «<Name> · Ops»; a team forum is just the name — the
  * forum already carries its own «Ops»/«Dev» tabs, so the chat's own title
  * does not need to repeat the word. A chat shared by several repositories of
- * one product carries the product's name in `title`, and every row sharing
- * that chat repeats it, so any of them answers with the same title. The real
+ * one product, or a forum whose product name differs from the repo key,
+ * carries the product's name in `title`, and every row sharing that chat
+ * repeats it, so any of them answers with the same title. The real
  * Telegram chat title and this function must agree: the avatar scripts and the
  * name-drift check both read it through `notify routes --json`, not by asking
  * Telegram.
