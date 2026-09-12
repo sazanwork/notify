@@ -22,12 +22,23 @@
 import { DISPLAY, ICON, LOUD, iconFor, type Item, type NotifyEvent } from './events.ts';
 
 /**
- * A label gets a capital letter — but NOT a name that is deliberately
- * written lowercase: `iOS` was turning into `IOS`. The signal is a capital
- * second letter.
+ * A label gets a capital letter — but NOT a name. Two shapes of a name,
+ * both verbatim:
+ *
+ * 1. An inner-cap spelling a capital would flatten: `iOS` was turning into
+ *    `IOS`. The signal is a capital second letter.
+ * 2. `<name> #N` — a tracked thing named by number. In the tasks digest the
+ *    name is the repository's own (`zabukai-app #33`), and the one-name rule
+ *    keeps a repository's name symbol for symbol; this printed
+ *    «Zabukai-app #33» (owner, 12.09.2026). The ` #` is structural, not a
+ *    spelling guess — prose labels never carry one.
  */
 const cap = (s: string): string => {
   if (s.length === 0 || /^[a-z][A-Z]/.test(s)) {
+    return s;
+  }
+
+  if (/ #[#\w]/.test(s)) {
     return s;
   }
 

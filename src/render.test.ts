@@ -1793,6 +1793,35 @@ test('list items: a labelled item is capitalized, same as a field and a fact', (
   assert.ok(out.includes('<b>Stale in archive:</b> ssh-keys.tar.gz.age'));
 });
 
+// The tasks digest names every row by its repository — `<repo> #N`. That name
+// is the repository's own and the one-name rule keeps it symbol for symbol;
+// `cap()` printed «Zabukai-app #33» for `zabukai-app #33`, and the owner read
+// a digest with every project capitalized (12.09.2026). Covers the repos with
+// no DISPLAY row too (`content-engine`, `alitools-docs`): the ` #N` tail is
+// the signal, so the name needs no route to survive verbatim.
+test('group item: a repo-named label stays verbatim — the digest capitalizes no project', () => {
+  const out = render({
+    type: 'report', project: 'mac-config', title: 'Open tasks',
+    lines: [['Open', 95]],
+    groups: [{ name: 'Waiting for you', items: [
+      { label: 'zabukai-app #560', text: 'Создать «Защищённое облако»', url: 'https://x/560' },
+      { label: 'market-lens #5', text: 'Russian IP for marketplaces', url: 'https://x/5' },
+      { label: 'mac-config #89', text: 'Переиздать страницу-стандарт', url: 'https://x/89' },
+      { label: 'alitools-docs #4', text: 'Истёк GitLab-токен', url: 'https://x/4' },
+      { label: 'HTMLG #1', text: 'Домен на Porkbun', url: 'https://x/1' },
+      { label: '2Roles #11', text: 'Набор аудитории', url: 'https://x/11' }
+    ] }]
+  });
+
+  for (const label of ['zabukai-app #560', 'market-lens #5', 'mac-config #89',
+                       'alitools-docs #4', 'HTMLG #1', '2Roles #11']) {
+    assert.ok(out.includes(`<b>${label}:</b>`), `label mangled: ${label}\n${out}`);
+  }
+  for (const wrong of ['Zabukai-app', 'Market-lens', 'Mac-config', 'Alitools-docs']) {
+    assert.ok(!out.includes(wrong), `a capitalized copy of a repository name leaked: ${wrong}`);
+  }
+});
+
 // ── One number, one shape ───────────────────────────────────────────────────
 
 test('trend: both numbers, old on the left, new on the right, an arrow only where there is a second one', () => {
