@@ -497,6 +497,72 @@ const journal = (line: string): void => {
   }
 };
 
+/**
+ * One slot per OFFENDER — project, type and the card's own instance key —
+ * not per type (15.09.2026). Keyed by type, the red about a broken weekly
+ * script went green the moment ANY other script of that type sent a clean
+ * card, the reactor deleted the red and closed its issue, and next week the
+ * same red counted as a first day again: an issue never filed. The slot is
+ * both the watchdog card's key and the entry in the red memory below.
+ */
+export const brokenSlot = (e: NotifyEvent): string => `notify-broken-${String(e.type)}-${String(e.project)}-${eventKey(e)}`;
+
+type BrokenState = Record<string, string>;
+
+const brokenStatePath = (): string => join(dirname(statePath()), 'notify-broken.red.json');
+
+const readBroken = (): BrokenState => {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(brokenStatePath(), 'utf8'));
+
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as BrokenState) : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeBroken = (state: BrokenState): void => {
+  try {
+    const file = brokenStatePath();
+    mkdirSync(dirname(file), { recursive: true });
+    const tmp = `${file}.tmp${process.pid}`;
+    writeFileSync(tmp, JSON.stringify(state, null, 1));
+    renameSync(tmp, file);
+  } catch {
+    // memory is best-effort: a lost entry costs one green, never a card
+  }
+};
+
+/** Exported for tests: remember that this offender's red is in the feed. */
+export const rememberBroken = (slot: string, now = Date.now()): void => {
+  const state = readBroken();
+  state[slot] = new Date(now).toISOString().slice(0, 10);
+  writeBroken(state);
+};
+
+/** Exported for tests: true once — the slot was red and is forgotten now. */
+export const forgetBroken = (slot: string): boolean => {
+  const state = readBroken();
+
+  if (!Object.hasOwn(state, slot)) {
+    return false;
+  }
+  delete state[slot];
+  writeBroken(state);
+
+  return true;
+};
+
+/** Exported for tests: the green that pairs with brokenCardEvent's red — same key, same project. */
+export const healedCardEvent = (e: NotifyEvent): NotifyEvent => ({
+  type: 'job',
+  project: 'mac-config',
+  job: 'notify: a card broke the standard',
+  status: 'ok',
+  note: `the ${String(e.type)} card for ${String(e.project)} passes the standard again`,
+  key: brokenSlot(e)
+});
+
 /** Exported for tests: the watchdog's own card must provably pass the lint. */
 export const brokenCardEvent = (e: NotifyEvent, faults: string[], offenderHtml: string): NotifyEvent => {
   const offender = offenderHtml
@@ -522,7 +588,7 @@ export const brokenCardEvent = (e: NotifyEvent, faults: string[], offenderHtml: 
     detail: offender || undefined,
     detailLabel: 'Offender',
     check: 'config jobs --log notify-broken',
-    key: `notify-broken-${String(e.type)}`
+    key: brokenSlot(e)
   };
 };
 
@@ -547,6 +613,20 @@ const reportBrokenCard = async (e: NotifyEvent, faults: string[], offenderHtml: 
   }
 
   await deliver(targets(broken), html).catch(() => undefined);
+  rememberBroken(brokenSlot(e));
+};
+
+/**
+ * The green half of the watchdog: the offender's next clean card heals its
+ * own red, and only its own. Sent through `deliver` directly, not `notify`,
+ * so a green can never be swallowed by the 20h window a red just used.
+ */
+const reportHealedCard = async (e: NotifyEvent): Promise<void> => {
+  if (!forgetBroken(brokenSlot(e))) {
+    return;
+  }
+  const healed = healedCardEvent(e);
+  await deliver(targets(healed), render(healed)).catch(() => undefined);
 };
 
 export const notify = async (e: NotifyEvent): Promise<SendResult> => {
@@ -584,6 +664,8 @@ export const notify = async (e: NotifyEvent): Promise<SendResult> => {
 
   if (faults.length > 0) {
     await reportBrokenCard(e, faults, html);
+  } else {
+    await reportHealedCard(e);
   }
 
   return result;

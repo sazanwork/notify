@@ -12,12 +12,12 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import type { NotifyEvent } from './events.ts';
 import { render } from './render.ts';
 import { lintCard } from './lint.ts';
-import { brokenCardEvent, dedupe } from './send.ts';
+import { brokenCardEvent, brokenSlot, dedupe, forgetBroken, healedCardEvent, rememberBroken } from './send.ts';
 
 const H = 3600_000;
 const fail = (key: string, project = 'playhub' as const): NotifyEvent => ({
@@ -151,4 +151,45 @@ test('still red: the counter renders as its own row', () => {
 
   assert.ok(html.includes('<b>Still red:</b> day 3'), html);
   assert.deepEqual(lintCard(html), []);
+});
+
+// --- the watchdog keys by offender and heals its own red (15.09.2026) ---
+
+const offender = (project: 'playhub' | 'htmlg', job: string): NotifyEvent => ({
+  type: 'job',
+  project,
+  job,
+  status: 'fail',
+  check: 'config jobs'
+});
+
+test('watchdog: the slot names the offender — two scripts of one type never share a red', () => {
+  assert.equal(brokenSlot(offender('playhub', 'Server backups')), 'notify-broken-job-playhub-server_backups');
+  assert.notEqual(brokenSlot(offender('playhub', 'Server backups')), brokenSlot(offender('playhub', 'Weekly report')));
+  assert.notEqual(brokenSlot(offender('playhub', 'Server backups')), brokenSlot(offender('htmlg', 'Server backups')));
+  // the red card carries that slot as its key, so the green below pairs with it
+  const red = brokenCardEvent(offender('playhub', 'Server backups'), ['x'], '#job #x #fail\nline');
+  assert.equal(red.key, 'notify-broken-job-playhub-server_backups');
+});
+
+test('watchdog: a remembered offender is forgotten once, and only that offender', () => {
+  const a = brokenSlot(offender('playhub', 'Server backups'));
+  const b = brokenSlot(offender('playhub', 'Weekly report'));
+  rememberBroken(a);
+  assert.equal(forgetBroken(b), false, 'a clean card of ANOTHER script must not heal this red');
+  assert.equal(forgetBroken(a), true);
+  assert.equal(forgetBroken(a), false, 'the second clean run is silence');
+  // the memory lives next to NOTIFY_STATE, never in the live ~/.claude/.runs
+  assert.ok(readFileSync(join(dirname(statePath), 'notify-broken.red.json'), 'utf8').includes('{}'));
+});
+
+test('watchdog: the green pairs with the red — same key, same project, and passes the lint', () => {
+  const e = offender('playhub', 'Server backups');
+  const red = brokenCardEvent(e, ['x'], '#job #x #fail\nline');
+  const green = healedCardEvent(e);
+  assert.equal(green.key, red.key);
+  assert.equal(green.project, red.project);
+  assert.equal(green.type, 'job');
+  assert.deepEqual(lintCard(render(green)), []);
+  assert.ok(render(green).startsWith('#job #notify_broken_job_playhub_server_backups #ok'));
 });
