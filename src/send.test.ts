@@ -115,21 +115,21 @@ test('watchdog: its own card passes the lint it enforces, even over a Russian-sp
   // The offender writes system text in Russian — so the fault MESSAGE quotes
   // Russian, which is what used to fail the watchdog's own lint.
   const russian = render({
-    type: 'job', project: 'mac-config', job: 'GitHub board sync',
+    type: 'job', project: 'os-config', job: 'GitHub board sync',
     status: 'fail', note: 'сеть не отвечает'
   });
   const russianFaults = lintCard(russian);
 
   assert.ok(russianFaults.length > 0, 'the Russian offender must be at fault for this test to prove anything');
   assert.deepEqual(
-    lintCard(render(brokenCardEvent({ type: 'job', project: 'mac-config', job: 'x', status: 'fail' }, russianFaults, russian))),
+    lintCard(render(brokenCardEvent({ type: 'job', project: 'os-config', job: 'x', status: 'fail' }, russianFaults, russian))),
     [],
     'the watchdog broke its own standard reporting a Russian offender'
   );
 
   const offender = render({
     type: 'job',
-    project: 'mac-config',
+    project: 'os-config',
     job: 'unattended job stopped reporting',
     status: 'fail',
     note: 'no log, no command and no link'
@@ -138,7 +138,7 @@ test('watchdog: its own card passes the lint it enforces, even over a Russian-sp
 
   assert.ok(faults.length > 0, 'the offender must actually be at fault for this test to prove anything');
 
-  const html = render(brokenCardEvent({ type: 'job', project: 'mac-config', job: 'x', status: 'fail' }, faults, offender));
+  const html = render(brokenCardEvent({ type: 'job', project: 'os-config', job: 'x', status: 'fail' }, faults, offender));
 
   assert.deepEqual(lintCard(html), [], `the watchdog card breaks its own standard:\n${html}`);
   assert.ok(html.includes('<b>Offender:</b>'), 'the watchdog must name the offender');

@@ -94,7 +94,7 @@ const VOCABULARY: Array<[NotifyEvent, string]> = [
   [{ type: 'issue', project: 'zabukai-app', action: 'opened', number: 1, title: 't' }, ICON.fresh],
   [{ type: 'issue', project: 'zabukai-app', action: 'assigned', number: 1, title: 't' }, ICON.taken],
   [{ type: 'issue', project: 'zabukai-app', action: 'closed', number: 1, title: 't' }, ICON.ok],
-  [{ type: 'session', project: 'mac-config', action: 'burning the limit' }, ICON.alarm],
+  [{ type: 'session', project: 'os-config', action: 'burning the limit' }, ICON.alarm],
   [{ type: 'incident', project: 'zabukai-app', title: 't' }, ICON.alarm],
   [{ type: 'report', project: 'zabukai-app', title: 't', lines: [] }, ICON.info],
   [{ type: 'heartbeat_miss', project: 'zabukai-app', job: 'x' }, ICON.unknown],
@@ -628,7 +628,7 @@ test('blocks: run facts touch the name, the commit keeps its heading', () => {
 // groups to show.
 test('groups: a named group always prints its heading, even alone', () => {
   const out = render({
-    type: 'job', project: 'mac-config', job: 'Server backups', status: 'fail',
+    type: 'job', project: 'os-config', job: 'Server backups', status: 'fail',
     note: 'nothing to roll back to',
     stats: [['Fresh', 10, 'Copies on the Mac'], ['Broken', 1, 'Copies on the Mac']]
   });
@@ -692,7 +692,7 @@ test('severity: job disabled rings like fail, heartbeat recovered stays quiet li
 
 test('card/job fail: task name is on the card, not only in the tag', () => {
   const out = render({
-    type: 'job', project: 'mac-config', key: 'vps-backups',
+    type: 'job', project: 'os-config', key: 'vps-backups',
     job: 'Backups from the server', status: 'fail',
     note: 'no fresh copy arrived from the server'
   });
@@ -712,7 +712,7 @@ test('card/job fail: task name is on the card, not only in the tag', () => {
 // job's outcome now reads exactly the way a deploy's does.
 test('card/job: the bracket says how it ended, and a Via row says where it ran', () => {
   const mac = render({
-    type: 'job', project: 'mac-config', key: 'config-sync',
+    type: 'job', project: 'os-config', key: 'config-sync',
     job: 'config sync', status: 'fail', via: 'mac',
     note: 'symlink missing'
   });
@@ -736,7 +736,7 @@ test('card/job: the bracket says how it ended, and a Via row says where it ran',
     ['silent', '❓ <b>Job (Silent):</b> J']
   ];
   for (const [status, line] of outcomes) {
-    const out = render({ type: 'job', project: 'mac-config', key: 'k', job: 'J', status });
+    const out = render({ type: 'job', project: 'os-config', key: 'k', job: 'J', status });
     assert.equal(out.split('\n')[1], line, `status ${status}`);
   }
 
@@ -767,17 +767,17 @@ test('card/job: the bracket says how it ended, and a Via row says where it ran',
 
   // A word nobody foresaw still prints, with its first letter raised.
   const actions = render({
-    type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok', via: 'actions'
+    type: 'job', project: 'os-config', key: 'k', job: 'J', status: 'ok', via: 'actions'
   });
   assert.ok(actions.includes('<b>Via:</b> Actions'), actions);
 
   const other = render({
-    type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok', via: 'hetzner'
+    type: 'job', project: 'os-config', key: 'k', job: 'J', status: 'ok', via: 'hetzner'
   });
   assert.ok(other.includes('<b>Via:</b> Hetzner'), other);
 
   // Neither field present: no row, and the bracket still says how it ended.
-  const bare = render({ type: 'job', project: 'mac-config', key: 'k', job: 'J', status: 'ok' });
+  const bare = render({ type: 'job', project: 'os-config', key: 'k', job: 'J', status: 'ok' });
   assert.equal(bare, ['#job #k #ok', '✅ <b>Job (OK):</b> J'].join('\n'));
   assert.ok(!bare.includes('<b>Via:</b>'), 'no via, no row');
   assert.ok(!bare.includes('Took'), 'a job that does not measure itself says nothing about time');
@@ -802,7 +802,7 @@ test('card/job with items: no "Disabled workflows" heading unless disabled', () 
 
 test('card/job disabled: heading present, list numbered', () => {
   const out = render({
-    type: 'job', project: 'mac-config', key: 'actions-minutes-guard',
+    type: 'job', project: 'os-config', key: 'actions-minutes-guard',
     job: 'GitHub Actions minutes watchdog', status: 'disabled',
     note: 'free minutes almost gone',
     items: [{ text: 'zabukai/nightly.yml' }, { text: 'one-q/quality.yml' }]
@@ -952,7 +952,7 @@ test('card/deploy', () => {
 
 test('card/issue: body arrives — it never did before', () => {
   const out = render({
-    type: 'issue', project: 'mac-config', action: 'opened', number: 322,
+    type: 'issue', project: 'os-config', action: 'opened', number: 322,
     title: 'Commit convention for all repos',
     body: 'Тело задачи с GitHub, как его написал человек.',
     author: 'Ilja-Prihach', url: 'https://x/i/322'
@@ -1338,7 +1338,7 @@ test('link/report: the report name is the link, and there is no Details row', ()
 
 test('link/report with groups: same rule', () => {
   const out = render({
-    type: 'report', project: 'mac-config', title: 'Board',
+    type: 'report', project: 'os-config', title: 'Board',
     groups: [{ name: 'Ready', items: [{ text: '#12 do a thing', url: 'https://x/12' }] }],
     url: 'https://x/board'
   });
@@ -1397,7 +1397,7 @@ test('link/no url: the name stays plain text, the card does not invent a link', 
 
 test('link/job: a command he must run is monospaced, so Telegram makes it copyable', () => {
   const out = render({
-    type: 'job', project: 'mac-config', job: 'Session is burning the limit', status: 'fail',
+    type: 'job', project: 'os-config', job: 'Session is burning the limit', status: 'fail',
     note: 'context 871k against a compact line of 500k',
     stats: [['Session', 'Пройди на Хекслете следующие темы']],
     command: 'claude --resume 8f03d18c-b7d6-438c-bb40-6756c3e1e835',
@@ -1415,9 +1415,9 @@ test('link/job: a command he must run is monospaced, so Telegram makes it copyab
 
 test('card/session: identifier first, his own words quoted, command copyable', () => {
   const out = render({
-    type: 'session', project: 'mac-config', action: 'burning the limit', status: 'fail',
+    type: 'session', project: 'os-config', action: 'burning the limit', status: 'fail',
     id: '8f03d18c-b7d6-438c-bb40-6756c3e1e835',
-    workdir: 'mac-config',
+    workdir: 'os-config',
     reason: 'context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     opened: 'Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы»',
     command: 'rm /var/folders/x/claude-ctxguard/8f03d18c.latch',
@@ -1427,7 +1427,7 @@ test('card/session: identifier first, his own words quoted, command copyable', (
   assert.equal(out, [
     '#incident #burning_the_limit #fail',
     '🚨 <b>Incident (Session):</b> Claude session is burning the limit',
-    '<b>Project:</b> mac-config',
+    '<b>Project:</b> os-config',
     '<b>Reason:</b> context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
     '',
     // A bold field label, nothing after the colon — not the group() heading:
@@ -1443,7 +1443,7 @@ test('card/session: identifier first, his own words quoted, command copyable', (
 test('card/session: the opening line is NOT clipped to one line the way a field is', () => {
   const long = 'Пройди на Хекслете следующие темы по списку:\nсначала одну,\nпотом вторую';
   const out = render({
-    type: 'session', project: 'mac-config', action: 'burning the limit', opened: long
+    type: 'session', project: 'os-config', action: 'burning the limit', opened: long
   });
 
   assert.ok(out.includes('потом вторую'), 'the last line of his own text was cut off');
@@ -1451,16 +1451,16 @@ test('card/session: the opening line is NOT clipped to one line the way a field 
 });
 
 test('card/session: a red session rings, and its tag does not change every session', () => {
-  const one = render({ type: 'session', project: 'mac-config', action: 'burning the limit', id: 'aaa' });
-  const two = render({ type: 'session', project: 'mac-config', action: 'burning the limit', id: 'bbb' });
+  const one = render({ type: 'session', project: 'os-config', action: 'burning the limit', id: 'aaa' });
+  const two = render({ type: 'session', project: 'os-config', action: 'burning the limit', id: 'bbb' });
 
   assert.ok(one.startsWith('#incident #burning_the_limit'), 'wrong tag');
   assert.ok(!one.includes('#session'), 'the retired #session tag came back');
   assert.equal(one.split('\n')[0], two.split('\n')[0], 'the tag changed with the session id');
   // A session is an incident: one state, one sound. `status: 'ok'` is still
   // ACCEPTED from the old sender and is simply not read any more.
-  assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'fail' }), 'error');
-  assert.equal(severity({ type: 'session', project: 'mac-config', action: 'x', status: 'ok' }), 'error');
+  assert.equal(severity({ type: 'session', project: 'os-config', action: 'x', status: 'fail' }), 'error');
+  assert.equal(severity({ type: 'session', project: 'os-config', action: 'x', status: 'ok' }), 'error');
 });
 
 // The `session` type was folded into `incident` on 03.09.2026: two cards said
@@ -1470,7 +1470,7 @@ test('card/session: a red session rings, and its tag does not change every sessi
 // and `#session` is never printed again.
 test('card/session: the folded type renders as an incident, tag and all', () => {
   const folded = render({
-    type: 'session', project: 'mac-config', key: 'context-runaway',
+    type: 'session', project: 'os-config', key: 'context-runaway',
     action: 'burning the limit'
   });
 
@@ -1483,7 +1483,7 @@ test('card/session: the folded type renders as an incident, tag and all', () => 
   // An incident sent directly is the same card, and it carries the rows the
   // session card used to own.
   const direct = render({
-    type: 'incident', project: 'mac-config', key: 'context-runaway',
+    type: 'incident', project: 'os-config', key: 'context-runaway',
     title: 'Claude session is burning the limit',
     workdir: 'zabukai-app', reason: 'context 871596 against 500000',
     opened: 'fix the login form', command: 'rm /tmp/x.latch', commandNote: 'unlock it'
@@ -1494,13 +1494,13 @@ test('card/session: the folded type renders as an incident, tag and all', () => 
   assert.ok(direct.includes('<code>rm /tmp/x.latch</code>'), direct);
 
   // With no action at all the card still names what it is about.
-  const bare = render({ type: 'session', project: 'mac-config', action: '' });
+  const bare = render({ type: 'session', project: 'os-config', action: '' });
   assert.equal(bare.split('\n')[1], '🚨 <b>Incident (Session):</b> Claude session is in trouble');
 });
 
 test('card/job: facts get their own lines instead of one run-on Reason', () => {
   const out = render({
-    type: 'job', project: 'mac-config', job: 'Server backups', status: 'fail',
+    type: 'job', project: 'os-config', job: 'Server backups', status: 'fail',
     stats: [['Fresh copies', 10], ['Broken', 1]],
     note: 're-downloading from the server did not help, there is nothing to roll back to',
     logs: '~/Library/Logs/pull-vps-backups.log'
@@ -1519,7 +1519,7 @@ test('card/job: facts get their own lines instead of one run-on Reason', () => {
 
 test('card/job: several red checks are a list, not a comma-separated tail', () => {
   const out = render({
-    type: 'job', project: 'mac-config', job: 'Config checks', status: 'fail',
+    type: 'job', project: 'os-config', job: 'Config checks', status: 'fail',
     note: '2 checks are red',
     items: [{ text: 'test-update-all' }, { text: 'check-notify-flags' }],
     logs: '/Users/chelsnebes/Library/Logs/update-all.log'
@@ -1652,7 +1652,7 @@ test('sound: a review asking for edits does not ring', () => {
  */
 test('action: the line he must run is marked and copyable; the pointer block is last (v2.1)', () => {
   const out = render({
-    type: 'job', project: 'mac-config', job: 'Config checks', status: 'fail',
+    type: 'job', project: 'os-config', job: 'Config checks', status: 'fail',
     note: 'red: test-update-all', logs: '/Users/x/Library/Logs/update-all.log',
     command: 'bash ~/bin/update-all --tests-only',
     commandNote: 'rerun the suite and read the log'
@@ -1678,14 +1678,14 @@ test('action: the line he must run is marked and copyable; the pointer block is 
  */
 test('action: a command never travels without saying what it does', () => {
   const bare = render({
-    type: 'job', project: 'mac-config', job: 'x', status: 'fail',
+    type: 'job', project: 'os-config', job: 'x', status: 'fail',
     command: 'rm /tmp/x.latch'
   });
 
   assert.ok(!bare.includes('<code>'), 'a command with no note must not be shown at all');
 
   const explained = render({
-    type: 'job', project: 'mac-config', job: 'x', status: 'fail',
+    type: 'job', project: 'os-config', job: 'x', status: 'fail',
     command: 'rm /tmp/x.latch', commandNote: 'stop the alarm for this session'
   });
   const lines = explained.split('\n').filter(Boolean);
@@ -1696,7 +1696,7 @@ test('action: a command never travels without saying what it does', () => {
 
 test('action: a card with nothing to run carries no marker', () => {
   const out = render({
-    type: 'job', project: 'mac-config', job: 'Server backups', status: 'fail',
+    type: 'job', project: 'os-config', job: 'Server backups', status: 'fail',
     note: 'fresh copies: 10, broken: 1'
   });
 
@@ -1801,19 +1801,19 @@ test('list items: a labelled item is capitalized, same as a field and a fact', (
 // the signal, so the name needs no route to survive verbatim.
 test('group item: a repo-named label stays verbatim — the digest capitalizes no project', () => {
   const out = render({
-    type: 'report', project: 'mac-config', title: 'Open tasks',
+    type: 'report', project: 'os-config', title: 'Open tasks',
     lines: [['Open', 95]],
     groups: [{ name: 'Waiting for you', items: [
       { label: 'zabukai-app #560', text: 'Создать «Защищённое облако»', url: 'https://x/560' },
       { label: 'market-lens #5', text: 'Russian IP for marketplaces', url: 'https://x/5' },
-      { label: 'mac-config #89', text: 'Переиздать страницу-стандарт', url: 'https://x/89' },
+      { label: 'os-config #89', text: 'Переиздать страницу-стандарт', url: 'https://x/89' },
       { label: 'alitools-docs #4', text: 'Истёк GitLab-токен', url: 'https://x/4' },
       { label: 'HTMLG #1', text: 'Домен на Porkbun', url: 'https://x/1' },
       { label: '2Roles #11', text: 'Набор аудитории', url: 'https://x/11' }
     ] }]
   });
 
-  for (const label of ['zabukai-app #560', 'market-lens #5', 'mac-config #89',
+  for (const label of ['zabukai-app #560', 'market-lens #5', 'os-config #89',
                        'alitools-docs #4', 'HTMLG #1', '2Roles #11']) {
     assert.ok(out.includes(`<b>${label}:</b>`), `label mangled: ${label}\n${out}`);
   }
@@ -2053,7 +2053,7 @@ test('the catalogue accepts a commit row whose title carries its own separator',
 });
 
 test('incident: the bracket names WHERE it burns — the sender\'s word, else the project', () => {
-  const named = render({ type: 'incident', project: 'mac-config', title: 'Disk is full', scope: 'Server' });
+  const named = render({ type: 'incident', project: 'os-config', title: 'Disk is full', scope: 'Server' });
   assert.equal(named.split('\n')[1], '🚨 <b>Incident (Server):</b> Disk is full');
 
   const fallback = render({ type: 'incident', project: 'vault', title: 'The vault needs repair' });

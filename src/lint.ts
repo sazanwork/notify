@@ -10,7 +10,7 @@
  * So the finished HTML is read here, right before delivery, by the same rules
  * the page states. A card that breaks them is STILL SENT: a notification is
  * never worth losing, and a lint is not a reason to drop one. The breach is
- * reported separately, as its own red card to mac-config, the way a lost
+ * reported separately, as its own red card to os-config, the way a lost
  * project already is.
  */
 

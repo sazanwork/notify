@@ -9,7 +9,7 @@
 // in `src/`, the page was not rebuilt, and the page kept describing a card
 // shape the code had left behind. The owner then read it as the standard.
 //
-// mac-config has a guard for this (`tests/check-standard-page-fresh.py`), but
+// os-config has a guard for this (`tests/check-standard-page-fresh.py`), but
 // it lives in the OTHER repository — the one where notification changes are
 // NOT made. This one fires here, where the renderer is edited.
 //

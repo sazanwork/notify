@@ -77,7 +77,8 @@ export const ROUTES: Record<Project, Forum> = {
   'game-publisher': { chat: '-1004292453693' },
   'one-q': { chat: '-1004466909784' },
   vault: { chat: '-1004459314999' },
-  'mac-config': { chat: '-1004442522004' },
+  // The machine's Ops chat, «os-config · Ops» (renamed from os-config 22.09.2026).
+  'os-config': { chat: '-1004442522004' },
   alitools: { chat: '-1003904331479' },
   // Created 05.09.2026 as «HTMLG · Ops», the first chat built this way
   // (HTMLG is the HTML5-games business; the brand and domain of its portal

@@ -440,10 +440,10 @@ export const dedupe = (e: NotifyEvent, now = Date.now()): { action: 'send' | 'su
  *
  * An unknown project still does NOT bring down the scheduled task that
  * called it (the exit code does not change) — but it no longer disappears
- * silently either: a red card goes out to mac-config Ops. This kind of
- * failure lived unnoticed for weeks, twice: "vault" and "mac-config" until
+ * silently either: a red card goes out to os-config Ops. This kind of
+ * failure lived unnoticed for weeks, twice: "vault" and "os-config" until
  * 04.08, and the Alitools reports until 18.08. Recursion is not possible
- * here: the error card is addressed to mac-config, which is always present
+ * here: the error card is addressed to os-config, which is always present
  * in ROUTES.
  */
 const reportLostProject = async (project: unknown, kind: string): Promise<void> => {
@@ -452,7 +452,7 @@ const reportLostProject = async (project: unknown, kind: string): Promise<void> 
   log(`unknown project "${String(project)}" — known: ${Object.keys(ROUTES).join(', ')}`);
   const lost: NotifyEvent = {
     type: 'job',
-    project: 'mac-config',
+    project: 'os-config',
     job: 'notify: an event was lost',
     status: 'fail',
     note: `project "${String(project)}" is not in ROUTES — event "${kind}" went nowhere`,
@@ -556,7 +556,7 @@ export const forgetBroken = (slot: string): boolean => {
 /** Exported for tests: the green that pairs with brokenCardEvent's red — same key, same project. */
 export const healedCardEvent = (e: NotifyEvent): NotifyEvent => ({
   type: 'job',
-  project: 'mac-config',
+  project: 'os-config',
   job: 'notify: a card broke the standard',
   status: 'ok',
   note: `the ${String(e.type)} card for ${String(e.project)} passes the standard again`,
@@ -575,7 +575,7 @@ export const brokenCardEvent = (e: NotifyEvent, faults: string[], offenderHtml: 
 
   return {
     type: 'job',
-    project: 'mac-config',
+    project: 'os-config',
     job: 'notify: a card broke the standard',
     status: 'fail',
     // The faults go in the LIST, not in Reason: a fault message quotes the

@@ -93,7 +93,7 @@ notify report --project playhub --json < payload.json   # весь объект 
 Она стоит там, где у типа исходов больше одного. У `incident` состояние одно,
 поэтому его скобка называет МЕСТО, где горит: `Incident (vault)`,
 `Incident (Session)` — слово из `--scope`, без него человеческое имя проекта
-(таблица `DISPLAY` в `src/events.ts`; `vault` и `mac-config` — нарочно со
+(таблица `DISPLAY` в `src/events.ts`; `vault` и `os-config` — нарочно со
 строчной, это машина и хранилище, а не бренды). У `report`
 исхода нет вовсе, и скобку занимает день: `Report (2026-08-23 / 2026-08-22)`.
 

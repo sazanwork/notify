@@ -16,7 +16,7 @@
  *
  * The bot cannot create the forum supergroup itself — Telegram only allows a
  * real account to do that. So the order for a new project is
- * (mac-config's tg-forums skill, scripts/create-ops-chat.py --forum does all
+ * (os-config's tg-forums skill, scripts/create-ops-chat.py --forum does all
  * of step 1):
  *   1. create a group in Telegram, turn on "Topics" in it, add
  *      @mikita_ops_bot as an admin with the "Manage topics" right;

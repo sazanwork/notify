@@ -117,12 +117,12 @@ test('a value that starts with two dashes arrives through the --flag=value form'
   // separate-argument form coming back.
   const body = '---\ntitle: front matter\n---\nНастоящее тело.';
 
-  const split = runCli('issue', '--project', 'mac-config', '--action', 'opened',
+  const split = runCli('issue', '--project', 'os-config', '--action', 'opened',
     '--number', '322', '--title', 'T', '--body', body, '--dry-run');
   assert.match(split.stderr, /failed:/, 'the split form must be an explicit error');
   assert.equal(split.stdout, '', 'a card must not render from a broken command');
 
-  const joined = runCli('issue', '--project=mac-config', '--action=opened',
+  const joined = runCli('issue', '--project=os-config', '--action=opened',
     '--number=322', '--title=T', `--body=${body}`, '--dry-run');
   assert.equal(joined.code, 0);
   assert.ok(joined.stdout.includes('Настоящее тело.'), 'the issue body was lost');
@@ -143,7 +143,7 @@ test('--dry-run prints the card to stdout and sends nothing', () => {
 test('--via and --took reach the job card', () => {
   // `--took` fills `duration`: the flag is the sender's word for the question,
   // the field is the card's.
-  const { code, stdout } = runCli('job', '--project=mac-config', '--job=config sync',
+  const { code, stdout } = runCli('job', '--project=os-config', '--job=config sync',
     '--status=fail', '--via=mac', '--took=4m 12s', '--note=symlink missing', '--dry-run');
 
   assert.equal(code, 0);
@@ -156,7 +156,7 @@ test('--via and --took reach the job card', () => {
 // runaway guard on this Mac calls it and must keep working; what it sends now
 // comes out as an incident, tag included.
 test('notify session is an alias of notify incident', () => {
-  const { code, stdout } = runCli('session', '--project=mac-config', '--key=context-runaway',
+  const { code, stdout } = runCli('session', '--project=os-config', '--key=context-runaway',
     '--action=burning the limit', '--workdir=zabukai', '--reason=context 871596',
     '--opened=fix the login form', '--command=rm /tmp/x.latch',
     '--command-note=unlock it', '--dry-run');

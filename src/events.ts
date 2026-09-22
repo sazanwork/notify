@@ -14,7 +14,7 @@
 // `vault` is not a product, it is infrastructure: a secrets safe. It needs a
 // forum for the same reason projects do: a robot needs somewhere to write.
 // There are no people there.
-export type Project = 'playhub' | 'one-q' | 'zabukai-app' | 'zabukai-site' | 'game-publisher' | 'vault' | 'mac-config' | 'alitools' | 'htmlg' | '2roles' | 'market-lens';
+export type Project = 'playhub' | 'one-q' | 'zabukai-app' | 'zabukai-site' | 'game-publisher' | 'vault' | 'os-config' | 'alitools' | 'htmlg' | '2roles' | 'market-lens';
 
 /**
  * The name of a project — THE NAME ITS REPOSITORY CARRIES, character for
@@ -51,7 +51,7 @@ export const DISPLAY: Record<Project, string> = {
   'zabukai-site': 'zabukai-site',
   'game-publisher': 'game-publisher',
   vault: 'vault',
-  'mac-config': 'mac-config',
+  'os-config': 'os-config',
   alitools: 'alitools',
   htmlg: 'HTMLG',
   '2roles': '2Roles',

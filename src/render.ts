@@ -1213,7 +1213,7 @@ const RENDERERS: { [K in NotifyEvent['type']]: Renderer<Extract<NotifyEvent, { t
 // representations of one fact (a hyphenated `#ci-zabukai` at the bottom, tags
 // typed by hand at the top), and that read as duplication. The separator is
 // an underscore, not a hyphen: a hyphen splits a Telegram hashtag in the
-// middle of a word (`#mac-config` links only as `#mac`), and the tag MUST be
+// middle of a word (`#os-config` links only as `#mac`), and the tag MUST be
 // clickable — that is exactly the "show this instance's whole history" filter
 // the owner uses in practice.
 export const slug = (raw: string): string =>

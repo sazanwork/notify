@@ -16,7 +16,7 @@
  *   notify ci       --project zabukai-app  --status fail --branch master
  *   notify pr       --project zabukai-app  --action opened --number 142 --title "..."
  *   notify incident --project zabukai-app  --title "Redis is unreachable" --detail "$ERR"
- *   notify session  --project mac-config --action "burning the limit"   # DEPRECATED alias of incident
+ *   notify session  --project os-config --action "burning the limit"   # DEPRECATED alias of incident
  *   notify file     --project zabukai-app  --title "Full dialogues" --path ./out.txt [--filename name.txt]
  *   notify <type> [--key stable-key]   # the task's key on the card's last line
  *   notify <type> --json < payload.json   # the whole event object on stdin
