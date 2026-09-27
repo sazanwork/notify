@@ -90,8 +90,8 @@ test('chatTitle: solo is "<Name> · Ops", a team forum is the name, a shared cha
   assert.equal(chatTitle('2roles'), '2Roles · Ops');
   // Both repositories of one product answer with the product's name, not
   // with their own: the chat belongs to the product, not to either of them.
-  assert.equal(chatTitle('zabukai-app'), 'Zabukai');
-  assert.equal(chatTitle('zabukai-site'), 'Zabukai');
+  assert.equal(chatTitle('zabukai-app'), 'zabukai');
+  assert.equal(chatTitle('zabukai-site'), 'zabukai');
 });
 
 /**
@@ -252,8 +252,8 @@ test('notify routes prints every project with its display name and chat title', 
   // Two repositories of one product: each keeps its own display name, and
   // both give the product's name as the chat title.
   assert.equal(rows['zabukai-app'].display, 'zabukai-app');
-  assert.equal(rows['zabukai-app'].title, 'Zabukai');
-  assert.equal(rows['zabukai-site'].title, 'Zabukai');
+  assert.equal(rows['zabukai-app'].title, 'zabukai');
+  assert.equal(rows['zabukai-site'].title, 'zabukai');
   assert.equal(rows['2roles'].chat, '-1004314188744');
   assert.equal(rows['2roles'].title, '2Roles · Ops');
   // Every existing field survives the addition — `chat` was the whole point

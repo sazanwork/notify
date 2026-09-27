@@ -56,7 +56,7 @@ type Forum = {
 };
 
 export const ROUTES: Record<Project, Forum> = {
-  // Zabukai is one product built from two repositories, so it is two rows
+  // zabukai is one product built from two repositories, so it is two rows
   // sharing one forum: an Ops tab EACH, because a card belongs to the
   // repository it came from, and ONE Dev tab, because the people talking in
   // it are one team working on one product (owner's rule, 09.09.2026).
@@ -66,8 +66,8 @@ export const ROUTES: Record<Project, Forum> = {
   // recreated topic gets a NEW id — a topic's id is the id of its first
   // message, it is never reused. 962 is the site's Ops tab, created
   // 09.09.2026.
-  'zabukai-app': { chat: '-1004299939100', title: 'Zabukai', ops: 22, dev: 23 },
-  'zabukai-site': { chat: '-1004299939100', title: 'Zabukai', ops: 962, dev: 23 },
+  'zabukai-app': { chat: '-1004299939100', title: 'zabukai', ops: 22, dev: 23 },
+  'zabukai-site': { chat: '-1004299939100', title: 'zabukai', ops: 962, dev: 23 },
   // Every row below is a project the owner runs alone. Their Topics were
   // turned off on 06.09.2026 and their `ops` numbers went with them: a card
   // now goes to the chat itself. Sending a thread id into a chat that is no
@@ -90,7 +90,7 @@ export const ROUTES: Record<Project, Forum> = {
   // Created 09.09.2026 by create-ops-chat.py as «Market Lens»: the owner and
   // Semyon, so a forum; the tab numbers come from `notify setup`. A forum
   // wears the product's own name even when it is one repository (owner's
-  // rule of 2026-09-10) — hence `title`, like Zabukai above.
+  // rule of 2026-09-10) — hence `title`, like zabukai above.
   'market-lens': { chat: '-1004489147617', title: 'Market Lens', ops: 4, dev: 5 }
 };
 
