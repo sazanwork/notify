@@ -10,8 +10,11 @@ const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.u
 // отличить вчерашнюю сборку от сегодняшней он мог, а сегодняшнюю утреннюю от
 // сегодняшней дневной — нет. Время в шапке отвечает на это без вопросов.
 const NOW = new Date();
-const STAMP = `${NOW.toISOString().slice(0, 10).split('-').reverse().join('.')} в ${
-  String(NOW.getHours()).padStart(2, '0')}:${String(NOW.getMinutes()).padStart(2, '0')}`;
+// Date and time from the same local clock: toISOString() is UTC, so a build at
+// 01:38 on 17.09 (UTC+3) was stamped «16.09.2026 в 01:38» (#7).
+const pad = (n) => String(n).padStart(2, '0');
+const STAMP = `${pad(NOW.getDate())}.${pad(NOW.getMonth() + 1)}.${NOW.getFullYear()} в ${
+  pad(NOW.getHours())}:${pad(NOW.getMinutes())}`;
 
 // Раньше здесь стояла жёсткая фраза «сегодняшние правки в него ещё не вошли».
 // Она была правдой один день и ложью в тот же вечер, когда правки выпустили, —
