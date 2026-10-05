@@ -179,7 +179,7 @@ test('watchdog: a remembered offender is forgotten once, and only that offender'
   assert.equal(forgetBroken(b), false, 'a clean card of ANOTHER script must not heal this red');
   assert.equal(forgetBroken(a), true);
   assert.equal(forgetBroken(a), false, 'the second clean run is silence');
-  // the memory lives next to NOTIFY_STATE, never in the live ~/.claude/.runs
+  // the memory lives next to NOTIFY_STATE, never in the live ~/.local/state/notify
   assert.ok(readFileSync(join(dirname(statePath), 'notify-broken.red.json'), 'utf8').includes('{}'));
 });
 

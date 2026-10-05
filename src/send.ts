@@ -347,7 +347,7 @@ const DAY_MS = 24 * 3600_000;
 type SentState = Record<string, { first: string; last: string; count: number }>;
 
 const statePath = (): string =>
-  process.env.NOTIFY_STATE?.trim() || join(homedir(), '.claude', '.runs', 'notify-sent.json');
+  process.env.NOTIFY_STATE?.trim() || join(homedir(), '.local', 'state', 'notify', 'notify-sent.json');
 
 /** Exported for tests only — the time is injectable so day counting is provable. */
 export const dedupe = (e: NotifyEvent, now = Date.now()): { action: 'send' | 'suppress'; stillRed?: number } => {
@@ -485,7 +485,7 @@ const reportLostProject = async (project: unknown, kind: string): Promise<void> 
  * breach lands in the failure log: silence is the one thing it may not do.
  */
 const failuresLog = (): string =>
-  process.env.NOTIFY_FAILLOG?.trim() || join(homedir(), '.claude', '.runs', 'notify-fail.failures.log');
+  process.env.NOTIFY_FAILLOG?.trim() || join(homedir(), '.local', 'state', 'notify', 'notify-fail.failures.log');
 
 const journal = (line: string): void => {
   try {
