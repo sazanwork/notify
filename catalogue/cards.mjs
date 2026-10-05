@@ -165,16 +165,16 @@ export const CARDS = [
   },
   {
     id: 'session', title: 'Сессия жжёт лимит',
-    forum: 'mac-config',
+    forum: 'os-config',
     when: 'сессия переписывает кэш вместо чтения — сторож её останавливает',
     live: ['new', 'новый вид карточки'],
     sender: 'context-runaway-guard.sh → context-runaway-notify.sh',
     expectTag: '#incident #context_runaway #fail',
     event: {
-      type: 'session', project: 'mac-config', key: 'context-runaway',
+      type: 'session', project: 'os-config', key: 'context-runaway',
       action: 'burning the limit',
       id: '8f03d18c-b7d6-438c-bb40-6756c3e1e835',
-      workdir: 'mac-config',
+      workdir: 'os-config',
       reason: 'context 871596 against a compact line of 500000, cache rewrites: 5 of the last 30 requests',
       opened: 'Пройди на Хекслете (ru.hexlet.io) по очереди эти темы из «Мои темы» (в этом порядке): 1. Python: Разработка на Django, 2. Основы вёрстки',
       command: 'rm /var/folders/f1/vkkb__f93dv44kmfstl9pgf40000gn/T/claude-ctxguard/8f03d18c.latch',
@@ -204,13 +204,13 @@ export const CARDS = [
   },
   {
     id: 'job-fail', title: 'Задача конфига упала',
-    forum: 'mac-config',
+    forum: 'os-config',
     when: 'задача по расписанию на маке завершилась с ошибкой',
     live: ['live', 'работает'],
-    sender: 'notify-fail.sh — всегда и только форум mac-config',
+    sender: 'notify-fail.sh — всегда и только os-config',
     expectTag: '#job #config_sync #fail',
     event: {
-      type: 'job', project: 'mac-config', key: 'config-sync',
+      type: 'job', project: 'os-config', key: 'config-sync',
       job: 'Config sync', status: 'fail', via: 'mac',
       note: 'git push refused: the remote branch holds a commit that is not here',
       logs: '/Users/chelsnebes/Library/Logs/config-sync.log',
@@ -220,13 +220,13 @@ export const CARDS = [
   },
   {
     id: 'job-backups', title: 'Бэкапы сервера сломались',
-    forum: 'mac-config',
+    forum: 'os-config',
     when: 'ночная выкачка копий с сервера нашла битую или несвежую',
     live: ['off', 'красная прямо сейчас'],
     sender: 'home/bin/pull-vps-backups.sh',
     expectTag: '#job #vps_backups #fail',
     event: {
-      type: 'job', project: 'mac-config', key: 'vps-backups',
+      type: 'job', project: 'os-config', key: 'vps-backups',
       job: 'Server backups', status: 'fail', via: 'mac',
       note: 're-downloading from the server did not help, there is nothing to roll back to',
       stats: [['Fresh', 10, 'Copies on the Mac'], ['Broken', 1, 'Copies on the Mac']],
@@ -237,13 +237,13 @@ export const CARDS = [
   },
   {
     id: 'job-checks', title: 'Проверки конфига покраснели',
-    forum: 'mac-config',
+    forum: 'os-config',
     when: 'ежедневный прогон конфига в 13:00 нашёл красное',
     live: ['live', 'работает'],
     sender: 'home/bin/update-all',
     expectTag: '#job #config_tests #fail',
     event: {
-      type: 'job', project: 'mac-config', key: 'config-tests',
+      type: 'job', project: 'os-config', key: 'config-tests',
       job: 'Config checks', status: 'fail', via: 'mac',
       note: '2 checks are red',
       items: [{ text: 'test-update-all', group: 'Red checks' },
@@ -261,12 +261,12 @@ export const CARDS = [
     sender: 'actions-minutes-guard.sh',
     expectTag: '#job #actions_minutes_guard #off',
     event: {
-      type: 'job', project: 'mac-config', key: 'actions-minutes-guard',
+      type: 'job', project: 'os-config', key: 'actions-minutes-guard',
       job: 'GitHub Actions minutes watchdog', status: 'disabled', via: 'mac',
       note: 'Free minutes are nearly gone: 2013 of 2000. Switched these off so failure emails stop. Will switch them back on myself in the new period.',
       url: 'https://github.com/organizations/sazanwork/settings/billing',
       items: [
-        { text: 'arvent/nightly.yml', url: 'https://github.com/sazanwork/arvent/actions/workflows/nightly.yml' },
+        { text: 'zabukai-app/full-suite.yml', url: 'https://github.com/sazanwork/zabukai-app/actions/workflows/full-suite.yml' },
         { text: 'one-q/quality.yml', url: 'https://github.com/sazanwork/one-q/actions/workflows/quality.yml' }
       ]
     },
@@ -284,13 +284,13 @@ export const CARDS = [
       // author reach the card exactly as on a push. The author is the owner
       // here, and the row is printed all the same (03.09.2026): the same set
       // of people rows on every card, whoever the person turns out to be.
-      type: 'ci', project: 'arvent', status: 'ok', branch: 'master',
-      commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/arvent/commit/9b1fc68',
+      type: 'ci', project: 'zabukai-app', status: 'ok', branch: 'master',
+      commit: '9b1fc68', commitUrl: 'https://github.com/sazanwork/zabukai-app/commit/9b1fc68',
       commitTitle: 'fix(bot): confirm with a button before wiping client data',
       commitBody: 'A typo in the chat used to wipe the client without asking.\nNow the bot shows a button, and the wipe happens only after it.',
       commitAuthor: 'mikitasazan',
       note: 'nightly master check',
-      workflowUrl: 'https://github.com/sazanwork/arvent/actions/runs/1', workflowName: 'nightly'
+      workflowUrl: 'https://github.com/sazanwork/zabukai-app/actions/runs/1', workflowName: 'nightly'
     },
     note: "Ночной прогон идёт по расписанию, коммита в событии нет — экшен с 1.15.1 сам берёт заголовок, тело и автора через API GitHub. Reason здесь говорит только «ночная проверка»: это слабое место отправителя, а не карточки."
   },
@@ -322,8 +322,8 @@ export const CARDS = [
     sender: 'home/.claude/scripts/github-cards.py',
     expectTag: '#issue #i322 #info',
     event: {
-      type: 'issue', project: 'arvent', action: 'opened', number: 322,
-      url: 'https://github.com/sazanwork/arvent/issues/322',
+      type: 'issue', project: '2roles', action: 'opened', number: 322,
+      url: 'https://github.com/sazanwork/2Roles/issues/322',
       title: 'Онбординг: мастер не подсказывает вопросы',
       body: 'Первый экран мастера — пустое поле ввода. Человек не понимает,\nчто туда писать, и уходит.\n\nНужно 5–6 готовых вопросов под полем, кликом подставляются в поле.',
       author: 'mikitasazan'
@@ -338,8 +338,8 @@ export const CARDS = [
     sender: 'home/.claude/scripts/github-cards.py',
     expectTag: '#issue #i312 #info',
     event: {
-      type: 'issue', project: 'arvent', action: 'assigned', number: 312,
-      url: 'https://github.com/sazanwork/arvent/issues/312',
+      type: 'issue', project: '2roles', action: 'assigned', number: 312,
+      url: 'https://github.com/sazanwork/2Roles/issues/312',
       title: 'Запись клиента в вебе: страница, не зависящая от Telegram',
       body: 'Длинное описание задачи, которое было новостью один раз — когда задачу завели.',
       author: 'mikitasazan', assignee: 'Ilja-Prihach'
@@ -354,8 +354,8 @@ export const CARDS = [
     sender: 'home/.claude/scripts/github-cards.py',
     expectTag: '#pr #p118 #info',
     event: {
-      type: 'pr', project: 'arvent', action: 'opened', number: 118,
-      url: 'https://github.com/sazanwork/arvent/pull/118',
+      type: 'pr', project: '2roles', action: 'opened', number: 118,
+      url: 'https://github.com/sazanwork/2Roles/pull/118',
       title: 'Онбординг: заготовки вопросов',
       body: 'Закрывает #322. Шесть вопросов приходят из конфига, а не из кода —\nменять список можно без выкатки.',
       author: 'mikitasazan'
@@ -370,8 +370,8 @@ export const CARDS = [
     sender: 'home/.claude/scripts/github-cards.py — отдельный опрос, событий об этом GitHub не шлёт',
     expectTag: '#pr #p118 #info',
     event: {
-      type: 'pr', project: 'arvent', action: 'changes_requested', number: 118,
-      url: 'https://github.com/sazanwork/arvent/pull/118',
+      type: 'pr', project: '2roles', action: 'changes_requested', number: 118,
+      url: 'https://github.com/sazanwork/2Roles/pull/118',
       title: 'Онбординг: заготовки вопросов',
       body: 'Переименуй эту переменную, она перекрывает внешнюю с тем же именем.',
       reviewer: 'Ilja-Prihach'
@@ -431,14 +431,14 @@ export const CARDS = [
     id: 'file', title: 'Карточка с вложением',
     forum: 'zabukai-app', when: 'после вечернего прогона качества ответов бота',
     live: ['new', 'после выпуска 1.4.2'],
-    sender: 'arvent-eval-report.sh',
-    expectTag: '#job #arvent_eval #ok',
+    sender: 'eval.yml — zabukai-app',
+    expectTag: '#job #prompt_eval #ok',
     event: {
-      type: 'job', project: 'arvent', key: 'arvent-eval',
+      type: 'job', project: 'zabukai-app', key: 'prompt-eval',
       job: 'Bot answer quality', status: 'ok', via: 'mac', duration: '2m 55s',
       stats: [['verdict', '12 of 12 answers passed']],
-      path: '/tmp/arvent-eval-24-08.txt',
-      filename: 'arvent-eval-24-08.txt'
+      path: '/tmp/prompt-eval-24-08.txt',
+      filename: 'prompt-eval-24-08.txt'
     },
     note: "Отдельного вида «файл» нет: вложение — свойство любой карточки. Подпись Telegram режет на 1024 знаках, сам файл приезжает целиком."
   }
